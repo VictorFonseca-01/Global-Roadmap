@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import { MainLayout } from "@/components/layout/MainLayout"
 import Dashboard from "@/pages/Dashboard"
+import Roadmaps from "@/pages/Roadmaps"
 import Categories from "@/pages/Categories"
 import Lifecycle from "@/pages/Lifecycle"
 import Assets from "@/pages/Assets"
@@ -21,7 +22,7 @@ function App() {
           <Routes>
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Dashboard />} />
-              <Route path="roadmaps" element={<PlaceholderPage title="Roadmaps" />} />
+              <Route path="roadmaps" element={<Roadmaps />} />
               <Route path="categories" element={<Categories />} />
               <Route path="lifecycle" element={<Lifecycle />} />
               <Route path="assets" element={<Assets />} />
