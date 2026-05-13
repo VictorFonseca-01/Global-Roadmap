@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/components/theme-provider"
-import { Sun, Moon, User, Bell } from "lucide-react"
+import { Sun, Moon, Bell } from "lucide-react"
 import { 
   Breadcrumb, 
   BreadcrumbItem, 
