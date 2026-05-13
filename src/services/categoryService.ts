@@ -3,11 +3,18 @@ import type { AssetCategory } from '@/types';
 
 export const categoryService = {
   async getAll() {
+    console.log("Iniciando busca de categorias...");
     const { data, error } = await supabase
       .from('asset_categories')
       .select('*')
       .order('name');
-    if (error) throw error;
+    
+    if (error) {
+      console.error("Erro Supabase (Categorias):", error);
+      throw error;
+    }
+    
+    console.log("Categorias retornadas:", data);
     return data as AssetCategory[];
   },
 
