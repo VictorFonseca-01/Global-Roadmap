@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { MainLayout } from "@/components/layout/MainLayout"
 import Dashboard from "@/pages/Dashboard"
 import Roadmaps from "@/pages/Roadmaps"
+import RoadmapTimeline from "@/pages/RoadmapTimeline"
 import Categories from "@/pages/Categories"
 import Lifecycle from "@/pages/Lifecycle"
 import Assets from "@/pages/Assets"
@@ -28,7 +29,7 @@ function App() {
               <Route path="assets" element={<Assets />} />
               <Route path="applications" element={<Applications />} />
               <Route path="migration-plans" element={<MigrationPlans />} />
-              <Route path="reports" element={<PlaceholderPage title="Relatórios" />} />
+              <Route path="reports" element={<RoadmapTimeline />} />
               <Route path="settings" element={<PlaceholderPage title="Configurações" />} />
             </Route>
           </Routes>

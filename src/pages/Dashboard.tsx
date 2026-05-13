@@ -1,55 +1,72 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { LayoutDashboard, Database, AlertTriangle, Calendar } from "lucide-react"
+import { useQuery } from "@tanstack/react-query";
+import { dashboardService } from "@/services/dashboardService";
+import { ExecutiveStats } from "@/components/dashboard/ExecutiveStats";
+import { 
+  RiskChart, 
+  MigrationStatusChart, 
+  CategoryDistributionChart, 
+  EolTimelineChart 
+} from "@/components/dashboard/DashboardCharts";
+import { LayoutDashboard, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export default function Dashboard() {
-  const stats = [
-    { title: "Total Roadmaps", value: "12", icon: LayoutDashboard, color: "text-blue-500" },
-    { title: "Total Assets", value: "1,248", icon: Database, color: "text-green-500" },
-    { title: "Critical Items", value: "45", icon: AlertTriangle, color: "text-red-500" },
-    { title: "Upcoming EoL", value: "18", icon: Calendar, color: "text-amber-500" },
-  ]
+import { exportService } from "@/services/exportService";
+
+export default function DashboardPage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["executive-stats"],
+    queryFn: () => dashboardService.getExecutiveStats(),
+  });
+
+  const { data: riskData } = useQuery({
+    queryKey: ["risk-distribution"],
+    queryFn: () => dashboardService.getCriticalityDistribution(),
+  });
+
+  const { data: statusData } = useQuery({
+    queryKey: ["status-distribution"],
+    queryFn: () => dashboardService.getMigrationStatusDistribution(),
+  });
+
+  const { data: categoryData } = useQuery({
+    queryKey: ["category-distribution"],
+    queryFn: () => dashboardService.getCategoryDistribution(),
+  });
+
+  const { data: timelineData } = useQuery({
+    queryKey: ["eol-timeline"],
+    queryFn: () => dashboardService.getEolTimeline(),
+  });
+
+  if (statsLoading) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Carregando painel executivo...</div>;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="dashboard-content">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Executivo</h1>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
-                +2.5% em relação ao mês passado
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        <div className="flex items-center gap-2">
+          <LayoutDashboard className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard Executivo</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportService.exportDashboardToPdf('dashboard-content')}>
+            <FileDown className="h-4 w-4 mr-2" /> Exportar PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportService.exportToExcel()}>
+            <FileDown className="h-4 w-4 mr-2" /> Exportar Excel
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Visão Geral de Roadmaps</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-md m-4">
-            <p className="text-muted-foreground">Gráfico de Roadmaps (Recharts em breve)</p>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Itens Críticos Recentes</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-md m-4">
-            <p className="text-muted-foreground">Lista de alertas em breve</p>
-          </CardContent>
-        </Card>
+      {stats && <ExecutiveStats stats={stats} />}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <RiskChart data={riskData || []} />
+        <MigrationStatusChart data={statusData || []} />
+        <CategoryDistributionChart data={categoryData || []} />
+        <EolTimelineChart data={timelineData || []} />
       </div>
     </div>
-  )
+  );
 }

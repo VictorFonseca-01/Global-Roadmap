@@ -42,6 +42,8 @@ const projectSchema = z.object({
   end_date: z.string().optional(),
 });
 
+import { RoadmapGeneratorWizard } from "@/components/roadmap/RoadmapGeneratorWizard";
+
 export default function RoadmapsPage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -200,7 +202,9 @@ export default function RoadmapsPage() {
           <Map className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Projetos de Roadmap</h1>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => {
+        <div className="flex items-center gap-2">
+          <RoadmapGeneratorWizard />
+          <Dialog open={isOpen} onOpenChange={(open) => {
           setIsOpen(open);
           if (!open) {
             setEditingProject(null);
@@ -332,8 +336,9 @@ export default function RoadmapsPage() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
-      <DataTable 
+    <DataTable 
         columns={columns} 
         data={projects} 
         searchKey="name" 
