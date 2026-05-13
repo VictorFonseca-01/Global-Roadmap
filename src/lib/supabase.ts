@@ -7,4 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '')
+// Limpa a URL para evitar duplicação de /rest/v1 se o usuário colou a URL da API completa
+const cleanUrl = supabaseUrl?.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '')
+
+export const supabase = createClient(cleanUrl || '', supabaseAnonKey || '')
