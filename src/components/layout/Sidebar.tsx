@@ -41,26 +41,33 @@ export function Sidebar({ className }: SidebarProps) {
       collapsed ? "w-16" : "w-64",
       className
     )}>
-      <div className="flex h-20 items-center justify-center px-4 border-b">
-        <Link to="/" className="flex items-center justify-center w-full overflow-hidden">
-          {/* Logo para Modo Claro */}
-          <img 
-            src="/logo-preta.png" 
-            alt="Global Parts" 
-            className={cn(
-              "block dark:hidden object-contain transition-all",
-              collapsed ? "h-8" : "h-12"
-            )} 
-          />
-          {/* Logo para Modo Escuro */}
-          <img 
-            src="/logo-branca.png" 
-            alt="Global Parts" 
-            className={cn(
-              "hidden dark:block object-contain transition-all",
-              collapsed ? "h-8" : "h-12"
-            )} 
-          />
+      <div className="flex h-20 items-center px-4 border-b">
+        <Link to="/" className="flex items-center gap-3 overflow-hidden w-full">
+          <div className="flex shrink-0 items-center justify-center">
+            {/* Logo para Modo Claro */}
+            <img 
+              src="/logo-preta.png" 
+              alt="Logo" 
+              className={cn(
+                "block dark:hidden object-contain transition-all",
+                collapsed ? "h-8" : "h-10"
+              )} 
+            />
+            {/* Logo para Modo Escuro */}
+            <img 
+              src="/logo-branca.png" 
+              alt="Logo" 
+              className={cn(
+                "hidden dark:block object-contain transition-all",
+                collapsed ? "h-8" : "h-10"
+              )} 
+            />
+          </div>
+          {!collapsed && (
+            <span className="font-bold text-xl tracking-tight whitespace-nowrap">
+              Global Parts
+            </span>
+          )}
         </Link>
       </div>
 
