@@ -12,8 +12,7 @@ import {
   FileText, 
   Settings,
   ChevronLeft,
-  ChevronRight,
-  ShieldCheck
+  ChevronRight
 } from "lucide-react"
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"

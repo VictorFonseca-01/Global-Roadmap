@@ -241,6 +241,7 @@ export default function CategoriesPage() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <DataTable 
