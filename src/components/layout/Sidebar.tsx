@@ -42,10 +42,26 @@ export function Sidebar({ className }: SidebarProps) {
       collapsed ? "w-16" : "w-64",
       className
     )}>
-      <div className="flex h-16 items-center px-4 border-b">
-        <Link to="/" className="flex items-center gap-2 overflow-hidden">
-          <ShieldCheck className="h-6 w-6 text-primary shrink-0" />
-          {!collapsed && <span className="font-bold text-lg truncate">Global Parts</span>}
+      <div className="flex h-20 items-center justify-center px-4 border-b">
+        <Link to="/" className="flex items-center justify-center w-full overflow-hidden">
+          {/* Logo para Modo Claro */}
+          <img 
+            src="/logo-preta.png" 
+            alt="Global Parts" 
+            className={cn(
+              "block dark:hidden object-contain transition-all",
+              collapsed ? "h-8" : "h-12"
+            )} 
+          />
+          {/* Logo para Modo Escuro */}
+          <img 
+            src="/logo-branca.png" 
+            alt="Global Parts" 
+            className={cn(
+              "hidden dark:block object-contain transition-all",
+              collapsed ? "h-8" : "h-12"
+            )} 
+          />
         </Link>
       </div>
 

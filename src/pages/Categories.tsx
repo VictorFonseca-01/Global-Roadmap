@@ -148,6 +148,17 @@ export default function CategoriesPage() {
     },
   ];
 
+  const seedMutation = useMutation({
+    mutationFn: () => categoryService.seed(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Categorias padrão geradas!");
+    },
+    onError: () => {
+      toast.error("Erro ao gerar categorias. Verifique a conexão.");
+    }
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -155,7 +166,13 @@ export default function CategoriesPage() {
           <Tag className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Categorias de Ativos</h1>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => {
+        <div className="flex items-center gap-2">
+          {categories.length === 0 && (
+            <Button variant="outline" onClick={() => seedMutation.mutate()}>
+              Gerar Padrão
+            </Button>
+          )}
+          <Dialog open={isOpen} onOpenChange={(open) => {
           setIsOpen(open);
           if (!open) {
             setEditingCategory(null);

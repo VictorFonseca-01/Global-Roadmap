@@ -48,5 +48,24 @@ export const categoryService = {
       .delete()
       .eq('id', id);
     if (error) throw error;
+  },
+
+  async seed() {
+    const defaultCategories = [
+      { name: 'Operating Systems', icon: 'monitor', color: '#3b82f6', description: 'Sistemas Operacionais' },
+      { name: 'Software Licenses', icon: 'key', color: '#ef4444', description: 'Licenciamento' },
+      { name: 'Computers', icon: 'laptop', color: '#10b981', description: 'Workstations e Laptops' },
+      { name: 'Servers', icon: 'server', color: '#8b5cf6', description: 'Servidores Físicos e Virtuais' },
+      { name: 'Network Equipment', icon: 'network', color: '#06b6d4', description: 'Switches e Roteadores' },
+      { name: 'Storage', icon: 'database', color: '#f97316', description: 'HDDs, SSDs e Storage' },
+    ];
+
+    const { data, error } = await supabase
+      .from('asset_categories')
+      .insert(defaultCategories)
+      .select();
+
+    if (error) throw error;
+    return data;
   }
 };
