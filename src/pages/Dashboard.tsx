@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 import { exportService } from "@/services/exportService";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, TrendingDown, ShieldAlert, Zap } from "lucide-react";
+import { TrendingDown, ShieldAlert, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useState } from "react";

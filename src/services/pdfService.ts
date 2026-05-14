@@ -64,7 +64,7 @@ export const pdfService = {
     
     doc.setFont("helvetica", "normal");
     currentY += 8;
-    data.insights.forEach((insight, index) => {
+    data.insights.forEach((insight) => {
       const splitInsight = doc.splitTextToSize(`• ${insight}`, pageWidth - 40);
       doc.text(splitInsight, 20, currentY);
       currentY += (splitInsight.length * 6);

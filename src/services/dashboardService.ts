@@ -112,7 +112,7 @@ export const dashboardService = {
       .map(([name, value]) => ({ name, value }));
 
     // 4. Insights Determinísticos
-    const insights = deterministicEngineService.getExecutiveInsights(stats, migrationPlans, assets);
+    const insights = deterministicEngineService.getExecutiveInsights(stats, migrationPlans);
 
     return {
       stats,

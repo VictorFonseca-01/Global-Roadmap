@@ -1,4 +1,3 @@
-import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { migrationPlanService } from "./migrationPlanService";
 import { assetService } from "./assetService";

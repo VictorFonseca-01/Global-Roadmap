@@ -50,7 +50,7 @@ export const deterministicEngineService = {
     return `O suporte do produto ${product} ${version} encerra em ${eol} (${days} dias restantes). Prioridade definida como ${priority}.`;
   },
 
-  getExecutiveInsights(stats: any, plans: any[], assets: any[]): string[] {
+  getExecutiveInsights(stats: any, plans: any[]): string[] {
     const insights: string[] = [];
 
     // Insight 1: Risco Crítico
