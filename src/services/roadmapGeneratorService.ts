@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { assetService } from './assetService';
 import { roadmapService } from './roadmapService';
 import { deterministicEngineService } from './deterministicEngineService';
+import { auditService } from './auditService';
 
 export const roadmapGeneratorService = {
   async generateAuto(params: {
@@ -71,6 +72,14 @@ export const roadmapGeneratorService = {
       if (error) throw error;
     }
 
+    await auditService.log({
+      action: 'GENERATE_ROADMAP_AUTO',
+      entity_type: 'roadmap_projects',
+      entity_id: project.id,
+      description: `Roadmap automático "${params.name}" gerado com ${plansToCreate.length} planos.`,
+      metadata: params
+    });
+
     return project;
   },
 
@@ -119,6 +128,13 @@ export const roadmapGeneratorService = {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', projectId);
     }
+
+    await auditService.log({
+      action: 'REGENERATE_ROADMAP',
+      entity_type: 'roadmap_projects',
+      entity_id: projectId,
+      description: `Planos de migração do roadmap regerados.`
+    });
 
     return true;
   }

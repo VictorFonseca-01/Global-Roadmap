@@ -6,6 +6,7 @@ import { applicationService } from './applicationService';
 import { deterministicEngineService } from './deterministicEngineService';
 import { migrationPlanService } from './migrationPlanService';
 import { geminiService } from './geminiService';
+import { auditService } from './auditService';
 import { supabase } from '@/lib/supabase';
 import type { Criticality } from '@/types';
 
@@ -141,6 +142,14 @@ export const importService = {
     }
 
     await supabase.from('import_history').insert([history]);
+    
+    await auditService.log({
+      action: 'IMPORT_ASSETS',
+      entity_type: 'import_history',
+      description: `Importação concluída: ${history.successful_records} sucessos, ${history.failed_records} falhas.`,
+      metadata: history
+    });
+
     return history;
   }
 };

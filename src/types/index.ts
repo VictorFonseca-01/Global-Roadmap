@@ -74,12 +74,40 @@ export type NotificationPriority = 'critical' | 'warning' | 'info' | 'success';
 
 export interface Notification {
   id: string;
+  user_id?: string;
   type: NotificationType;
   priority: NotificationPriority;
+  severity?: string;
   title: string;
   description: string;
   is_read: boolean;
   context_url?: string;
+  metadata?: any;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface SystemSettings {
+  id: string;
+  company_name: string;
+  primary_domain?: string;
+  default_theme: string;
+  lifecycle_notifications: boolean;
+  monthly_reports: boolean;
+  ai_enabled: boolean;
+  ai_auto_enrichment: boolean;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id?: string;
+  user_name?: string;
+  action: string;
+  entity_type?: string;
+  entity_id?: string;
+  description?: string;
+  metadata?: any;
   created_at: string;
 }
 
@@ -91,8 +119,9 @@ export interface UserProfile {
   department: string;
   avatar_url?: string;
   preferred_theme: 'light' | 'dark' | 'system';
-  last_login: string;
-  updated_at: string;
+  last_login?: string;
+  updated_at?: string;
+  created_at?: string;
 }
 
 

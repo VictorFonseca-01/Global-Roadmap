@@ -1,38 +1,61 @@
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types';
+import { storageService } from './storageService';
+import { auditService } from './auditService';
 
 export const userService = {
   async getProfile(): Promise<UserProfile | null> {
-    // Pegar o usuário logado
     const { data: { user } } = await supabase.auth.getUser();
-    
-    // Se não houver usuário real, usamos o mock (apenas para este ambiente de demo)
-    const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+    if (!user) return null;
 
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('id', user.id)
       .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        // Perfil não existe, vamos criar um inicial baseado no Auth
+        const newProfile: UserProfile = {
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+          email: user.email || '',
+          role: 'Membro',
+          department: 'Geral',
+          preferred_theme: 'system'
+        };
+        
+        const { data: created, error: createError } = await supabase
+          .from('user_profiles')
+          .insert([newProfile])
+          .select()
+          .single();
+        
+        if (createError) throw createError;
+        return created as UserProfile;
+      }
       console.error('Error fetching profile:', error);
       return null;
     }
 
-    return data;
+    return data as UserProfile;
   },
 
   async updateProfile(id: string, updates: Partial<UserProfile>): Promise<void> {
     const { error } = await supabase
       .from('user_profiles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id);
 
     if (error) throw error;
+
+    await auditService.log({
+      action: 'UPDATE_PROFILE',
+      entity_type: 'user_profile',
+      entity_id: id,
+      description: 'Usuário atualizou informações de perfil'
+    });
   },
 
   async updateLastLogin(id: string): Promise<void> {
@@ -45,33 +68,30 @@ export const userService = {
   },
 
   async uploadAvatar(id: string, file: File): Promise<string> {
-    // Verificamos se o storage existe (neste caso simulamos ou usamos real se configurado)
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${id}-${Math.random()}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
+    const url = await storageService.uploadAvatar(id, file);
+    
+    await this.updateProfile(id, { avatar_url: url });
 
-    const { error: uploadError } = await supabase.storage
-      .from('profiles')
-      .upload(filePath, file);
+    await auditService.log({
+      action: 'UPLOAD_AVATAR',
+      entity_type: 'user_profile',
+      entity_id: id,
+      description: 'Usuário alterou foto de perfil'
+    });
 
-    if (uploadError) {
-      // Se o bucket não existir, retornamos um erro específico para o UI tratar
-      if (uploadError.message.includes('bucket not found')) {
-        throw new Error('Upload de avatar requer Supabase Storage configurado.');
-      }
-      throw uploadError;
-    }
-
-    const { data } = supabase.storage
-      .from('profiles')
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+    return url;
   },
 
   async logout(): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await auditService.log({
+        action: 'LOGOUT',
+        user_id: user.id,
+        description: 'Usuário encerrou a sessão'
+      });
+    }
     await supabase.auth.signOut();
-    // Limpar caches locais se necessário
     localStorage.removeItem('global-parts-theme');
   }
 };

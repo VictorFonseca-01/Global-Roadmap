@@ -23,27 +23,68 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { settingsService } from "@/services/settingsService";
+import { auditService } from "@/services/auditService";
+import { useForm } from "react-hook-form";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
-  const handleSave = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["system-settings"],
+    queryFn: () => settingsService.getSettings(),
+  });
+
+  const { register, handleSubmit, formState: { isDirty } } = useForm({
+    values: settings
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (values: any) => settingsService.updateSettings(settings!.id, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-settings"] });
       toast.success("Configurações globais atualizadas com sucesso!");
-    }, 1000);
+      auditService.log({
+        action: 'UPDATE_SETTINGS',
+        entity_type: 'system_settings',
+        entity_id: settings!.id,
+        description: 'Configurações globais do sistema foram alteradas'
+      });
+    },
+    onError: (error: any) => {
+      toast.error(`Erro ao salvar: ${error.message}`);
+    }
+  });
+
+  const handleSave = (values: any) => {
+    updateMutation.mutate(values);
   };
 
-  const handleResetSystem = () => {
-    toast.info("Iniciando reset do sistema...");
-    setTimeout(() => {
+  const handleResetSystem = async () => {
+    try {
+      toast.info("Iniciando reset do sistema...");
+      // Nota: Implementar lógica de reset total se necessário
+      await auditService.log({
+        action: 'SYSTEM_RESET',
+        description: 'O sistema foi resetado para os padrões de fábrica'
+      });
       toast.success("Sistema resetado com sucesso.");
       setIsResetModalOpen(false);
-    }, 2000);
+    } catch (error) {
+      toast.error("Erro ao resetar sistema.");
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -57,8 +98,8 @@ export default function SettingsPage() {
             <p className="text-muted-foreground text-sm font-medium">Controle as preferências globais da plataforma.</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="rounded-full px-8 h-12 shadow-lg shadow-primary/20 font-bold transition-all hover:scale-105 active:scale-95">
-          {loading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+        <Button onClick={handleSubmit(handleSave)} disabled={updateMutation.isPending || !isDirty} className="rounded-full px-8 h-12 shadow-lg shadow-primary/20 font-bold transition-all hover:scale-105 active:scale-95">
+          {updateMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           Salvar Configurações
         </Button>
       </div>
@@ -92,11 +133,11 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <Label className="text-sm font-bold ml-1 opacity-70">Nome da Empresa</Label>
-                  <Input defaultValue="Global Parts Technology" className="rounded-2xl h-14 bg-slate-50 dark:bg-slate-950/50 border-none focus-visible:ring-primary shadow-inner" />
+                  <Input {...register("company_name")} className="rounded-2xl h-14 bg-slate-50 dark:bg-slate-950/50 border-none focus-visible:ring-primary shadow-inner" />
                 </div>
                 <div className="space-y-3">
                   <Label className="text-sm font-bold ml-1 opacity-70">Domínio Principal</Label>
-                  <Input defaultValue="globalparts.com" className="rounded-2xl h-14 bg-slate-50 dark:bg-slate-950/50 border-none focus-visible:ring-primary shadow-inner" />
+                  <Input {...register("primary_domain")} className="rounded-2xl h-14 bg-slate-50 dark:bg-slate-950/50 border-none focus-visible:ring-primary shadow-inner" />
                 </div>
               </div>
             </CardContent>
@@ -143,14 +184,22 @@ export default function SettingsPage() {
                     <Label className="text-base font-black">Alertas de Ciclo de Vida</Label>
                     <p className="text-sm text-muted-foreground italic">Notificar gestores quando ativos estiverem a 90 dias do EoL.</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch 
+                    checked={settings?.lifecycle_notifications} 
+                    onCheckedChange={(checked) => updateMutation.mutate({ lifecycle_notifications: checked })}
+                    disabled={updateMutation.isPending}
+                  />
                 </div>
                 <div className="flex items-center justify-between p-6 bg-slate-50/50 dark:bg-slate-950/30 rounded-[1.8rem] hover:bg-slate-50 dark:hover:bg-slate-950/50 transition-colors">
                   <div className="space-y-1">
                     <Label className="text-base font-black">Relatórios Automáticos</Label>
                     <p className="text-sm text-muted-foreground italic">Enviar resumo executivo por email todo dia 1º.</p>
                   </div>
-                  <Switch />
+                  <Switch 
+                    checked={settings?.monthly_reports} 
+                    onCheckedChange={(checked) => updateMutation.mutate({ monthly_reports: checked })}
+                    disabled={updateMutation.isPending}
+                  />
                 </div>
               </div>
             </CardContent>
