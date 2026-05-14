@@ -46,7 +46,11 @@ CREATE TABLE IF NOT EXISTS lifecycle_catalog (
     verification_status text DEFAULT 'pending_review', -- verified | pending_review | failed
     last_verified_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone,
+    prompt_hash text,
+    model_name text,
+    raw_response jsonb
 );
 
 -- Table: ai_usage_logs
@@ -55,11 +59,16 @@ CREATE TABLE IF NOT EXISTS ai_usage_logs (
     model text,
     prompt_type text,
     tokens_used integer,
+    tokens_input integer DEFAULT 0,
+    tokens_output integer DEFAULT 0,
     execution_time_ms integer,
     success boolean,
     error_message text,
+    prompt_hash text,
+    status text DEFAULT 'success',
     created_at timestamp with time zone DEFAULT now()
 );
+
 
 -- Table: applications
 CREATE TABLE IF NOT EXISTS applications (

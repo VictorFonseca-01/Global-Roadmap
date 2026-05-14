@@ -3,6 +3,8 @@ import { migrationPlanService } from "./migrationPlanService";
 import { assetService } from "./assetService";
 import { dashboardService } from "./dashboardService";
 import { pdfService } from "./pdfService";
+import { geminiService } from "./geminiService";
+
 
 export const exportService = {
   async exportToExcel(projectId?: string) {
@@ -52,11 +54,16 @@ export const exportService = {
       const allPlans = await migrationPlanService.getAll();
       const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
 
-      // 2. Gerar o PDF Profissional
+      // 2. Gerar insights de IA sob demanda para o PDF
+      console.log("[Export] Gerando insights estratégicos via IA...");
+      const aiInsights = await geminiService.getExecutiveInsights(data.stats, true);
+      const combinedInsights = [...data.insights, ...aiInsights];
+
+      // 3. Gerar o PDF Profissional
       await pdfService.generateExecutiveReport({
         stats: data.stats,
         plans: plans,
-        insights: data.insights,
+        insights: combinedInsights,
         riskData: data.riskData
       });
       
@@ -67,5 +74,6 @@ export const exportService = {
     }
   }
 };
+
 
 

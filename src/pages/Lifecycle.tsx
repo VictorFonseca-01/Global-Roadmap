@@ -73,14 +73,15 @@ export default function LifecyclePage() {
           try {
             const aiData = await geminiService.enrichLifecycle(item.vendor, item.product_name, item.version || "");
             await lifecycleService.update(item.id, {
-              end_of_support: aiData.end_of_support,
-              successor_version: aiData.successor_version,
-              source_url: aiData.source_url,
+              end_of_support: aiData.end_of_support || "",
+              successor_version: aiData.successor_version || undefined,
+              source_url: aiData.source_url || undefined,
               confidence_score: aiData.confidence_score,
               verification_status: aiData.confidence_score >= 80 ? 'verified' : 'pending_review',
               last_verified_at: new Date().toISOString(),
-              notes: aiData.notes
+              notes: aiData.notes || undefined
             });
+
             successCount++;
           } catch (err) {
             console.error(`Erro ao enriquecer ${item.product_name}:`, err);
@@ -299,7 +300,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="category_id"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Categoria</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -321,7 +322,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="asset_type"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tipo</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -343,7 +344,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="vendor"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fabricante</FormLabel>
                       <FormControl>
@@ -356,7 +357,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="product_name"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Produto</FormLabel>
                       <FormControl>
@@ -369,7 +370,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="version"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Versão</FormLabel>
                       <FormControl>
@@ -382,7 +383,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="end_of_support"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>End of Support</FormLabel>
                       <FormControl>
@@ -395,7 +396,7 @@ export default function LifecyclePage() {
                 <FormField
                   control={form.control}
                   name="successor_version"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Versão Sucessora</FormLabel>
                       <FormControl>
@@ -409,7 +410,7 @@ export default function LifecyclePage() {
                   <FormField
                     control={form.control}
                     name="notes"
-                    render={({ field }: { field: any }) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Notas</FormLabel>
                         <FormControl>

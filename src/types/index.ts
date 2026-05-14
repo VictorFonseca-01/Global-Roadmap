@@ -52,11 +52,16 @@ export interface LifecycleItem {
   confidence_score?: number;
   verification_status?: string;
   last_verified_at?: string;
+  expires_at?: string;
+  prompt_hash?: string;
+  model_name?: string;
+  raw_response?: any;
   created_at?: string;
   updated_at?: string;
   // Join fields
   asset_categories?: AssetCategory;
 }
+
 
 export interface Application {
   id: string;

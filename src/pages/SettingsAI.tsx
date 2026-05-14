@@ -17,8 +17,27 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { lifecycleService } from "@/services/lifecycleService";
+
 export default function SettingsAIPage() {
   const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || "");
+  const [enriching, setEnriching] = useState(false);
+
+  const handleEnrichManual = async () => {
+    setEnriching(true);
+    toast.promise(
+      lifecycleService.enrichAllPending(),
+      {
+        loading: "Enriquecendo catálogo via Gemini AI...",
+        success: (count) => {
+          setEnriching(false);
+          return `${count} itens atualizados com sucesso!`;
+        },
+        error: "Falha ao processar catálogo."
+      }
+    );
+  };
+
 
   const { data: logs = [] } = useQuery({
     queryKey: ["ai-logs"],
@@ -106,9 +125,16 @@ export default function SettingsAIPage() {
             <CardDescription className="text-indigo-100">Automação de dados mestres</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="secondary" className="w-full rounded-xl gap-2">
-              <RefreshCw className="h-4 w-4" /> Atualizar Lifecycle com IA
+            <Button 
+              variant="secondary" 
+              className="w-full rounded-xl gap-2"
+              onClick={handleEnrichManual}
+              disabled={enriching}
+            >
+              {enriching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Atualizar Lifecycle com IA
             </Button>
+
             <p className="text-[10px] text-center text-indigo-200">
               Isso irá buscar datas de EoL para todos os produtos sem informação no catálogo.
             </p>
