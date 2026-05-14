@@ -14,7 +14,6 @@ import {
   FileText, 
   Settings,
   Bot,
-  User as UserIcon,
   Bell,
   ChevronLeft,
   ChevronRight
@@ -24,15 +23,14 @@ import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { notificationService } from "@/services/notificationService"
-
-
-
-
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useUserProfile } from "@/hooks/useUserProfile"
 import { motion } from "framer-motion"
 
 export function Sidebar({ className }: { className?: string }) {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
+  const { initials, avatarUrl } = useUserProfile()
 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -55,7 +53,6 @@ export function Sidebar({ className }: { className?: string }) {
   });
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
 
   return (
     <motion.div 
@@ -137,14 +134,16 @@ export function Sidebar({ className }: { className?: string }) {
               collapsed && "justify-center px-0"
             )}
           >
-            <UserIcon className="h-5 w-5 shrink-0" />
+            <Avatar className="h-5 w-5 shrink-0">
+              <AvatarImage src={avatarUrl} className="object-cover" />
+              <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-black">{initials}</AvatarFallback>
+            </Avatar>
             {!collapsed && <span className="text-sm tracking-tight">Meu Perfil</span>}
           </Button>
         </Link>
       </div>
 
       <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
-
         <Button 
           variant="ghost" 
           size="icon" 
@@ -154,7 +153,6 @@ export function Sidebar({ className }: { className?: string }) {
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
-
     </motion.div>
   )
 }

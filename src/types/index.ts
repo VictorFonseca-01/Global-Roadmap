@@ -83,6 +83,19 @@ export interface Notification {
   created_at: string;
 }
 
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  department: string;
+  avatar_url?: string;
+  preferred_theme: 'light' | 'dark' | 'system';
+  last_login: string;
+  updated_at: string;
+}
+
+
 export interface Application {
   id: string;
   name: string;
