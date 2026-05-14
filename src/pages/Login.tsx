@@ -13,10 +13,10 @@ import {
   Loader2, 
   Eye, 
   EyeOff, 
-  ArrowRight,
-  Globe
+  ArrowRight
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import logo from "@/assets/logo.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -69,8 +69,8 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md p-6 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
         <div className="flex flex-col items-center mb-10 space-y-4">
-          <div className="p-4 bg-primary/10 rounded-[2rem] border border-primary/20 backdrop-blur-xl shadow-2xl shadow-primary/20">
-            <Globe className="h-12 w-12 text-primary" />
+          <div className="p-2 bg-primary/10 rounded-[2.5rem] border border-primary/20 backdrop-blur-xl shadow-2xl shadow-primary/20 overflow-hidden w-24 h-24 flex items-center justify-center">
+            <img src={logo} alt="Global Parts Logo" className="w-20 h-20 object-contain drop-shadow-2xl" />
           </div>
           <div className="text-center">
             <h1 className="text-3xl font-black tracking-tighter text-white">GLOBAL PARTS</h1>
@@ -93,7 +93,7 @@ export default function LoginPage() {
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="nome@globalparts.com"
+                    placeholder="nome@globalp.com.br"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-14 pl-12 rounded-2xl bg-slate-950/50 border-none text-white focus-visible:ring-primary shadow-inner"
