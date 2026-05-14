@@ -20,6 +20,7 @@ import { Toaster } from "sonner"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 import { AuthProvider } from "@/components/auth/AuthProvider"
 import { AuthGuard } from "@/components/auth/AuthGuard"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,33 +38,35 @@ function App() {
         <AuthProvider>
           <ThemeProvider defaultTheme="system" storageKey="global-parts-theme">
             <Router>
-              <Routes>
-                {/* Rota Pública */}
-                <Route path="/login" element={<Login />} />
+              <TooltipProvider>
+                <Routes>
+                  {/* Rota Pública */}
+                  <Route path="/login" element={<Login />} />
 
-                {/* Rotas Protegidas */}
-                <Route path="/" element={
-                  <AuthGuard>
-                    <MainLayout />
-                  </AuthGuard>
-                }>
-                  <Route index element={<Dashboard />} />
-                  <Route path="roadmaps" element={<Roadmaps />} />
-                  <Route path="categories" element={<Categories />} />
-                  <Route path="lifecycle" element={<Lifecycle />} />
-                  <Route path="assets" element={<Assets />} />
-                  <Route path="applications" element={<Applications />} />
-                  <Route path="migration-plans" element={<MigrationPlans />} />
-                  <Route path="roadmap-timeline" element={<RoadmapTimeline />} />
-                  <Route path="notifications" element={<Notifications />} />
-                  <Route path="settings/ai" element={<SettingsAI />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="settings" element={<Settings />} />
-                </Route>
+                  {/* Rotas Protegidas */}
+                  <Route path="/" element={
+                    <AuthGuard>
+                      <MainLayout />
+                    </AuthGuard>
+                  }>
+                    <Route index element={<Dashboard />} />
+                    <Route path="roadmaps" element={<Roadmaps />} />
+                    <Route path="categories" element={<Categories />} />
+                    <Route path="lifecycle" element={<Lifecycle />} />
+                    <Route path="assets" element={<Assets />} />
+                    <Route path="applications" element={<Applications />} />
+                    <Route path="migration-plans" element={<MigrationPlans />} />
+                    <Route path="roadmap-timeline" element={<RoadmapTimeline />} />
+                    <Route path="notifications" element={<Notifications />} />
+                    <Route path="settings/ai" element={<SettingsAI />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="settings" element={<Settings />} />
+                  </Route>
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </TooltipProvider>
             </Router>
             <Toaster position="top-right" richColors />
           </ThemeProvider>

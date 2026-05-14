@@ -5,7 +5,7 @@ export const roadmapService = {
   async getAll() {
     const { data, error } = await supabase
       .from('roadmap_projects')
-      .select('*, migration_plans(count, priority, estimated_cost)')
+      .select('*, migration_plans(priority, estimated_cost)')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
