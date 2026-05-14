@@ -16,8 +16,9 @@ export const userService = {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // Perfil não existe, vamos criar um inicial baseado no Auth
-        const newProfile: UserProfile = {
+        // Perfil não existe, vamos retornar os dados básicos do Auth como fallback
+        // mas não criar automaticamente aqui para evitar escritas desnecessárias em GETs
+        return {
           id: user.id,
           full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
           email: user.email || '',
@@ -25,15 +26,6 @@ export const userService = {
           department: 'Geral',
           preferred_theme: 'system'
         };
-        
-        const { data: created, error: createError } = await supabase
-          .from('user_profiles')
-          .insert([newProfile])
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        return created as UserProfile;
       }
       console.error('Error fetching profile:', error);
       return null;
@@ -43,18 +35,32 @@ export const userService = {
   },
 
   async updateProfile(id: string, updates: Partial<UserProfile>): Promise<void> {
+    // 1. Validar Sessão Internamente
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Sessão não encontrada. Faça login novamente.");
+    }
+
+    const targetId = id || user.id;
+
+    // 2. Executar UPSERT Resiliente
     const { error } = await supabase
       .from('user_profiles')
-      .update(updates)
-      .eq('id', id);
+      .upsert({
+        ...updates,
+        id: targetId,
+        email: updates.email || user.email,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
 
     if (error) throw error;
 
+    // 3. Log de Auditoria
     await auditService.log({
       action: 'UPDATE_PROFILE',
       entity_type: 'user_profile',
-      entity_id: id,
-      description: 'Usuário atualizou informações de perfil'
+      entity_id: targetId,
+      description: 'Usuário atualizou informações de perfil (UPSERT)'
     });
   },
 
@@ -68,14 +74,20 @@ export const userService = {
   },
 
   async uploadAvatar(id: string, file: File): Promise<string> {
-    const url = await storageService.uploadAvatar(id, file);
+    // Validar Sessão
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Sessão não encontrada. Faça login novamente.");
+
+    const targetId = id || user.id;
+
+    const url = await storageService.uploadAvatar(targetId, file);
     
-    await this.updateProfile(id, { avatar_url: url });
+    await this.updateProfile(targetId, { avatar_url: url });
 
     await auditService.log({
       action: 'UPLOAD_AVATAR',
       entity_type: 'user_profile',
-      entity_id: id,
+      entity_id: targetId,
       description: 'Usuário alterou foto de perfil'
     });
 
