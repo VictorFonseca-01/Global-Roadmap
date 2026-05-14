@@ -62,6 +62,26 @@ export interface LifecycleItem {
   asset_categories?: AssetCategory;
 }
 
+export type NotificationType = 
+  | 'lifecycle_warning' 
+  | 'critical_asset' 
+  | 'roadmap_delay' 
+  | 'ai_review_required' 
+  | 'import_completed' 
+  | 'system_error';
+
+export type NotificationPriority = 'critical' | 'warning' | 'info' | 'success';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  title: string;
+  description: string;
+  is_read: boolean;
+  context_url?: string;
+  created_at: string;
+}
 
 export interface Application {
   id: string;

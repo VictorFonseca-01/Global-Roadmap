@@ -8,7 +8,13 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/components/theme-provider"
-import { Sun, Moon, Bell } from "lucide-react"
+import { Sun, Moon, LogOut, User, Settings as SettingsIcon } from "lucide-react"
+import { NotificationBell } from "./NotificationBell"
+import { useNavigate } from "react-router-dom"
+import { ConfirmationModal } from "../ui/ConfirmationModal"
+import { useState } from "react"
+import { toast } from "sonner"
+
 import { 
   Breadcrumb, 
   BreadcrumbItem, 
@@ -23,6 +29,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 export function Topbar() {
   const { setTheme } = useTheme()
   const location = useLocation()
+  const navigate = useNavigate()
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
+
   
   const pathnames = location.pathname.split("/").filter((x) => x)
 
@@ -57,10 +66,8 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-red-600"></span>
-        </Button>
+        <NotificationBell />
+
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -93,13 +100,37 @@ export function Topbar() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Perfil</DropdownMenuItem>
-            <DropdownMenuItem>Configurações</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/profile")}>
+              <User className="h-4 w-4 mr-2" /> Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <SettingsIcon className="h-4 w-4 mr-2" /> Configurações
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">Sair</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-red-600 focus:text-red-600 cursor-pointer"
+              onClick={() => setIsLogoutModalOpen(true)}
+            >
+              <LogOut className="h-4 w-4 mr-2" /> Sair
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <ConfirmationModal 
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={() => {
+          toast.info("Encerrando sessão...")
+          // window.location.href = "/login"
+        }}
+        title="Deseja mesmo sair?"
+        description="Sua sessão será encerrada com segurança."
+        confirmLabel="Sim, Sair"
+        cancelLabel="Cancelar"
+        variant="destructive"
+      />
+
     </header>
   )
 }

@@ -44,6 +44,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+
 
 
 const projectSchema = z.object({
@@ -447,11 +449,24 @@ export default function RoadmapsPage() {
       </div>
     </div>
 
-    <DataTable 
+    {projects.length === 0 ? (
+      <EmptyState 
+        icon={Map}
+        title="Nenhum roadmap encontrado"
+        description="Você ainda não criou nenhum projeto de planejamento estratégico. Comece criando um novo projeto para visualizar o ciclo de vida dos seus ativos."
+        actionLabel="Criar Projeto"
+        onAction={() => setIsOpen(true)}
+      />
+    ) : (
+      <DataTable 
         columns={columns} 
         data={projects} 
         searchKey="name" 
       />
-    </div>
-  );
+    )}
+  </div>
+);
 }
+
+
+

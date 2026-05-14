@@ -7,13 +7,16 @@ import {
   CategoryDistributionChart, 
   EolTimelineChart 
 } from "@/components/dashboard/DashboardCharts";
-import { LayoutDashboard, FileDown, Monitor, Plus, Loader2 } from "lucide-react";
+import { LayoutDashboard, FileDown, Monitor, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { exportService } from "@/services/exportService";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingDown, ShieldAlert, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/EmptyState";
+
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -24,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function DashboardPage() {
   const [exporting, setExporting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const projectId = searchParams.get("projectId") || undefined;
 
   const { data: projects = [] } = useQuery({
@@ -187,23 +191,15 @@ export default function DashboardPage() {
 
       <AnimatePresence>
         {stats.totalAssets === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center p-20 border-2 border-dashed rounded-[3rem] bg-slate-50/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-800"
-          >
-            <div className="p-6 bg-white dark:bg-slate-950 rounded-full shadow-xl mb-6">
-              <Monitor className="h-16 w-16 text-primary animate-pulse" />
-            </div>
-            <h2 className="text-3xl font-black mb-2">Nenhum ativo importado</h2>
-            <p className="text-muted-foreground mb-8 text-center max-w-sm">
-              Sua jornada estratégica começa aqui. Importe seu inventário de TI para gerar insights automáticos baseados em ciclo de vida.
-            </p>
-            <Button className="rounded-full px-10 h-12 text-lg shadow-lg hover:shadow-primary/20 transition-all">
-              <Plus className="mr-2 h-5 w-5" /> Importar Inventário
-            </Button>
-          </motion.div>
+          <EmptyState 
+            icon={Monitor}
+            title="Nenhum ativo importado"
+            description="Sua jornada estratégica começa aqui. Importe seu inventário de TI para gerar insights automáticos baseados em ciclo de vida."
+            actionLabel="Importar Inventário"
+            onAction={() => navigate("/assets")}
+          />
         ) : (
+
           <>
             <ExecutiveStats stats={stats} />
 

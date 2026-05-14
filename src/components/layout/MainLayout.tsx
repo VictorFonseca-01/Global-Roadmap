@@ -1,6 +1,8 @@
 import { Sidebar } from "./Sidebar"
 import { Topbar } from "./Topbar"
 import { Outlet } from "react-router-dom"
+import { ErrorBoundary } from "../ui/ErrorBoundary"
+
 
 export function MainLayout() {
   return (
@@ -10,9 +12,12 @@ export function MainLayout() {
         <Topbar />
         <main className="flex-1 overflow-y-auto p-6 scroll-smooth">
           <div className="mx-auto max-w-7xl animate-in fade-in duration-500">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
+
       </div>
     </div>
   )

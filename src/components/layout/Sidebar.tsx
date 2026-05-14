@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+
 import { 
   LayoutDashboard, 
   Map, 
@@ -11,12 +13,18 @@ import {
   ArrowRightCircle, 
   FileText, 
   Settings,
+  Bot,
+  User as UserIcon,
+  Bell,
   ChevronLeft,
-  ChevronRight,
-  Bot
+  ChevronRight
 } from "lucide-react"
+
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { notificationService } from "@/services/notificationService"
+
 
 
 
@@ -32,12 +40,22 @@ export function Sidebar({ className }: { className?: string }) {
     { name: "Categorias", icon: Tag, path: "/categories" },
     { name: "Lifecycle Catalog", icon: BookOpen, path: "/lifecycle" },
     { name: "Assets", icon: Monitor, path: "/assets" },
+    { name: "Notificações", icon: Bell, path: "/notifications", badge: true },
     { name: "Applications", icon: AppWindow, path: "/applications" },
     { name: "Migration Plans", icon: ArrowRightCircle, path: "/migration-plans" },
     { name: "Roadmap Timeline", icon: FileText, path: "/roadmap-timeline" },
     { name: "IA Intelligence", icon: Bot, path: "/settings/ai" },
-    { name: "Settings", icon: Settings, path: "/settings" },
+    { name: "Configurações", icon: Settings, path: "/settings" },
   ]
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => notificationService.getAll(),
+    refetchInterval: 30000
+  });
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
 
   return (
     <motion.div 
@@ -96,7 +114,12 @@ export function Sidebar({ className }: { className?: string }) {
                     />
                   )}
                   <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary")} />
-                  {!collapsed && <span className="text-sm tracking-tight">{item.name}</span>}
+                  {!collapsed && <span className="text-sm tracking-tight flex-1">{item.name}</span>}
+                  {item.badge && unreadCount > 0 && !collapsed && (
+                    <Badge className="h-5 min-w-[20px] px-1 bg-primary text-white rounded-full text-[10px] font-black border-none">
+                      {unreadCount}
+                    </Badge>
+                  )}
                 </Button>
               </Link>
             );
@@ -104,16 +127,34 @@ export function Sidebar({ className }: { className?: string }) {
         </div>
       </ScrollArea>
 
+      <div className="p-3 border-t bg-slate-50/50 dark:bg-slate-900/50 space-y-1">
+        <Link to="/profile">
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-3 px-3 rounded-xl transition-all h-10",
+              location.pathname === "/profile" ? "bg-primary/5 text-primary font-bold" : "text-muted-foreground",
+              collapsed && "justify-center px-0"
+            )}
+          >
+            <UserIcon className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="text-sm tracking-tight">Meu Perfil</span>}
+          </Button>
+        </Link>
+      </div>
+
       <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
+
         <Button 
           variant="ghost" 
           size="icon" 
-          className="w-full rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-none border border-transparent hover:border-slate-200 dark:hover:border-slate-700" 
+          className="w-full rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-none border border-transparent hover:border-slate-200 dark:hover:border-slate-700 h-8" 
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
+
     </motion.div>
   )
 }
