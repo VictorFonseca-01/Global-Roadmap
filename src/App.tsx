@@ -4,6 +4,7 @@ import { MainLayout } from "@/components/layout/MainLayout"
 import Dashboard from "@/pages/Dashboard"
 import Roadmaps from "@/pages/Roadmaps"
 import RoadmapTimeline from "@/pages/RoadmapTimeline"
+import SettingsAI from "@/pages/SettingsAI"
 import Categories from "@/pages/Categories"
 import Lifecycle from "@/pages/Lifecycle"
 import Assets from "@/pages/Assets"
@@ -30,6 +31,7 @@ function App() {
               <Route path="applications" element={<Applications />} />
               <Route path="migration-plans" element={<MigrationPlans />} />
               <Route path="reports" element={<RoadmapTimeline />} />
+              <Route path="settings/ai" element={<SettingsAI />} />
               <Route path="settings" element={<PlaceholderPage title="Configurações" />} />
             </Route>
           </Routes>

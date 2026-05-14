@@ -42,6 +42,10 @@ export interface LifecycleItem {
   successor_version?: string;
   is_supported: boolean;
   notes?: string;
+  source_url?: string;
+  confidence_score?: number;
+  verification_status?: string;
+  last_verified_at?: string;
   created_at?: string;
   updated_at?: string;
   // Join fields

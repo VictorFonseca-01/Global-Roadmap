@@ -1,26 +1,38 @@
 import { GanttView } from "@/components/roadmap/GanttView";
-import { Map, Filter, Download } from "lucide-react";
+import { ExecutivePresentation } from "@/components/roadmap/ExecutivePresentation";
+import { Map, Download, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function RoadmapTimelinePage() {
+  const [view, setView] = useState<"gantt" | "presentation">("gantt");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Map className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Roadmap Timeline</h1>
+          <h1 className="text-3xl font-black tracking-tight">Roadmap Timeline</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" /> Filtros
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" /> Exportar Timeline
+        <div className="flex items-center gap-3">
+          <Tabs value={view} onValueChange={(v: any) => setView(v)} className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full">
+            <TabsList className="bg-transparent h-8">
+              <TabsTrigger value="gantt" className="rounded-full data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <List className="h-3.5 w-3.5 mr-2" /> Gantt
+              </TabsTrigger>
+              <TabsTrigger value="presentation" className="rounded-full data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <LayoutGrid className="h-3.5 w-3.5 mr-2" /> Apresentação
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button variant="outline" size="sm" className="rounded-full">
+            <Download className="h-4 w-4 mr-2" /> Exportar
           </Button>
         </div>
       </div>
 
-      <GanttView />
+      {view === "gantt" ? <GanttView /> : <ExecutivePresentation />}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">

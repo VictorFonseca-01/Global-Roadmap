@@ -12,12 +12,15 @@ import {
   FileText, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Bot
 } from "lucide-react"
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+import { motion } from "framer-motion"
 
 export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
@@ -32,75 +35,85 @@ export function Sidebar({ className }: SidebarProps) {
     { name: "Applications", icon: AppWindow, path: "/applications" },
     { name: "Migration Plans", icon: ArrowRightCircle, path: "/migration-plans" },
     { name: "Roadmap Timeline", icon: FileText, path: "/reports" },
+    { name: "IA Intelligence", icon: Bot, path: "/settings/ai" },
     { name: "Settings", icon: Settings, path: "/settings" },
   ]
 
   return (
-    <div className={cn(
-      "relative flex flex-col border-r bg-card transition-all duration-300 ease-in-out",
-      collapsed ? "w-16" : "w-64",
-      className
-    )}>
+    <motion.div 
+      initial={false}
+      animate={{ width: collapsed ? 64 : 256 }}
+      className={cn(
+        "relative flex flex-col border-r bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all duration-300 ease-in-out z-30",
+        className
+      )}
+    >
       <div className="flex h-20 items-center px-4 border-b">
         <Link to="/" className="flex items-center gap-3 overflow-hidden w-full">
-          <div className="flex shrink-0 items-center justify-center">
-            {/* Logo para Modo Claro */}
+          <div className="flex shrink-0 items-center justify-center p-1 bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm">
             <img 
               src="/logo-preta.png" 
               alt="Logo" 
-              className={cn(
-                "block dark:hidden object-contain transition-all",
-                collapsed ? "h-8" : "h-10"
-              )} 
+              className={cn("block dark:hidden object-contain transition-all", collapsed ? "h-6" : "h-8")} 
             />
-            {/* Logo para Modo Escuro */}
             <img 
               src="/logo-branca.png" 
               alt="Logo" 
-              className={cn(
-                "hidden dark:block object-contain transition-all",
-                collapsed ? "h-8" : "h-10"
-              )} 
+              className={cn("hidden dark:block object-contain transition-all", collapsed ? "h-6" : "h-8")} 
             />
           </div>
           {!collapsed && (
-            <span className="font-bold text-xl tracking-tight whitespace-nowrap">
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="font-black text-xl tracking-tighter whitespace-nowrap bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent"
+            >
               Global Parts
-            </span>
+            </motion.span>
           )}
         </Link>
       </div>
 
-      <ScrollArea className="flex-1 px-2 py-4">
-        <div className="space-y-1">
-          {menuItems.map((item) => (
-            <Link key={item.path} to={item.path}>
-              <Button
-                variant={location.pathname === item.path ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-3 px-3",
-                  collapsed && "justify-center px-0"
-                )}
-                title={collapsed ? item.name : ""}
-              >
-                <item.icon className="h-5 w-5 shrink-0" />
-                {!collapsed && <span>{item.name}</span>}
-              </Button>
-            </Link>
-          ))}
+      <ScrollArea className="flex-1 px-3 py-6">
+        <div className="space-y-1.5">
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link key={item.path} to={item.path}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start gap-3 px-3 relative group rounded-xl transition-all h-10",
+                    isActive ? "bg-primary/5 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-900",
+                    collapsed && "justify-center px-0"
+                  )}
+                  title={collapsed ? item.name : ""}
+                >
+                  {isActive && (
+                    <motion.div 
+                      layoutId="active-nav"
+                      className="absolute left-0 w-1 h-6 bg-primary rounded-full"
+                    />
+                  )}
+                  <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary")} />
+                  {!collapsed && <span className="text-sm tracking-tight">{item.name}</span>}
+                </Button>
+              </Link>
+            );
+          })}
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
         <Button 
           variant="ghost" 
           size="icon" 
-          className="w-full" 
+          className="w-full rounded-xl hover:bg-white dark:hover:bg-slate-800 shadow-none border border-transparent hover:border-slate-200 dark:hover:border-slate-700" 
           onClick={() => setCollapsed(!collapsed)}
         >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -41,8 +41,24 @@ CREATE TABLE IF NOT EXISTS lifecycle_catalog (
     successor_version text,
     is_supported boolean DEFAULT true,
     notes text,
+    source_url text,
+    confidence_score numeric,
+    verification_status text DEFAULT 'pending_review', -- verified | pending_review | failed
+    last_verified_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Table: ai_usage_logs
+CREATE TABLE IF NOT EXISTS ai_usage_logs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    model text,
+    prompt_type text,
+    tokens_used integer,
+    execution_time_ms integer,
+    success boolean,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 -- Table: applications

@@ -2,9 +2,11 @@ import { assetService } from './assetService';
 import { roadmapService } from './roadmapService';
 import { categoryService } from './categoryService';
 import { migrationPlanService } from './migrationPlanService';
+import { deterministicEngineService } from './deterministicEngineService';
 
 export const dashboardService = {
-  async getExecutiveStats() {
+  async getDashboardData() {
+    // 1. Carga principal dos dados em paralelo
     const [assets, roadmaps, categories, migrationPlans] = await Promise.all([
       assetService.getAll(),
       roadmapService.getAll(),
@@ -12,48 +14,82 @@ export const dashboardService = {
       migrationPlanService.getAll(),
     ]);
 
-    const criticalItems = migrationPlans.filter(p => p.priority === 'critical');
-    const highItems = migrationPlans.filter(p => p.priority === 'high');
-    const mediumItems = migrationPlans.filter(p => p.priority === 'medium');
-    const lowItems = migrationPlans.filter(p => p.priority === 'low');
-    
-    const expired = migrationPlans.filter(p => {
-      // Simulação baseada na prioridade ou data se disponível
-      return p.priority === 'critical'; 
-    });
-
-    const totalCost = migrationPlans.reduce((acc, p) => acc + (Number(p.estimated_cost) || 0), 0);
-
-    return {
+    // 2. Processamento O(N) em uma única passagem
+    const stats = {
       totalRoadmaps: roadmaps.length,
       totalAssets: assets.length,
-      critical: criticalItems.length,
-      high: highItems.length,
-      medium: mediumItems.length,
-      low: lowItems.length,
-      outOfSupport: expired.length,
-      next180Days: highItems.length, // Simulação
-      totalServers: assets.filter(a => a.device_type === 'server').length,
-      totalWorkstations: assets.filter(a => a.device_type === 'workstation').length,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      outOfSupport: 0,
+      next180Days: 0,
+      totalServers: 0,
+      totalWorkstations: 0,
       totalCategories: categories.length,
-      estimatedBudget: totalCost
+      estimatedBudget: 0
     };
-  },
 
-  async getCriticalityDistribution() {
-    const plans = await migrationPlanService.getAll();
-    const data = [
-      { name: 'Critical', value: plans.filter(p => p.priority === 'critical').length, color: '#ef4444' },
-      { name: 'High', value: plans.filter(p => p.priority === 'high').length, color: '#f97316' },
-      { name: 'Medium', value: plans.filter(p => p.priority === 'medium').length, color: '#eab308' },
-      { name: 'Low', value: plans.filter(p => p.priority === 'low').length, color: '#22c55e' },
-    ];
-    return data.filter(d => d.value > 0);
-  },
+    // Mapeamento de criticidade para o gráfico
+    const criticalityCounts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
+    
+    // Mapeamento de status para o gráfico
+    const statusCounts: Record<string, number> = {};
+    
+    // Mapeamento de categorias para o gráfico
+    const categoryCounts: Record<string, number> = {};
+    
+    // Timeline de EoL
+    const timelineMap: Record<string, number> = {};
 
-  async getMigrationStatusDistribution() {
-    const plans = await migrationPlanService.getAll();
-    const statuses = ['planned', 'testing', 'pilot', 'in_progress', 'completed', 'blocked'];
+    const today = new Date();
+    const next180Days = new Date();
+    next180Days.setDate(today.getDate() + 180);
+
+    // Processar Planos de Migração O(N)
+    migrationPlans.forEach(p => {
+      // KPIs de Prioridade
+      if (p.priority === 'critical') stats.critical++;
+      if (p.priority === 'high') stats.high++;
+      if (p.priority === 'medium') stats.medium++;
+      if (p.priority === 'low') stats.low++;
+
+      criticalityCounts[p.priority] = (criticalityCounts[p.priority] || 0) + 1;
+      
+      // Status
+      statusCounts[p.status] = (statusCounts[p.status] || 0) + 1;
+
+      // Orçamento
+      stats.estimatedBudget += (Number(p.estimated_cost) || 0);
+
+      // Timeline & Out of Support
+      if (p.recommended_start_date) {
+        const date = new Date(p.recommended_start_date);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        timelineMap[key] = (timelineMap[key] || 0) + 1;
+
+        if (date < today) stats.outOfSupport++;
+        if (date > today && date <= next180Days) stats.next180Days++;
+      }
+    });
+
+    // Processar Ativos O(N)
+    assets.forEach(a => {
+      if (a.device_type === 'server') stats.totalServers++;
+      if (a.device_type === 'workstation') stats.totalWorkstations++;
+
+      const cat = a.asset_categories?.name || 'Uncategorized';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+
+    // 3. Formatação para o Frontend (Gráficos)
+    const riskData = [
+      { name: 'Critical', value: criticalityCounts.critical, color: '#ef4444' },
+      { name: 'High', value: criticalityCounts.high, color: '#f97316' },
+      { name: 'Medium', value: criticalityCounts.medium, color: '#eab308' },
+      { name: 'Low', value: criticalityCounts.low, color: '#22c55e' },
+    ].filter(d => d.value > 0);
+
     const colors: Record<string, string> = {
       planned: '#94a3b8',
       testing: '#8b5cf6',
@@ -63,40 +99,29 @@ export const dashboardService = {
       blocked: '#ef4444'
     };
 
-    return statuses.map(s => ({
+    const statusData = Object.entries(statusCounts).map(([s, value]) => ({
       name: s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' '),
-      value: plans.filter(p => p.status === s).length,
-      color: colors[s]
+      value,
+      color: colors[s] || '#ccc'
     })).filter(d => d.value > 0);
-  },
 
-  async getCategoryDistribution() {
-    const assets = await assetService.getAll();
-    const counts: Record<string, number> = {};
-    
-    assets.forEach(a => {
-      const cat = a.asset_categories?.name || 'Uncategorized';
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
+    const categoryData = Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
 
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  },
-
-  async getEolTimeline() {
-    const plans = await migrationPlanService.getAll();
-    // Agrupar por mês/ano simplificado para o gráfico de área
-    const timeline: Record<string, number> = {};
-    
-    plans.forEach(p => {
-      if (p.recommended_start_date) {
-        const date = new Date(p.recommended_start_date);
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        timeline[key] = (timeline[key] || 0) + 1;
-      }
-    });
-
-    return Object.entries(timeline)
+    const timelineData = Object.entries(timelineMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([name, value]) => ({ name, value }));
+
+    // 4. Insights Determinísticos
+    const insights = deterministicEngineService.getExecutiveInsights(stats, migrationPlans, assets);
+
+    return {
+      stats,
+      riskData,
+      statusData,
+      categoryData,
+      timelineData,
+      insights
+    };
   }
 };
+

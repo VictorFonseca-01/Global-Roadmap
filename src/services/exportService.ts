@@ -1,8 +1,9 @@
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import * as XLSX from "xlsx";
 import { migrationPlanService } from "./migrationPlanService";
 import { assetService } from "./assetService";
+import { dashboardService } from "./dashboardService";
+import { pdfService } from "./pdfService";
 
 export const exportService = {
   async exportToExcel() {
@@ -39,23 +40,25 @@ export const exportService = {
     XLSX.writeFile(wb, "GlobalParts_Technology_Roadmap.xlsx");
   },
 
-  async exportDashboardToPdf(elementId: string) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
+  async exportExecutivePdf() {
+    try {
+      // 1. Buscar todos os dados necessários para o relatório
+      const data = await dashboardService.getDashboardData();
+      const plans = await migrationPlanService.getAll();
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      logging: false
-    });
-    
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save("GlobalParts_Executive_Dashboard.pdf");
+      // 2. Gerar o PDF Profissional
+      await pdfService.generateExecutiveReport({
+        stats: data.stats,
+        plans: plans,
+        insights: data.insights,
+        riskData: data.riskData
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      throw error;
+    }
   }
 };
+

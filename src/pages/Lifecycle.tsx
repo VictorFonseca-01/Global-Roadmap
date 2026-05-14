@@ -43,15 +43,60 @@ const lifecycleSchema = z.object({
   notes: z.string().optional(),
 });
 
+import { geminiService } from "@/services/geminiService";
+import { Sparkles, Loader2, ExternalLink } from "lucide-react";
+
 export default function LifecyclePage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LifecycleItem | null>(null);
+  const [enriching, setEnriching] = useState(false);
 
   const { data: items = [] } = useQuery({
     queryKey: ["lifecycle"],
     queryFn: () => lifecycleService.getAll(),
   });
+
+  const handleAIEnrichment = async () => {
+    const pendingItems = items.filter(item => !item.end_of_support || item.end_of_support === "");
+    if (pendingItems.length === 0) {
+      toast.info("Todos os itens já possuem informações de suporte.");
+      return;
+    }
+
+    setEnriching(true);
+    let successCount = 0;
+
+    toast.promise(
+      (async () => {
+        for (const item of pendingItems) {
+          try {
+            const aiData = await geminiService.enrichLifecycle(item.vendor, item.product_name, item.version || "");
+            await lifecycleService.update(item.id, {
+              end_of_support: aiData.end_of_support,
+              successor_version: aiData.successor_version,
+              source_url: aiData.source_url,
+              confidence_score: aiData.confidence_score,
+              verification_status: aiData.confidence_score >= 80 ? 'verified' : 'pending_review',
+              last_verified_at: new Date().toISOString(),
+              notes: aiData.notes
+            });
+            successCount++;
+          } catch (err) {
+            console.error(`Erro ao enriquecer ${item.product_name}:`, err);
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ["lifecycle"] });
+        setEnriching(false);
+        return successCount;
+      })(),
+      {
+        loading: "O Gemini está consultando fontes oficiais de tecnologia...",
+        success: (count) => `${count} registros enriquecidos estrategicamente com IA!`,
+        error: "Falha na conexão com o motor de IA.",
+      }
+    );
+  };
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -136,15 +181,40 @@ export default function LifecyclePage() {
       accessorKey: "end_of_support",
       header: "End of Support",
       cell: ({ row }) => {
-        const date = parseISO(row.original.end_of_support);
+        const eol = row.original.end_of_support;
+        if (!eol) return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200">
+            <Sparkles className="h-3 w-3 mr-1" /> IA Pendente
+          </Badge>
+        );
+        const date = parseISO(eol);
         const isPast = date < new Date();
         return (
-          <div className={`flex items-center gap-2 ${isPast ? "text-red-500 font-bold" : ""}`}>
-            <CalendarIcon className="h-4 w-4" />
+          <div className={`flex items-center gap-2 ${isPast ? "text-red-500 font-black" : "font-mono font-bold"}`}>
+            <CalendarIcon className="h-3.5 w-3.5 opacity-50" />
             {format(date, "dd/MM/yyyy")}
           </div>
         );
       },
+    },
+    {
+      accessorKey: "verification_status",
+      header: "Fonte Oficial",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.source_url ? (
+            <a 
+              href={row.original.source_url} 
+              target="_blank" 
+              rel="noreferrer" 
+              className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+              title="Ver fonte oficial"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : <span className="text-muted-foreground text-xs italic opacity-50">Não verificada</span>}
+        </div>
+      ),
     },
     {
       id: "actions",
@@ -153,6 +223,7 @@ export default function LifecyclePage() {
           <Button 
             variant="ghost" 
             size="icon"
+            className="rounded-full h-8 w-8"
             onClick={() => {
               setEditingItem(row.original);
               form.reset({
@@ -174,7 +245,7 @@ export default function LifecyclePage() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="text-red-500"
+            className="text-red-500 rounded-full h-8 w-8"
             onClick={() => {
               if (confirm("Excluir este item de lifecycle?")) {
                 deleteMutation.mutate(row.original.id);
@@ -193,20 +264,30 @@ export default function LifecyclePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BookOpen className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Catálogo de Lifecycle</h1>
+          <h1 className="text-3xl font-black tracking-tight">Catálogo de Lifecycle</h1>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) {
-            setEditingItem(null);
-            form.reset();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" /> Novo Item
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="rounded-full border-indigo-200 text-indigo-600 hover:bg-indigo-50 shadow-sm"
+            onClick={handleAIEnrichment}
+            disabled={enriching}
+          >
+            {enriching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            Enriquecer com IA
+          </Button>
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) {
+              setEditingItem(null);
+              form.reset();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="rounded-full shadow-lg shadow-primary/10">
+                <Plus className="h-4 w-4 mr-2" /> Novo Item
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
@@ -347,8 +428,9 @@ export default function LifecyclePage() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
-      <DataTable 
+    <DataTable 
         columns={columns} 
         data={items} 
         searchKey="product_name" 
