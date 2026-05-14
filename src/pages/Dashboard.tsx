@@ -101,7 +101,16 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, riskData, statusData, categoryData, timelineData, insights } = data!;
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground italic">Processando dados do dashboard...</p>
+      </div>
+    );
+  }
+  
+  const { stats, riskData, statusData, categoryData, timelineData, insights } = data;
+
 
   return (
     <div className="space-y-6" id="dashboard-content">

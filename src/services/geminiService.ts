@@ -2,8 +2,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "@/lib/supabase";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 const MODEL_NAME = "gemini-1.5-flash";
+
 
 export interface LifecycleAIResponse {
   vendor: string;
@@ -98,6 +99,7 @@ export const geminiService = {
     
     try {
       const data = await withRetry(async () => {
+        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -152,6 +154,7 @@ export const geminiService = {
 
     try {
       const insights = await withRetry(async () => {
+        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
         const result = await model.generateContent(prompt);
         const response = await result.response;
