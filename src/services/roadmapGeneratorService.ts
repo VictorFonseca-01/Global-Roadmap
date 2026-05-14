@@ -31,111 +31,149 @@ export const roadmapGeneratorService = {
       owner: 'System Auto-Generator'
     });
 
-    // 2. Buscar Ativos Elegíveis
-    let assets = await assetService.getAll();
+    // 2. Chamar a geração para o projeto recém criado
+    const results = await this.generate(project.id);
     
-    // Aplicar filtros
-    if (params.filters?.device_type) {
-      assets = assets.filter(a => a.device_type === params.filters?.device_type);
-    }
-    
-    // 3. Processar cada ativo e criar Migration Plans vinculados ao projeto
-    const plansToCreate = assets.map(asset => {
-      const eol = asset.lifecycle_catalog?.end_of_support || new Date().toISOString();
-      const priority = deterministicEngineService.calculatePriority(eol);
-      const recommendedDate = deterministicEngineService.calculateRecommendedStartDate(priority);
-      const justification = deterministicEngineService.generateJustification(
-        priority, 
-        asset.lifecycle_catalog?.product_name || 'Asset', 
-        asset.lifecycle_catalog?.version || '', 
-        eol
-      );
-      
-      return {
-        roadmap_project_id: project.id,
-        asset_id: asset.id,
-        priority: priority,
-        risk_level: 'low', // Default para automação inicial
-        status: 'planned',
-        recommended_start_date: recommendedDate,
-        justification: justification,
-        estimated_cost: asset.device_type === 'server' ? 5000 : 1200
-      };
-    });
-
-    // 4. Salvar em lote
-    if (plansToCreate.length > 0) {
-      const { error } = await supabase
-        .from('migration_plans')
-        .insert(plansToCreate);
-      
-      if (error) throw error;
-    }
-
-    await auditService.log({
-      action: 'GENERATE_ROADMAP_AUTO',
-      entity_type: 'roadmap_projects',
-      entity_id: project.id,
-      description: `Roadmap automático "${params.name}" gerado com ${plansToCreate.length} planos.`,
-      metadata: params
-    });
-
-    return project;
+    return {
+      project,
+      results
+    };
   },
 
   async generate(projectId: string) {
-    // 1. Buscar Ativos Elegíveis
-    const assets = await assetService.getAll();
-    
-    // 2. Criar Migration Plans
-    const plansToCreate = assets.map(asset => {
-      const eol = asset.lifecycle_catalog?.end_of_support || new Date().toISOString();
-      const priority = deterministicEngineService.calculatePriority(eol);
-      const recommendedDate = deterministicEngineService.calculateRecommendedStartDate(priority);
-      const justification = deterministicEngineService.generateJustification(
-        priority, 
-        asset.lifecycle_catalog?.product_name || 'Asset', 
-        asset.lifecycle_catalog?.version || '', 
-        eol
-      );
-      
-      return {
-        roadmap_project_id: projectId,
-        asset_id: asset.id,
-        priority: priority,
-        risk_level: 'low',
-        status: 'planned',
-        recommended_start_date: recommendedDate,
-        justification: justification,
-        estimated_cost: asset.device_type === 'server' ? 5000 : 1200
-      };
-    });
+    const results = {
+      success: false,
+      createdCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      notificationsCreated: 0,
+      errors: [] as string[],
+      skippedReasons: {} as Record<string, number>
+    };
 
-    // 3. Salvar em lote
-    if (plansToCreate.length > 0) {
-      // Limpar planos antigos
-      await supabase.from('migration_plans').delete().eq('roadmap_project_id', projectId);
-
-      const { error } = await supabase
-        .from('migration_plans')
-        .insert(plansToCreate);
-      
-      if (error) throw error;
-
-      // Atualizar data de geração
-      await supabase
+    try {
+      // 1. Buscar detalhes do projeto
+      const { data: project, error: projectError } = await supabase
         .from('roadmap_projects')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', projectId);
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (projectError || !project) throw new Error('Projeto não encontrado');
+
+      // 2. Mapear nome da categoria para ID
+      const { data: categories } = await supabase.from('asset_categories').select('*');
+      const targetCategory = categories?.find(c => c.name === project.category);
+      
+      // 3. Buscar Ativos Elegíveis
+      let query = supabase.from('assets').select('*, asset_categories(*), lifecycle_catalog(*), applications(*)');
+      
+      if (targetCategory) {
+        query = query.eq('category_id', targetCategory.id);
+      }
+
+      const { data: assets, error: assetsError } = await query;
+      if (assetsError) throw assetsError;
+
+      if (!assets || assets.length === 0) {
+        results.errors.push(`Nenhum ativo encontrado para a categoria "${project.category}".`);
+        return results;
+      }
+
+      // 4. Preparar planos de migração
+      const plansToUpsert = [];
+      const today = new Date();
+
+      for (const asset of assets) {
+        const lifecycle = asset.lifecycle_catalog;
+        
+        if (!lifecycle) {
+          results.skippedCount++;
+          results.skippedReasons['Sem catálogo de lifecycle'] = (results.skippedReasons['Sem catálogo de lifecycle'] || 0) + 1;
+          continue;
+        }
+
+        if (!lifecycle.end_of_support) {
+          results.skippedCount++;
+          results.skippedReasons['Sem data de End of Support (EoL)'] = (results.skippedReasons['Sem data de End of Support (EoL)'] || 0) + 1;
+          continue;
+        }
+
+        const eolDate = new Date(lifecycle.end_of_support);
+        const priority = deterministicEngineService.calculatePriority(lifecycle.end_of_support);
+        const recommendedStart = deterministicEngineService.calculateRecommendedStartDate(priority);
+        
+        // Calcular janela (padrão 90 dias ou até o EoL)
+        const deadline = new Date(eolDate);
+        deadline.setDate(deadline.getDate() - 30);
+        
+        const plannedEnd = new Date(eolDate);
+        
+        plansToUpsert.push({
+          roadmap_project_id: projectId,
+          asset_id: asset.id,
+          priority: priority,
+          risk_level: priority === 'critical' ? 'high' : 'low',
+          status: 'planned',
+          recommended_start_date: recommendedStart,
+          planned_start_date: recommendedStart,
+          planned_end_date: plannedEnd.toISOString().split('T')[0],
+          justification: deterministicEngineService.generateJustification(
+            priority,
+            lifecycle.product_name,
+            lifecycle.version || '',
+            lifecycle.end_of_support
+          ),
+          estimated_cost: asset.device_type === 'server' ? 5000 : 1200
+        });
+      }
+
+      // 5. Salvar Planos
+      if (plansToUpsert.length > 0) {
+        // Limpar planos antigos do projeto
+        await supabase.from('migration_plans').delete().eq('roadmap_project_id', projectId);
+
+        const { error: insertError } = await supabase
+          .from('migration_plans')
+          .insert(plansToUpsert);
+
+        if (insertError) throw insertError;
+
+        results.createdCount = plansToUpsert.length;
+        results.success = true;
+
+        // 6. Criar Notificações (opcional nesta fase, mas bom para hardening)
+        for (const plan of plansToUpsert) {
+          const { data: user } = await supabase.auth.getUser();
+          if (user?.user) {
+            await supabase.from('notifications').insert({
+              user_id: user.user.id,
+              type: 'lifecycle_warning',
+              priority: plan.priority,
+              severity: plan.priority === 'critical' ? 'critical' : 'warning',
+              title: `Planejamento de Migração: ${asset.hostname}`,
+              description: `O ativo ${asset.hostname} atingirá o EoL em ${plan.planned_end_date}.`,
+              metadata: { asset_id: plan.asset_id, project_id: projectId }
+            });
+            results.notificationsCreated++;
+          }
+        }
+      }
+
+      // 7. Auditoria
+      await auditService.log({
+        action: 'GENERATE_ROADMAP',
+        entity_type: 'roadmap_projects',
+        entity_id: projectId,
+        description: `Roadmap gerado: ${results.createdCount} planos criados, ${results.skippedCount} pulados.`,
+        metadata: results
+      });
+
+      return results;
+    } catch (error: any) {
+      console.error('Erro na geração do roadmap:', error);
+      results.errors.push(error.message);
+      return results;
     }
-
-    await auditService.log({
-      action: 'REGENERATE_ROADMAP',
-      entity_type: 'roadmap_projects',
-      entity_id: projectId,
-      description: `Planos de migração do roadmap regerados.`
-    });
-
-    return true;
   }
 };

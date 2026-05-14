@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
+import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, addMonths, startOfMonth, differenceInMonths, differenceInDays } from "date-fns";
@@ -11,11 +12,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ArrowRight, Map as MapIcon } from "lucide-react";
+import { ArrowRight, Map as MapIcon, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { useState } from "react";
 
 export function GanttView({ projectId }: { projectId?: string }) {
+  const queryClient = useQueryClient();
+  const [isGenerating, setIsGenerating] = useState(false);
+  
   const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["migration-plans"],
     queryFn: () => migrationPlanService.getAll(),
@@ -25,6 +30,30 @@ export function GanttView({ projectId }: { projectId?: string }) {
     ? allPlans.filter(p => p.roadmap_project_id === projectId)
     : allPlans;
 
+  const handleGenerate = async () => {
+    if (!projectId) return;
+    
+    setIsGenerating(true);
+    try {
+      const results = await roadmapGeneratorService.generate(projectId);
+      
+      if (results.success) {
+        toast.success(`Roadmap gerado! ${results.createdCount} planos criados.`, {
+          description: results.notificationsCreated > 0 ? `${results.notificationsCreated} notificações enviadas.` : undefined
+        });
+        queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
+      } else {
+        const errorMsg = results.errors[0] || "Nenhum ativo elegível encontrado.";
+        toast.error("Geração incompleta", {
+          description: errorMsg
+        });
+      }
+    } catch (error) {
+      toast.error("Erro ao gerar roadmap");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const startDate = startOfMonth(new Date());
   const months = Array.from({ length: 24 }).map((_, i) => addMonths(startDate, i));
@@ -39,12 +68,16 @@ export function GanttView({ projectId }: { projectId?: string }) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isGenerating) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-20 w-full bg-slate-100 dark:bg-slate-800 animate-pulse rounded-xl" />
-        ))}
+      <div className="flex flex-col items-center justify-center p-20 gap-4">
+        <RefreshCw className="h-12 w-12 text-primary animate-spin" />
+        <div className="text-center">
+          <h3 className="text-lg font-bold">Processando Estratégia...</h3>
+          <p className="text-sm text-muted-foreground italic">
+            {isGenerating ? "O Motor Determinístico está calculando janelas de migração baseadas em EoL oficial." : "Carregando cronograma..."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -54,18 +87,40 @@ export function GanttView({ projectId }: { projectId?: string }) {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-3xl bg-slate-50/50 dark:bg-slate-900/20"
+        className="flex flex-col items-center justify-center p-12"
       >
-        <div className="p-4 bg-primary/10 rounded-full mb-4">
-          <MapIcon className="h-12 w-12 text-primary" />
+        <div className="p-6 bg-slate-100 dark:bg-slate-800 rounded-full mb-6">
+          <MapIcon className="h-16 w-16 text-slate-400" />
         </div>
-        <h3 className="text-xl font-bold mb-2">Nenhum plano de migração encontrado</h3>
-        <p className="text-muted-foreground mb-6 text-center max-w-md">
-          Para visualizar a timeline, você precisa primeiro importar seus ativos e gerar um roadmap automático.
+        <h3 className="text-2xl font-black mb-2 text-center">Timeline Vazia</h3>
+        <p className="text-muted-foreground mb-8 text-center max-w-md">
+          Não foram encontrados planos de migração para este projeto. Isso ocorre quando não há ativos importados ou o catálogo de lifecycle está incompleto.
         </p>
-        <Link to="/roadmaps">
-          <Button className="rounded-full px-8">Gerar Roadmap Automático</Button>
-        </Link>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg mb-10">
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800 flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold block text-amber-900 dark:text-amber-100 mb-1">Diagnóstico</span>
+              <p className="text-amber-700 dark:text-amber-300">Verifique se os ativos possuem a categoria correta e se o EoL está preenchido no catálogo.</p>
+            </div>
+          </div>
+          <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 flex gap-3">
+            <CheckCircle2 className="h-5 w-5 text-blue-600 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold block text-blue-900 dark:text-blue-100 mb-1">Dica</span>
+              <p className="text-blue-700 dark:text-blue-300">Use a geração automática para que o sistema identifique as melhores janelas de migração.</p>
+            </div>
+          </div>
+        </div>
+
+        <Button 
+          onClick={handleGenerate} 
+          disabled={!projectId}
+          className="rounded-full px-10 h-12 text-md font-bold shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all"
+        >
+          <RefreshCw className="h-5 w-5 mr-2" /> Gerar Roadmap Automático
+        </Button>
       </motion.div>
     );
   }
