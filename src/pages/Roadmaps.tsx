@@ -1,11 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { roadmapService } from "@/services/roadmapService";
+import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
 import { categoryService } from "@/services/categoryService";
+
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RoadmapProject } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Map, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Pencil, Trash2, Map, Calendar, MoreHorizontal, Loader2, Zap } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { 
   Dialog, 
   DialogContent, 
@@ -16,6 +25,12 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Form,
   FormControl,
@@ -49,10 +64,11 @@ export default function RoadmapsPage() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<RoadmapProject | null>(null);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading } = useQuery({
     queryKey: ["roadmaps"],
     queryFn: () => roadmapService.getAll(),
   });
+
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -110,21 +126,52 @@ export default function RoadmapsPage() {
     }
   }
 
+  const navigate = useNavigate();
+
+  const generateMutation = useMutation({
+    mutationFn: (projectId: string) => roadmapGeneratorService.generate(projectId),
+    onSuccess: (_, projectId) => {
+      queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
+      toast.success("Roadmap gerado com sucesso!");
+      navigate(`/roadmap-timeline?projectId=${projectId}`);
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao gerar roadmap: " + error.message);
+    }
+  });
+
   const columns: ColumnDef<RoadmapProject>[] = [
     {
       accessorKey: "name",
-      header: "Nome do Projeto",
+      header: "Projeto / Responsável",
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-bold">{row.original.name}</span>
-          <span className="text-xs text-muted-foreground">{row.original.owner || "Sem dono"}</span>
+          <span className="font-bold text-slate-900 dark:text-slate-100">{row.original.name}</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{row.original.owner || "Sem dono"}</span>
         </div>
       ),
     },
     {
-      accessorKey: "category",
-      header: "Categoria",
-      cell: ({ row }) => <Badge variant="outline">{row.original.category}</Badge>,
+      accessorKey: "stats",
+      header: "Resumo Estratégico",
+      cell: ({ row }) => (
+        <div className="flex gap-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Ativos</span>
+            <span className="font-bold">{row.original.total_assets || 0}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Críticos</span>
+            <span className="font-bold text-red-500">{row.original.critical_count || 0}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Orçamento</span>
+            <span className="font-bold">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.original.estimated_budget || 0)}
+            </span>
+          </div>
+        </div>
+      ),
     },
     {
       accessorKey: "status",
@@ -132,79 +179,141 @@ export default function RoadmapsPage() {
       cell: ({ row }) => {
         const status = row.original.status;
         const variants: Record<string, string> = {
-          draft: "bg-gray-100 text-gray-800",
-          active: "bg-green-100 text-green-800",
-          completed: "bg-blue-100 text-blue-800",
-          archived: "bg-amber-100 text-amber-800",
+          draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+          active: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          archived: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
         };
-        return <Badge className={variants[status]}>{status.toUpperCase()}</Badge>;
-      },
-    },
-    {
-      accessorKey: "start_date",
-      header: "Período",
-      cell: ({ row }) => {
-        if (!row.original.start_date) return "-";
-        return (
-          <div className="flex items-center gap-1 text-xs">
-            <Calendar className="h-3 w-3" />
-            {format(parseISO(row.original.start_date), "MMM/yy")} - 
-            {row.original.end_date ? format(parseISO(row.original.end_date), "MMM/yy") : "Ativo"}
-          </div>
-        );
+        return <Badge className={`${variants[status]} border-none rounded-full px-3`}>{status.toUpperCase()}</Badge>;
       },
     },
     {
       id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => {
-              setEditingProject(row.original);
-              form.reset({
-                name: row.original.name,
-                category: row.original.category,
-                scope: row.original.scope || "corporate",
-                status: row.original.status,
-                description: row.original.description || "",
-                owner: row.original.owner || "",
-                start_date: row.original.start_date || "",
-                end_date: row.original.end_date || "",
-              });
-              setIsOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-red-500"
-            onClick={() => {
-              if (confirm("Excluir este projeto de roadmap?")) {
-                deleteMutation.mutate(row.original.id);
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      header: "Ações do Roadmap",
+      cell: ({ row }) => {
+        const hasPlans = (row.original.total_migration_plans || 0) > 0;
+        
+  return (
+    <TooltipProvider>
+      <div className="flex items-center gap-2">
+        {hasPlans ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8 px-4"
+                onClick={() => navigate(`/roadmap-timeline?projectId=${row.original.id}`)}
+              >
+                <Map className="h-3.5 w-3.5 mr-2" /> Abrir Timeline
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Visualizar planejamento detalhado</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-900/20 h-8 px-4"
+                disabled={generateMutation.isPending}
+                onClick={() => generateMutation.mutate(row.original.id)}
+              >
+                {generateMutation.isPending && generateMutation.variables === row.original.id ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="h-3.5 w-3.5 mr-2" />
+                )}
+                Gerar Roadmap
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Executar Motor Determinístico para este projeto</TooltipContent>
+          </Tooltip>
+        )}
+
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Mais opções</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="rounded-xl">
+            {/* ... */}
+
+                <DropdownMenuItem onClick={() => {
+                  setEditingProject(row.original);
+                  form.reset({
+                    name: row.original.name,
+                    category: row.original.category,
+                    scope: row.original.scope || "corporate",
+                    status: row.original.status,
+                    description: row.original.description || "",
+                    owner: row.original.owner || "",
+                    start_date: row.original.start_date || "",
+                    end_date: row.original.end_date || "",
+                  });
+                  setIsOpen(true);
+                }}>
+                  <Pencil className="h-4 w-4 mr-2" /> Editar Projeto
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => {
+                    if (confirm("Excluir este projeto e todos os seus planos de migração?")) {
+                      deleteMutation.mutate(row.original.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     },
   ];
 
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+          <div className="h-10 w-32 bg-slate-200 dark:bg-slate-800 rounded-full" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="h-16 w-full bg-slate-100 dark:bg-slate-800 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Map className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Projetos de Roadmap</h1>
         </div>
         <div className="flex items-center gap-2">
-          <RoadmapGeneratorWizard />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <RoadmapGeneratorWizard />
+            </TooltipTrigger>
+            <TooltipContent>Criar novo projeto e gerar planos em um único fluxo</TooltipContent>
+          </Tooltip>
           <Dialog open={isOpen} onOpenChange={(open) => {
+
           setIsOpen(open);
           if (!open) {
             setEditingProject(null);

@@ -26,6 +26,12 @@ export interface RoadmapProject {
   end_date?: string;
   created_at?: string;
   updated_at?: string;
+  // Campos calculados
+  total_assets?: number;
+  total_migration_plans?: number;
+  critical_count?: number;
+  estimated_budget?: number;
+  last_generated_at?: string;
 }
 
 export interface LifecycleItem {

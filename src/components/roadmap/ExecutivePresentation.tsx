@@ -12,11 +12,16 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
-export function ExecutivePresentation() {
-  const { data: plans = [] } = useQuery({
+export function ExecutivePresentation({ projectId }: { projectId?: string }) {
+  const { data: allPlans = [] } = useQuery({
     queryKey: ["migration-plans"],
     queryFn: () => migrationPlanService.getAll(),
   });
+
+  const plans = projectId 
+    ? allPlans.filter(p => p.roadmap_project_id === projectId)
+    : allPlans;
+
 
   const getPriorityColor = (p: string) => {
     switch (p) {

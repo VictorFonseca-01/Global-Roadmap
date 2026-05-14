@@ -34,7 +34,7 @@ export function Sidebar({ className }: SidebarProps) {
     { name: "Assets", icon: Monitor, path: "/assets" },
     { name: "Applications", icon: AppWindow, path: "/applications" },
     { name: "Migration Plans", icon: ArrowRightCircle, path: "/migration-plans" },
-    { name: "Roadmap Timeline", icon: FileText, path: "/reports" },
+    { name: "Roadmap Timeline", icon: FileText, path: "/roadmap-timeline" },
     { name: "IA Intelligence", icon: Bot, path: "/settings/ai" },
     { name: "Settings", icon: Settings, path: "/settings" },
   ]

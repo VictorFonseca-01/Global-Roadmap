@@ -72,5 +72,54 @@ export const roadmapGeneratorService = {
     }
 
     return project;
+  },
+
+  async generate(projectId: string) {
+    // 1. Buscar Ativos Elegíveis
+    const assets = await assetService.getAll();
+    
+    // 2. Criar Migration Plans
+    const plansToCreate = assets.map(asset => {
+      const eol = asset.lifecycle_catalog?.end_of_support || new Date().toISOString();
+      const priority = deterministicEngineService.calculatePriority(eol);
+      const recommendedDate = deterministicEngineService.calculateRecommendedStartDate(priority);
+      const justification = deterministicEngineService.generateJustification(
+        priority, 
+        asset.lifecycle_catalog?.product_name || 'Asset', 
+        asset.lifecycle_catalog?.version || '', 
+        eol
+      );
+      
+      return {
+        roadmap_project_id: projectId,
+        asset_id: asset.id,
+        priority: priority,
+        risk_level: 'low',
+        status: 'planned',
+        recommended_start_date: recommendedDate,
+        justification: justification,
+        estimated_cost: asset.device_type === 'server' ? 5000 : 1200
+      };
+    });
+
+    // 3. Salvar em lote
+    if (plansToCreate.length > 0) {
+      // Limpar planos antigos
+      await supabase.from('migration_plans').delete().eq('roadmap_project_id', projectId);
+
+      const { error } = await supabase
+        .from('migration_plans')
+        .insert(plansToCreate);
+      
+      if (error) throw error;
+
+      // Atualizar data de geração
+      await supabase
+        .from('roadmap_projects')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', projectId);
+    }
+
+    return true;
   }
 };

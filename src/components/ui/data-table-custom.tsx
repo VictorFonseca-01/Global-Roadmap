@@ -104,11 +104,18 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Nenhum resultado encontrado.
+                <TableCell colSpan={columns.length} className="h-[400px] text-center">
+                  <div className="flex flex-col items-center justify-center space-y-3 opacity-50">
+                    <Search className="h-12 w-12 text-muted-foreground" />
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-lg font-bold">Nenhum resultado encontrado</p>
+                      <p className="text-sm">Tente ajustar seus filtros ou pesquisar por outro termo.</p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
+
           </TableBody>
         </Table>
       </div>

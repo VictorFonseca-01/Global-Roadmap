@@ -15,11 +15,16 @@ import { ArrowRight, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
-export function GanttView() {
-  const { data: plans = [], isLoading } = useQuery({
+export function GanttView({ projectId }: { projectId?: string }) {
+  const { data: allPlans = [], isLoading } = useQuery({
     queryKey: ["migration-plans"],
     queryFn: () => migrationPlanService.getAll(),
   });
+
+  const plans = projectId 
+    ? allPlans.filter(p => p.roadmap_project_id === projectId)
+    : allPlans;
+
 
   const startDate = startOfMonth(new Date());
   const months = Array.from({ length: 24 }).map((_, i) => addMonths(startDate, i));

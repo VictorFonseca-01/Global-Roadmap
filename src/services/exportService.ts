@@ -5,11 +5,16 @@ import { dashboardService } from "./dashboardService";
 import { pdfService } from "./pdfService";
 
 export const exportService = {
-  async exportToExcel() {
-    const [plans, assets] = await Promise.all([
+  async exportToExcel(projectId?: string) {
+    const [allPlans, allAssets] = await Promise.all([
       migrationPlanService.getAll(),
       assetService.getAll()
     ]);
+
+    const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
+    const assets = projectId 
+      ? allAssets.filter(a => allPlans.some(p => p.roadmap_project_id === projectId && p.asset_id === a.id))
+      : allAssets;
 
     const wb = XLSX.utils.book_new();
     
@@ -36,14 +41,16 @@ export const exportService = {
     const wsAssets = XLSX.utils.json_to_sheet(assetsData);
     XLSX.utils.book_append_sheet(wb, wsAssets, "Inventory");
 
-    XLSX.writeFile(wb, "GlobalParts_Technology_Roadmap.xlsx");
+    const fileName = projectId ? `GlobalParts_Roadmap_${projectId}.xlsx` : "GlobalParts_Technology_Roadmap.xlsx";
+    XLSX.writeFile(wb, fileName);
   },
 
-  async exportExecutivePdf() {
+  async exportExecutivePdf(projectId?: string) {
     try {
       // 1. Buscar todos os dados necessários para o relatório
-      const data = await dashboardService.getDashboardData();
-      const plans = await migrationPlanService.getAll();
+      const data = await dashboardService.getDashboardData(projectId);
+      const allPlans = await migrationPlanService.getAll();
+      const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
 
       // 2. Gerar o PDF Profissional
       await pdfService.generateExecutiveReport({
@@ -60,4 +67,5 @@ export const exportService = {
     }
   }
 };
+
 

@@ -30,7 +30,7 @@ function App() {
               <Route path="assets" element={<Assets />} />
               <Route path="applications" element={<Applications />} />
               <Route path="migration-plans" element={<MigrationPlans />} />
-              <Route path="reports" element={<RoadmapTimeline />} />
+              <Route path="roadmap-timeline" element={<RoadmapTimeline />} />
               <Route path="settings/ai" element={<SettingsAI />} />
               <Route path="settings" element={<PlaceholderPage title="Configurações" />} />
             </Route>

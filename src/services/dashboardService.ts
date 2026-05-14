@@ -5,14 +5,24 @@ import { migrationPlanService } from './migrationPlanService';
 import { deterministicEngineService } from './deterministicEngineService';
 
 export const dashboardService = {
-  async getDashboardData() {
+  async getDashboardData(projectId?: string) {
     // 1. Carga principal dos dados em paralelo
-    const [assets, roadmaps, categories, migrationPlans] = await Promise.all([
+    const [allAssets, roadmaps, categories, allMigrationPlans] = await Promise.all([
       assetService.getAll(),
       roadmapService.getAll(),
       categoryService.getAll(),
       migrationPlanService.getAll(),
     ]);
+
+    // Filtrar por projeto se necessário
+    const assets = projectId 
+      ? allAssets.filter(a => allMigrationPlans.some(p => p.roadmap_project_id === projectId && p.asset_id === a.id))
+      : allAssets;
+    
+    const migrationPlans = projectId
+      ? allMigrationPlans.filter(p => p.roadmap_project_id === projectId)
+      : allMigrationPlans;
+
 
     // 2. Processamento O(N) em uma única passagem
     const stats = {

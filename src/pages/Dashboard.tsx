@@ -17,19 +17,41 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useState } from "react";
 
+import { useSearchParams } from "react-router-dom";
+import { roadmapService } from "@/services/roadmapService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 export default function DashboardPage() {
   const [exporting, setExporting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const projectId = searchParams.get("projectId") || undefined;
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["roadmaps"],
+    queryFn: () => roadmapService.getAll(),
+  });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["dashboard-data"],
-    queryFn: () => dashboardService.getDashboardData(),
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    queryKey: ["dashboard-data", projectId],
+    queryFn: () => dashboardService.getDashboardData(projectId),
+    staleTime: 1000 * 60 * 5,
   });
+
+  const handleProjectChange = (id: string) => {
+    if (id === "all") {
+      searchParams.delete("projectId");
+    } else {
+      searchParams.set("projectId", id);
+    }
+    setSearchParams(searchParams);
+  };
+
+
 
   const handlePdfExport = async () => {
     setExporting(true);
     toast.promise(
-      exportService.exportExecutivePdf(),
+      exportService.exportExecutivePdf(projectId),
       {
         loading: "Gerando relatório executivo de alta fidelidade...",
         success: () => {
@@ -43,6 +65,7 @@ export default function DashboardPage() {
       }
     );
   };
+
 
   if (isLoading) {
     return (
@@ -83,11 +106,25 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6" id="dashboard-content">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <LayoutDashboard className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-black tracking-tight">Dashboard Executivo</h1>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-black tracking-tight">Dashboard Executivo</h1>
+          </div>
+          <Select value={projectId || "all"} onValueChange={handleProjectChange}>
+            <SelectTrigger className="w-[250px] rounded-full h-10 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+              <SelectValue placeholder="Todos os Projetos" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value="all">Visão Global (Todos)</SelectItem>
+              {projects.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
+
           <Button 
             variant="outline" 
             size="sm" 
@@ -102,10 +139,11 @@ export default function DashboardPage() {
             variant="outline" 
             size="sm" 
             className="rounded-full shadow-sm hover:bg-slate-50 transition-all" 
-            onClick={() => exportService.exportToExcel()}
+            onClick={() => exportService.exportToExcel(projectId)}
           >
             <FileDown className="h-4 w-4 mr-2" /> Planilha Excel
           </Button>
+
         </div>
       </div>
 
