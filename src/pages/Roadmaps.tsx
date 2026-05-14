@@ -8,7 +8,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { RoadmapProject } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Map, Calendar, MoreHorizontal, Loader2, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Map, MoreHorizontal, Loader2, Zap } from "lucide-react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -44,7 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { format, parseISO } from "date-fns";
+
 
 const projectSchema = z.object({
   name: z.string().min(3, "Nome do projeto deve ter pelo menos 3 caracteres"),
@@ -90,7 +90,7 @@ export default function RoadmapsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => roadmapService.create(data),
+    mutationFn: (data: z.infer<typeof projectSchema>) => roadmapService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       toast.success("Projeto de Roadmap criado!");
@@ -100,7 +100,7 @@ export default function RoadmapsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => roadmapService.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<RoadmapProject> }) => roadmapService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       toast.success("Projeto atualizado!");
@@ -135,7 +135,7 @@ export default function RoadmapsPage() {
       toast.success("Roadmap gerado com sucesso!");
       navigate(`/roadmap-timeline?projectId=${projectId}`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Erro ao gerar roadmap: " + error.message);
     }
   });
@@ -193,91 +193,91 @@ export default function RoadmapsPage() {
       cell: ({ row }) => {
         const hasPlans = (row.original.total_migration_plans || 0) > 0;
         
-  return (
-    <TooltipProvider>
-      <div className="flex items-center gap-2">
-        {hasPlans ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8 px-4"
-                onClick={() => navigate(`/roadmap-timeline?projectId=${row.original.id}`)}
-              >
-                <Map className="h-3.5 w-3.5 mr-2" /> Abrir Timeline
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Visualizar planejamento detalhado</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-900/20 h-8 px-4"
-                disabled={generateMutation.isPending}
-                onClick={() => generateMutation.mutate(row.original.id)}
-              >
-                {generateMutation.isPending && generateMutation.variables === row.original.id ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                ) : (
-                  <Zap className="h-3.5 w-3.5 mr-2" />
-                )}
-                Gerar Roadmap
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Executar Motor Determinístico para este projeto</TooltipContent>
-          </Tooltip>
-        )}
+        return (
+          <TooltipProvider>
+            <div className="flex items-center gap-2">
+              {hasPlans ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8 px-4"
+                      onClick={() => navigate(`/roadmap-timeline?projectId=${row.original.id}`)}
+                    >
+                      <Map className="h-3.5 w-3.5 mr-2" /> Abrir Timeline
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Visualizar planejamento detalhado</TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-900/20 h-8 px-4"
+                      disabled={generateMutation.isPending}
+                      onClick={() => generateMutation.mutate(row.original.id)}
+                    >
+                      {generateMutation.isPending && generateMutation.variables === row.original.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                      ) : (
+                        <Zap className="h-3.5 w-3.5 mr-2" />
+                      )}
+                      Gerar Roadmap
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Executar Motor Determinístico para este projeto</TooltipContent>
+                </Tooltip>
+              )}
 
-        <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>Mais opções</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="rounded-xl">
-            {/* ... */}
-
-                <DropdownMenuItem onClick={() => {
-                  setEditingProject(row.original);
-                  form.reset({
-                    name: row.original.name,
-                    category: row.original.category,
-                    scope: row.original.scope || "corporate",
-                    status: row.original.status,
-                    description: row.original.description || "",
-                    owner: row.original.owner || "",
-                    start_date: row.original.start_date || "",
-                    end_date: row.original.end_date || "",
-                  });
-                  setIsOpen(true);
-                }}>
-                  <Pencil className="h-4 w-4 mr-2" /> Editar Projeto
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="text-red-600 focus:text-red-600"
-                  onClick={() => {
-                    if (confirm("Excluir este projeto e todos os seus planos de migração?")) {
-                      deleteMutation.mutate(row.original.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Mais opções</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="rounded-xl">
+                  <DropdownMenuItem onClick={() => {
+                    setEditingProject(row.original);
+                    form.reset({
+                      name: row.original.name,
+                      category: row.original.category,
+                      scope: row.original.scope || "corporate",
+                      status: row.original.status,
+                      description: row.original.description || "",
+                      owner: row.original.owner || "",
+                      start_date: row.original.start_date || "",
+                      end_date: row.original.end_date || "",
+                    });
+                    setIsOpen(true);
+                  }}>
+                    <Pencil className="h-4 w-4 mr-2" /> Editar Projeto
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-red-600 focus:text-red-600"
+                    onClick={() => {
+                      if (confirm("Excluir este projeto e todos os seus planos de migração?")) {
+                        deleteMutation.mutate(row.original.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </TooltipProvider>
         );
       },
     },
+
   ];
 
 
@@ -336,7 +336,7 @@ export default function RoadmapsPage() {
                 <FormField
                   control={form.control}
                   name="name"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nome do Projeto</FormLabel>
                       <FormControl>
@@ -350,7 +350,7 @@ export default function RoadmapsPage() {
                   <FormField
                     control={form.control}
                     name="category"
-                    render={({ field }: { field: any }) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Categoria</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -375,7 +375,7 @@ export default function RoadmapsPage() {
                   <FormField
                     control={form.control}
                     name="status"
-                    render={({ field }: { field: any }) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Status</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -400,7 +400,7 @@ export default function RoadmapsPage() {
                   <FormField
                     control={form.control}
                     name="start_date"
-                    render={({ field }: { field: any }) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Data de Início</FormLabel>
                         <FormControl>
@@ -413,7 +413,7 @@ export default function RoadmapsPage() {
                   <FormField
                     control={form.control}
                     name="end_date"
-                    render={({ field }: { field: any }) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Data Prevista de Término</FormLabel>
                         <FormControl>
@@ -427,7 +427,7 @@ export default function RoadmapsPage() {
                 <FormField
                   control={form.control}
                   name="owner"
-                  render={({ field }: { field: any }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Responsável (Dono)</FormLabel>
                       <FormControl>

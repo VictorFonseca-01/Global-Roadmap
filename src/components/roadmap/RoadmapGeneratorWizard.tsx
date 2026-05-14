@@ -42,7 +42,7 @@ export function RoadmapGeneratorWizard() {
   });
 
   const generatorMutation = useMutation({
-    mutationFn: (data: any) => roadmapGeneratorService.generateAuto(data),
+    mutationFn: (data: typeof formData) => roadmapGeneratorService.generateAuto(data),
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
@@ -111,7 +111,7 @@ export function RoadmapGeneratorWizard() {
               </div>
               <div className="space-y-2">
                 <Label>Horizonte de Planejamento (Meses)</Label>
-                <Select onValueChange={(v: any) => setFormData({...formData, horizon: parseInt(v) as any})} defaultValue={String(formData.horizon)}>
+                <Select onValueChange={(v: string) => setFormData({...formData, horizon: parseInt(v) as 12 | 24 | 36})} defaultValue={String(formData.horizon)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>

@@ -1,13 +1,24 @@
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import type { MigrationPlan } from "@/types";
+
+
+interface PdfReportData {
+  stats: {
+    totalAssets: number;
+    critical: number;
+    outOfSupport: number;
+    next180Days: number;
+    estimatedBudget: number;
+  };
+  plans: MigrationPlan[];
+  insights: string[];
+  riskData: { name: string; value: number; color: string }[];
+}
 
 export const pdfService = {
-  async generateExecutiveReport(data: {
-    stats: any;
-    plans: any[];
-    insights: string[];
-    riskData: any[];
-  }) {
+  async generateExecutiveReport(data: PdfReportData) {
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -89,8 +100,9 @@ export const pdfService = {
         p.assets?.lifecycle_catalog?.product_name || 'N/A',
         p.priority.toUpperCase(),
         p.recommended_start_date || 'N/A',
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.estimated_cost)
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.estimated_cost || 0)
       ]);
+
 
     (doc as any).autoTable({
       startY: currentY + 5,

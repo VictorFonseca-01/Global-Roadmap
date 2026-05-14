@@ -10,16 +10,17 @@ export const roadmapService = {
     
     if (error) throw error;
 
-    return (data as any[]).map(project => {
-      const plans = project.migration_plans || [];
+    return (data || []).map(project => {
+      const plans = (project.migration_plans as unknown as any[]) || [];
       return {
         ...project,
-        total_migration_plans: plans.length > 0 ? project.migration_plans[0].count : 0,
+        total_migration_plans: plans.length > 0 ? (plans[0] as any).count : 0,
         total_assets: plans.length,
-        critical_count: plans.filter((p: any) => p.priority === 'critical').length,
-        estimated_budget: plans.reduce((acc: number, p: any) => acc + (Number(p.estimated_cost) || 0), 0)
+        critical_count: plans.filter(p => p.priority === 'critical').length,
+        estimated_budget: plans.reduce((acc: number, p) => acc + (Number(p.estimated_cost) || 0), 0)
       };
     }) as RoadmapProject[];
+
   },
 
   async create(project: Omit<RoadmapProject, 'id' | 'created_at' | 'updated_at'>) {

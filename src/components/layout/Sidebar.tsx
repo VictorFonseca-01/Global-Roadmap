@@ -18,11 +18,11 @@ import {
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
 
 import { motion } from "framer-motion"
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className }: { className?: string }) {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
 

@@ -78,7 +78,7 @@ export default function RoadmapTimelinePage() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Tabs value={view} onValueChange={(v: any) => setView(v)} className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full border dark:border-slate-700">
+          <Tabs value={view} onValueChange={(v) => setView(v as "gantt" | "presentation")} className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full border dark:border-slate-700">
             <TabsList className="bg-transparent h-9 gap-1">
               <TabsTrigger 
                 value="gantt" 
