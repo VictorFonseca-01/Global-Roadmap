@@ -43,12 +43,12 @@ export function RoadmapGeneratorWizard() {
 
   const generatorMutation = useMutation({
     mutationFn: (data: typeof formData) => roadmapGeneratorService.generateAuto(data),
-    onSuccess: (project) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
       toast.success("Roadmap gerado com sucesso!");
       setIsOpen(false);
-      navigate(`/roadmap-timeline?projectId=${project.id}`);
+      navigate(`/roadmap-timeline?projectId=${data.project.id}`);
     },
     onError: () => {
       toast.error("Erro ao gerar roadmap.");

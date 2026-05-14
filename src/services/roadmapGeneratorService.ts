@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase';
-import { assetService } from './assetService';
 import { roadmapService } from './roadmapService';
 import { deterministicEngineService } from './deterministicEngineService';
 import { auditService } from './auditService';
+import { differenceInDays } from 'date-fns';
 
 export const roadmapGeneratorService = {
   async generateAuto(params: {
@@ -41,6 +41,7 @@ export const roadmapGeneratorService = {
   },
 
   async generate(projectId: string) {
+    const today = new Date();
     const results = {
       success: false,
       createdCount: 0,
@@ -82,7 +83,6 @@ export const roadmapGeneratorService = {
 
       // 4. Preparar planos de migração
       const plansToUpsert = [];
-      const today = new Date();
 
       for (const asset of assets) {
         const lifecycle = asset.lifecycle_catalog;
@@ -99,15 +99,8 @@ export const roadmapGeneratorService = {
           continue;
         }
 
-        const eolDate = new Date(lifecycle.end_of_support);
-        const priority = deterministicEngineService.calculatePriority(lifecycle.end_of_support);
-        const recommendedStart = deterministicEngineService.calculateRecommendedStartDate(priority);
-        
-        // Calcular janela (padrão 90 dias ou até o EoL)
-        const deadline = new Date(eolDate);
-        deadline.setDate(deadline.getDate() - 30);
-        
-        const plannedEnd = new Date(eolDate);
+        const priority = deterministicEngineService.calculatePriority(lifecycle.end_of_support, asset.business_criticality);
+        const window = deterministicEngineService.calculateMigrationWindow(lifecycle.end_of_support);
         
         plansToUpsert.push({
           roadmap_project_id: projectId,
@@ -115,9 +108,9 @@ export const roadmapGeneratorService = {
           priority: priority,
           risk_level: priority === 'critical' ? 'high' : 'low',
           status: 'planned',
-          recommended_start_date: recommendedStart,
-          planned_start_date: recommendedStart,
-          planned_end_date: plannedEnd.toISOString().split('T')[0],
+          recommended_start_date: window.start,
+          planned_start_date: window.start,
+          planned_end_date: window.end,
           justification: deterministicEngineService.generateJustification(
             priority,
             lifecycle.product_name,
@@ -142,17 +135,25 @@ export const roadmapGeneratorService = {
         results.createdCount = plansToUpsert.length;
         results.success = true;
 
-        // 6. Criar Notificações (opcional nesta fase, mas bom para hardening)
+        // 6. Criar Notificações com severidade refinada
         for (const plan of plansToUpsert) {
           const { data: user } = await supabase.auth.getUser();
           if (user?.user) {
+            const eolDate = new Date(assets.find(a => a.id === plan.asset_id)?.lifecycle_catalog?.end_of_support || '');
+            const daysRemaining = differenceInDays(eolDate, today);
+            
+            let severity: 'critical' | 'warning' | 'info' = 'info';
+            if (daysRemaining <= 90) severity = 'critical';
+            else if (daysRemaining <= 180) severity = 'warning';
+            else if (daysRemaining <= 365) severity = 'info';
+
             await supabase.from('notifications').insert({
               user_id: user.user.id,
               type: 'lifecycle_warning',
               priority: plan.priority,
-              severity: plan.priority === 'critical' ? 'critical' : 'warning',
-              title: `Planejamento de Migração: ${asset.hostname}`,
-              description: `O ativo ${asset.hostname} atingirá o EoL em ${plan.planned_end_date}.`,
+              severity: severity,
+              title: `Planejamento de Migração: ${assets.find(a => a.id === plan.asset_id)?.hostname}`,
+              description: `O ativo atingirá o EoL em ${eolDate.toLocaleDateString()}. Prioridade ${plan.priority.toUpperCase()}.`,
               metadata: { asset_id: plan.asset_id, project_id: projectId }
             });
             results.notificationsCreated++;

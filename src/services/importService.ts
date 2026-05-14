@@ -114,8 +114,8 @@ export const importService = {
         const createdAsset = await assetService.create(assetData);
         
         if (matchedLifecycle && roadmapProjectId) {
-          const priority = deterministicEngineService.calculatePriority(matchedLifecycle.end_of_support);
-          const startDate = deterministicEngineService.calculateRecommendedStartDate(priority);
+          const priority = deterministicEngineService.calculatePriority(matchedLifecycle.end_of_support, assetData.business_criticality);
+          const window = deterministicEngineService.calculateMigrationWindow(matchedLifecycle.end_of_support);
           
           await migrationPlanService.create({
             roadmap_project_id: roadmapProjectId,
@@ -124,7 +124,9 @@ export const importService = {
             risk_level: 'low',
             status: 'planned',
             recommended_target_os: matchedLifecycle.successor_version,
-            recommended_start_date: startDate,
+            recommended_start_date: window.start,
+            planned_start_date: window.start,
+            planned_end_date: window.end,
             justification: deterministicEngineService.generateJustification(
               priority, 
               matchedLifecycle.product_name, 
