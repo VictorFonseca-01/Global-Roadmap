@@ -53,6 +53,9 @@ export const roadmapService = {
   },
 
   async delete(id: string) {
+    // Apaga dependências para evitar erro de Foreign Key
+    await supabase.from('migration_plans').delete().eq('roadmap_project_id', id);
+
     const { error } = await supabase
       .from('roadmap_projects')
       .delete()

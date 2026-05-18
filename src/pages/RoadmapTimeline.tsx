@@ -104,7 +104,7 @@ export default function RoadmapTimelinePage() {
           <h1 className="text-4xl font-black tracking-tighter flex items-center gap-4">
             {selectedProject?.name || "Carregando..."}
             {selectedProject && (
-              <Badge className="rounded-full px-5 py-1 bg-primary text-white text-[10px] font-black uppercase border-none shadow-lg shadow-primary/20">
+              <Badge className="tracking-widest rounded-full px-5 py-1 bg-primary text-white text-[10px] font-black uppercase border-none shadow-lg shadow-primary/20">
                 {selectedProject.category}
               </Badge>
             )}

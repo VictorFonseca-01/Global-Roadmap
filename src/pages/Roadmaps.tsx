@@ -45,6 +45,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 
 
 
@@ -65,6 +66,7 @@ export default function RoadmapsPage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<RoadmapProject | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["roadmaps"],
@@ -116,8 +118,13 @@ export default function RoadmapsPage() {
     mutationFn: (id: string) => roadmapService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
-      toast.success("Projeto excluído!");
+      toast.success("Projeto excluído com sucesso!");
+      setProjectToDelete(null);
     },
+    onError: (error: Error) => {
+      toast.error("Erro ao excluir", { description: error.message });
+      setProjectToDelete(null);
+    }
   });
 
   function onSubmit(values: z.infer<typeof projectSchema>) {
@@ -268,11 +275,7 @@ export default function RoadmapsPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="text-red-600 focus:text-red-600"
-                    onClick={() => {
-                      if (confirm("Excluir este projeto e todos os seus planos de migração?")) {
-                        deleteMutation.mutate(row.original.id);
-                      }
-                    }}
+                    onClick={() => setProjectToDelete(row.original.id)}
                   >
                     <Trash2 className="h-4 w-4 mr-2" /> Excluir
                   </DropdownMenuItem>
@@ -309,7 +312,7 @@ export default function RoadmapsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Map className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Projetos de Roadmap</h1>
+          <h1 className="text-3xl font-black tracking-tighter">Projetos de Roadmap</h1>
         </div>
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -472,6 +475,20 @@ export default function RoadmapsPage() {
         searchKey="name" 
       />
     )}
+
+    <ConfirmationModal
+      isOpen={!!projectToDelete}
+      onClose={() => setProjectToDelete(null)}
+      onConfirm={() => {
+        if (projectToDelete) {
+          deleteMutation.mutate(projectToDelete);
+        }
+      }}
+      title="Excluir Projeto de Roadmap?"
+      description="Esta ação é irreversível. Todos os planos de migração atrelados a este projeto serão apagados permanentemente."
+      confirmLabel="Sim, Excluir Projeto"
+      variant="destructive"
+    />
   </div>
 );
 }
