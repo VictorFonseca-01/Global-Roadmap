@@ -1,4 +1,6 @@
 export type Criticality = 'low' | 'medium' | 'high' | 'critical';
+export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'retrying';
+export type JobType = 'import_assets' | 'generate_roadmap' | 'enrich_lifecycle' | 'generate_pdf' | 'send_email_report' | 'eol_check';
 export type ProjectStatus = 'draft' | 'active' | 'completed' | 'archived';
 export type CompatibilityStatus = 'compatible' | 'needs_testing' | 'incompatible';
 export type MigrationStatus = 'planned' | 'testing' | 'pilot' | 'in_progress' | 'completed' | 'blocked';
@@ -197,4 +199,20 @@ export interface ImportHistory {
   successful_records: number;
   failed_records: number;
   imported_at?: string;
+}
+
+export interface BackgroundJob {
+  id: string;
+  organization_id: string;
+  type: JobType;
+  status: JobStatus;
+  payload: any;
+  result?: any;
+  error?: any;
+  attempts: number;
+  max_attempts: number;
+  created_by?: string;
+  created_at: string;
+  started_at?: string;
+  finished_at?: string;
 }
