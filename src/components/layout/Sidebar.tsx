@@ -27,7 +27,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useUserProfile } from "@/hooks/useUserProfile"
 import { motion } from "framer-motion"
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ 
+  className,
+  mobileMenuOpen
+}: { 
+  className?: string;
+  mobileMenuOpen?: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
   const { initials, avatarUrl } = useUserProfile()
@@ -59,7 +65,9 @@ export function Sidebar({ className }: { className?: string }) {
       initial={false}
       animate={{ width: collapsed ? 64 : 256 }}
       className={cn(
-        "relative flex flex-col border-r bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all duration-300 ease-in-out z-30",
+        "flex flex-col border-r bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-40 lg:relative lg:translate-x-0 h-full shadow-2xl lg:shadow-none",
+        mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         className
       )}
     >
@@ -143,7 +151,7 @@ export function Sidebar({ className }: { className?: string }) {
         </Link>
       </div>
 
-      <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50">
+      <div className="p-4 border-t bg-slate-50/50 dark:bg-slate-900/50 hidden md:block">
         <Button 
           variant="ghost" 
           size="icon" 

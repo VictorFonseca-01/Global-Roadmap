@@ -52,7 +52,7 @@ const projectSchema = z.object({
   name: z.string().min(3, "Nome do projeto deve ter pelo menos 3 caracteres"),
   category: z.string().min(1, "Selecione uma categoria"),
   scope: z.string().optional(),
-  status: z.enum(['draft', 'active', 'completed', 'archived']),
+  status: z.enum(['draft', 'review', 'approved', 'scheduled', 'in_progress', 'completed', 'blocked', 'cancelled']),
   description: z.string().optional(),
   owner: z.string().optional(),
   start_date: z.string().optional(),
@@ -181,10 +181,14 @@ export default function RoadmapsPage() {
       cell: ({ row }) => {
         const status = row.original.status;
         const variants: Record<string, string> = {
-          draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-          active: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          draft: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
+          review: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+          approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+          scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          in_progress: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
           completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-          archived: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+          blocked: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400",
+          cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
         };
         return <Badge className={`${variants[status]} border-none rounded-full px-3`}>{status.toUpperCase()}</Badge>;
       },
@@ -388,9 +392,13 @@ export default function RoadmapsPage() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="draft">Rascunho</SelectItem>
-                            <SelectItem value="active">Ativo</SelectItem>
+                            <SelectItem value="review">Em Revisão</SelectItem>
+                            <SelectItem value="approved">Aprovado</SelectItem>
+                            <SelectItem value="scheduled">Agendado</SelectItem>
+                            <SelectItem value="in_progress">Em Andamento</SelectItem>
                             <SelectItem value="completed">Concluído</SelectItem>
-                            <SelectItem value="archived">Arquivado</SelectItem>
+                            <SelectItem value="blocked">Bloqueado</SelectItem>
+                            <SelectItem value="cancelled">Cancelado</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

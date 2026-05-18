@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import type { MigrationPlan } from "@/types";
 
 
@@ -59,7 +59,7 @@ export const pdfService = {
       ["Investimento Est.", new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.stats.estimatedBudget)]
     ];
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 90,
       head: [['Métrica', 'Valor']],
       body: kpiData,
@@ -104,7 +104,7 @@ export const pdfService = {
       ]);
 
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: currentY + 5,
       head: [['Hostname', 'Produto', 'Prioridade', 'Data Recomendada', 'Custo Est.']],
       body: criticalPlans,

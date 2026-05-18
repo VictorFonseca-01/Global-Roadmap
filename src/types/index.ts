@@ -1,7 +1,7 @@
 export type Criticality = 'low' | 'medium' | 'high' | 'critical';
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'retrying';
 export type JobType = 'import_assets' | 'generate_roadmap' | 'enrich_lifecycle' | 'generate_pdf' | 'send_email_report' | 'eol_check';
-export type ProjectStatus = 'draft' | 'active' | 'completed' | 'archived';
+export type ProjectStatus = 'draft' | 'review' | 'approved' | 'scheduled' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
 export type CompatibilityStatus = 'compatible' | 'needs_testing' | 'incompatible';
 export type MigrationStatus = 'planned' | 'testing' | 'pilot' | 'in_progress' | 'completed' | 'blocked';
 export type Priority = 'low' | 'medium' | 'high' | 'critical';

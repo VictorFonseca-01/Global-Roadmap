@@ -74,7 +74,7 @@ export default function RoadmapTimelinePage() {
               <SelectValue placeholder="Selecionar Projeto..." />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-none shadow-2xl">
-              {projects.map(p => (
+              {Array.from(new globalThis.Map(projects.map(p => [p.name, p])).values()).map((p: any) => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>

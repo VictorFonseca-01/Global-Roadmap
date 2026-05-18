@@ -421,7 +421,7 @@ export default function LifecyclePage() {
                     )}
                   />
                 </div>
-                <Button type="submit" className="col-span-2 w-full">
+                <Button type="submit" className="col-span-2 w-full" disabled={createMutation.isPending || updateMutation.isPending}>
                   {editingItem ? "Salvar" : "Criar"}
                 </Button>
               </form>

@@ -91,11 +91,11 @@ export function GanttView({ projectId }: { projectId?: string }) {
 
   const getPriorityColor = (p: string) => {
     switch (p) {
-      case 'critical': return 'bg-rose-500 border-rose-400';
-      case 'high': return 'bg-orange-500 border-orange-400';
-      case 'medium': return 'bg-amber-500 border-amber-400';
-      case 'low': return 'bg-emerald-500 border-emerald-400';
-      default: return 'bg-slate-400';
+      case 'critical': return 'bg-gradient-to-r from-rose-500 to-rose-600 border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)]';
+      case 'high': return 'bg-gradient-to-r from-orange-500 to-orange-600 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)]';
+      case 'medium': return 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]';
+      case 'low': return 'bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)]';
+      default: return 'bg-gradient-to-r from-slate-400 to-slate-500 border-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.4)]';
     }
   };
 
@@ -208,7 +208,7 @@ export function GanttView({ projectId }: { projectId?: string }) {
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-hide">
               {plans.map((plan) => (
-                <div key={plan.id} className="h-24 border-b flex flex-col justify-center px-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group relative">
+                <div key={plan.id} className="h-20 border-b flex flex-col justify-center px-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-black tracking-tight group-hover:text-primary transition-colors">{plan.assets?.hostname}</span>
                     <Badge variant="outline" className={`text-[8px] uppercase font-black tracking-tighter ${getPriorityBadge(plan.priority)}`}>
@@ -235,7 +235,7 @@ export function GanttView({ projectId }: { projectId?: string }) {
                     </Badge>
                     {plan.assets?.lifecycle_catalog?.end_of_support && isBefore(parseISO(plan.assets.lifecycle_catalog.end_of_support), today) && (
                       <Badge className="bg-rose-500 text-white text-[8px] h-4 font-black uppercase border-none animate-pulse">
-                        Expired
+                        EOL Expired
                       </Badge>
                     )}
                   </div>
@@ -316,7 +316,7 @@ export function GanttView({ projectId }: { projectId?: string }) {
                   }
 
                   return (
-                    <div key={plan.id} className="h-24 border-b relative group/row hover:bg-primary/[0.02] transition-colors">
+                    <div key={plan.id} className="h-20 border-b relative group/row hover:bg-primary/[0.02] transition-colors">
                       {/* Marcador EoL do Ativo */}
                       {eolOffset >= 0 && eolOffset < months.length && (
                         <div 
@@ -335,7 +335,7 @@ export function GanttView({ projectId }: { projectId?: string }) {
                               initial={{ opacity: 0, x: -50 }}
                               animate={{ opacity: 1, x: 0 }}
                               whileHover={{ scale: 1.01, zIndex: 30 }}
-                              className={`absolute top-1/2 -translate-y-1/2 h-12 rounded-2xl border-2 shadow-2xl flex flex-col justify-center px-4 cursor-pointer overflow-hidden backdrop-blur-sm ${getPriorityColor(plan.priority)}`}
+                              className={`absolute top-1/2 -translate-y-1/2 h-10 rounded-2xl border-2 flex flex-col justify-center px-4 cursor-pointer overflow-hidden backdrop-blur-sm ${getPriorityColor(plan.priority)}`}
                               style={{ 
                                 left: Math.max(0, startOffset) * colWidth + 10,
                                 width: Math.max(1.5, duration) * colWidth - 20,
@@ -354,8 +354,8 @@ export function GanttView({ projectId }: { projectId?: string }) {
                               </div>
                             </motion.div>
                           </TooltipTrigger>
-                          <TooltipContent className="w-96 p-0 rounded-[2rem] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border-none bg-white dark:bg-slate-900" side="top">
-                            <div className={`p-6 ${getPriorityColor(plan.priority)} text-white relative overflow-hidden`}>
+                          <TooltipContent className="w-[420px] p-0 rounded-[2rem] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border-none bg-white dark:bg-slate-900" side="top" sideOffset={10}>
+                            <div className={`p-8 ${getPriorityColor(plan.priority).replace('shadow-[0_0_15px_rgba', 'shadow-none').replace(' border-', ' border-none ')} text-white relative overflow-hidden`}>
                               <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 translate-x-4 -translate-y-4">
                                 <Zap className="h-32 w-32" />
                               </div>

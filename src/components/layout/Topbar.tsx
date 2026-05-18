@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/components/theme-provider"
-import { Sun, Moon, LogOut, User, Settings as SettingsIcon, Briefcase, Building } from "lucide-react"
+import { Sun, Moon, LogOut, User, Settings as SettingsIcon, Briefcase, Building, Menu } from "lucide-react"
 import { NotificationBell } from "./NotificationBell"
 import { useNavigate } from "react-router-dom"
 import { ConfirmationModal } from "../ui/ConfirmationModal"
@@ -34,7 +34,7 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip"
 
-export function Topbar() {
+export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { setTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
@@ -44,9 +44,17 @@ export function Topbar() {
   const pathnames = location.pathname.split("/").filter((x) => x)
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card/50 backdrop-blur-md px-6 sticky top-0 z-10">
-      <div className="flex items-center gap-4">
-        <Breadcrumb>
+    <header className="flex h-16 items-center justify-between border-b bg-card/50 backdrop-blur-md px-4 md:px-6 sticky top-0 z-10">
+      <div className="flex items-center gap-2 md:gap-4">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="lg:hidden"
+          onClick={onMenuClick}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <Breadcrumb className="hidden sm:block">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink href="/">Home</BreadcrumbLink>

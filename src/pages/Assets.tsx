@@ -3,8 +3,10 @@ import { assetService } from "@/services/assetService";
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Asset } from "@/types";
-import { Monitor, Info } from "lucide-react";
+import { Monitor, Info, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { ImportWizard } from "@/components/inventory/ImportWizard";
 import { 
   Tooltip,
@@ -110,6 +112,10 @@ export default function AssetsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Inventário de Ativos</h1>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => toast.info("Adição manual será habilitada na próxima atualização.")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Ativo
+          </Button>
           <ImportWizard onComplete={() => queryClient.invalidateQueries({ queryKey: ["assets"] })} />
         </div>
       </div>

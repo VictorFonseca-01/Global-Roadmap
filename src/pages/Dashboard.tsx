@@ -7,7 +7,7 @@ import {
   CategoryDistributionChart, 
   EolTimelineChart 
 } from "@/components/dashboard/DashboardCharts";
-import { LayoutDashboard, FileDown, Monitor, Loader2 } from "lucide-react";
+import { FileDown, Monitor, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -118,45 +118,59 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6" id="dashboard-content">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-black tracking-tight">Dashboard Executivo</h1>
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 text-white p-8 md:p-12 shadow-2xl">
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-primary/30 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-blue-500/20 blur-[100px] rounded-full pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 w-fit">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Inteligência Estratégica Ativa</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">
+              Executive Dashboard
+            </h1>
+            <p className="text-slate-400 font-medium max-w-xl text-sm md:text-base leading-relaxed">
+              Visão consolidada do ciclo de vida tecnológico corporativo. Acompanhe riscos de obsolescência, orçamentos estimados e status de migrações em tempo real.
+            </p>
           </div>
-          <Select value={projectId || "all"} onValueChange={handleProjectChange}>
-            <SelectTrigger className="w-[250px] rounded-full h-10 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-              <SelectValue placeholder="Todos os Projetos" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem value="all">Visão Global (Todos)</SelectItem>
-              {projects.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="rounded-full shadow-sm hover:bg-slate-50 transition-all" 
-            onClick={handlePdfExport}
-            disabled={exporting}
-          >
-            {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
-            Relatório PDF
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="rounded-full shadow-sm hover:bg-slate-50 transition-all" 
-            onClick={() => exportService.exportToExcel(projectId)}
-          >
-            <FileDown className="h-4 w-4 mr-2" /> Planilha Excel
-          </Button>
-
+          
+          <div className="flex flex-col gap-3 min-w-[280px]">
+            <Select value={projectId || "all"} onValueChange={handleProjectChange}>
+              <SelectTrigger className="w-full rounded-2xl h-12 bg-white/10 border-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-md shadow-inner focus:ring-primary/50">
+                <SelectValue placeholder="Visão Global (Todos os Projetos)" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-2xl">
+                <SelectItem value="all">Visão Global (Todos)</SelectItem>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1 rounded-2xl h-11 bg-white/5 border-white/10 hover:bg-white/10 text-slate-200 transition-all shadow-none font-bold" 
+                onClick={handlePdfExport}
+                disabled={exporting}
+              >
+                {exporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+                Exportar PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex-1 rounded-2xl h-11 bg-white/5 border-white/10 hover:bg-white/10 text-slate-200 transition-all shadow-none font-bold" 
+                onClick={() => exportService.exportToExcel(projectId)}
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                Excel
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 

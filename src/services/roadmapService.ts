@@ -23,10 +23,14 @@ export const roadmapService = {
 
   },
 
-  async create(project: Omit<RoadmapProject, 'id' | 'created_at' | 'updated_at'>) {
+  async create(project: Partial<RoadmapProject>) {
+    const { name, category, scope, status, description, owner, start_date, end_date } = project;
+    const payload = Object.fromEntries(
+      Object.entries({ name, category, scope, status, description, owner, start_date, end_date }).filter(([_, v]) => v !== undefined)
+    );
     const { data, error } = await supabase
       .from('roadmap_projects')
-      .insert([project])
+      .insert([payload])
       .select()
       .single();
     if (error) throw error;
@@ -34,9 +38,13 @@ export const roadmapService = {
   },
 
   async update(id: string, project: Partial<RoadmapProject>) {
+    const { name, category, scope, status, description, owner, start_date, end_date } = project;
+    const payload = Object.fromEntries(
+      Object.entries({ name, category, scope, status, description, owner, start_date, end_date }).filter(([_, v]) => v !== undefined)
+    );
     const { data, error } = await supabase
       .from('roadmap_projects')
-      .update(project)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();

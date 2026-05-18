@@ -25,7 +25,7 @@ export const roadmapGeneratorService = {
       name: params.name,
       category: params.category,
       scope: params.scope,
-      status: 'active',
+      status: 'in_progress',
       start_date: startDate,
       end_date: endDate.toISOString().split('T')[0],
       owner: 'System Auto-Generator'
