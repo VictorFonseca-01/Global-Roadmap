@@ -166,6 +166,15 @@ export const lifecycleEnrichmentService = {
       // Chamar motor de dados técnicos e complexidade
       const intelResult = lifecycleIntelligenceEngine.computeIntelligence(tempItem);
 
+      // Gerar a timeline estratégica centralizada da V2 de forma proativa
+      const strategic_timeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
+        product_name: tempItem.product_name,
+        asset_type: tempItem.asset_type,
+        business_criticality: tempItem.business_criticality,
+        end_of_support: tempItem.end_of_support,
+        estimated_cost: tempItem.estimated_cost
+      }, today);
+
       // Fallback de insights genéricos se estiver vazio
       let finalRisk = risk_insights.length > 0 ? risk_insights : (intelResult.requirements || []);
       if (finalRisk.length === 0) {
@@ -191,6 +200,7 @@ export const lifecycleEnrichmentService = {
         vendor_source: 'Microsoft Official Source',
         confidence_source,
         notes: item.notes || (compatibility_notes[0] || undefined),
+        strategic_timeline,
         ...intelResult
       });
     }

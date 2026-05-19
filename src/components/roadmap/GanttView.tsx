@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
@@ -9,6 +10,7 @@ import {
   addMonths, 
   startOfMonth, 
   differenceInMonths, 
+  differenceInDays,
   isBefore
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,6 +37,174 @@ import { useState, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ZoomLevel = 'month' | 'quarter' | 'year';
+
+const GanttRow = React.memo(({ plan, timelineStart, colWidth, months, today }: { plan: any, timelineStart: Date, colWidth: number, months: Date[], today: Date }) => {
+  const eolStr = plan.assets?.lifecycle_catalog?.end_of_support;
+  const eolDate = eolStr ? parseISO(eolStr) : null;
+
+  const strategicTimeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
+    product_name: plan.assets?.lifecycle_catalog?.product_name || '',
+    asset_type: plan.assets?.device_type || 'client',
+    business_criticality: plan.assets?.business_criticality || plan.priority || 'low',
+    end_of_support: eolStr || null,
+    estimated_cost: plan.estimated_cost || 0
+  }, today);
+
+  const getPixelOffsetOfDate = (date: Date) => {
+    const monthsDiff = differenceInMonths(date, timelineStart);
+    const day = date.getDate();
+    const daysInMonth = 30;
+    const preciseMonths = monthsDiff + (day / daysInMonth);
+    return preciseMonths * colWidth;
+  };
+
+  const eolOffset = eolDate ? getPixelOffsetOfDate(eolDate) : -1;
+
+  const phases = strategicTimeline.phases;
+  if (!phases || phases.length === 0) return null;
+
+  const pipelineStart = parseISO(phases[0].start_date);
+  const pipelineEnd = parseISO(phases[phases.length - 1].end_date);
+  const totalPipelineDays = differenceInDays(pipelineEnd, pipelineStart) || 1;
+
+  const pipelineLeft = getPixelOffsetOfDate(pipelineStart);
+  const pipelineWidth = getPixelOffsetOfDate(pipelineEnd) - pipelineLeft;
+
+  return (
+    <div className="h-20 border-b relative group/row hover:bg-primary/[0.02] transition-colors">
+      {/* Linha vermelha com glow sutil de EoL por Ativo */}
+      {eolDate && eolOffset >= 0 && eolOffset < months.length * colWidth && (
+        <div 
+          className="absolute top-0 bottom-0 border-l-2 border-rose-500/80 z-20 flex flex-col pointer-events-none"
+          style={{ 
+            left: eolOffset,
+            boxShadow: '0 0 8px rgba(244,63,94,0.4)' 
+          }}
+        >
+          <div className="opacity-0 group-hover/row:opacity-100 bg-rose-600 text-white text-[7px] font-black px-1.5 py-0.5 rounded absolute top-2 -left-8 uppercase tracking-wider transition-opacity shadow-lg">
+            EOL: {format(eolDate, "dd MMM yy").toUpperCase()}
+          </div>
+        </div>
+      )}
+
+      {/* Renderizar as Fases no Gantt como pipeline conectado (altura fixa 10px, gap zero) */}
+      <div 
+        className="absolute top-1/2 -translate-y-1/2 h-2.5 flex items-center bg-slate-100 dark:bg-slate-800/50 rounded-full p-0.5 border border-slate-200 dark:border-slate-800"
+        style={{ 
+          left: Math.max(0, pipelineLeft),
+          width: Math.max(40, pipelineWidth),
+        }}
+      >
+        {phases.map((phase, pIdx) => {
+          let color = 'from-blue-500 to-indigo-600';
+          let border = 'border-blue-400';
+          
+          if (phase.type === 'pilot') {
+            color = 'from-purple-500 to-violet-600';
+            border = 'border-purple-400';
+          } else if (phase.type === 'rollout') {
+            color = 'from-emerald-500 to-teal-600';
+            border = 'border-emerald-400';
+          } else if (phase.type === 'coexistence') {
+            color = 'from-amber-500 to-orange-600';
+            border = 'border-amber-400';
+          } else if (phase.type === 'decommission') {
+            color = 'from-slate-500 to-slate-600';
+            border = 'border-slate-400';
+          }
+
+          const widthPercent = (phase.duration_days / totalPipelineDays) * 100;
+          const isFirst = pIdx === 0;
+          const isLast = pIdx === phases.length - 1;
+
+          return (
+            <Tooltip key={pIdx}>
+              <TooltipTrigger asChild>
+                <motion.div
+                  whileHover={{ scaleY: 1.6, zIndex: 40 }}
+                  className={`h-full bg-gradient-to-r ${color} ${border} cursor-pointer relative transition-all ${
+                    isFirst ? 'rounded-l-full' : ''
+                  } ${
+                    isLast ? 'rounded-r-full' : ''
+                  }`}
+                  style={{ 
+                    width: `${widthPercent}%`,
+                    minWidth: '16px'
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />
+                </motion.div>
+              </TooltipTrigger>
+              <TooltipContent className="w-[380px] p-6 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950" side="top" sideOffset={10}>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase">
+                      Fase: {phase.type.toUpperCase()} ({phase.duration_days} dias)
+                    </Badge>
+                    <span className="text-[10px] font-black text-muted-foreground">{plan.assets?.hostname}</span>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-black tracking-tight text-slate-900 dark:text-white">
+                      {plan.assets?.lifecycle_catalog?.product_name} v{plan.assets?.lifecycle_catalog?.version}
+                    </h4>
+                    <div className="text-[10px] flex items-center gap-2 mt-1 font-bold text-primary">
+                      <span>Alvo: {strategicTimeline.recommended_target_version}</span>
+                      <span>({strategicTimeline.migration_strategy})</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-2 leading-relaxed">
+                      <strong>Objetivo:</strong> {phase.objective || 'Executar transição técnica.'}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t text-[11px]">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Início</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{parseISO(phase.start_date).toLocaleDateString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Fim</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{parseISO(phase.end_date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  {phase.dependencies && phase.dependencies.length > 0 && (
+                    <div className="pt-2 border-t text-[10px]">
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block mb-1">Dependências</span>
+                      <div className="flex flex-wrap gap-1">
+                        {phase.dependencies.map((dep, dIdx) => (
+                          <Badge key={dIdx} variant="outline" className="text-[8px] font-semibold">{dep}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t grid grid-cols-2 gap-4 text-[10px]">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Janela Segura</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{strategicTimeline.safe_migration_window_days} dias ({strategicTimeline.migration_window_status})</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Risco Financeiro</span>
+                      <span className="font-bold text-rose-500">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(strategicTimeline.operational_risk_cost || 0)}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t flex justify-between items-center text-[11px]">
+                    <span className="text-muted-foreground font-semibold">Custo Alocado (CAPEX)</span>
+                    <span className="font-black text-primary">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(plan.estimated_cost || 0)}
+                    </span>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
 
 export function GanttView({ projectId }: { projectId?: string }) {
   const queryClient = useQueryClient();
@@ -195,40 +365,94 @@ export function GanttView({ projectId }: { projectId?: string }) {
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Inventário / Detalhes Estratégicos</span>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-hide">
-              {plans.map((plan) => (
-                <div key={plan.id} className="h-20 border-b flex flex-col justify-center px-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group relative">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-black tracking-tight group-hover:text-primary transition-colors">{plan.assets?.hostname}</span>
-                    <Badge variant="outline" className={`text-[8px] uppercase font-black tracking-tighter ${getPriorityBadge(plan.priority)}`}>
-                      {plan.priority}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[10px] font-bold text-slate-500 truncate max-w-[200px]">
-                      {plan.assets?.lifecycle_catalog?.product_name} {plan.assets?.lifecycle_catalog?.version}
-                    </span>
-                    <ChevronRight className="h-3 w-3 text-slate-300" />
-                    <span className="text-[10px] font-black text-primary">
-                      {plan.assets?.lifecycle_catalog?.successor_version || "TBD"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-slate-400" />
-                      <span className="text-[9px] font-bold text-muted-foreground">EoL: {plan.assets?.lifecycle_catalog?.end_of_support ? format(parseISO(plan.assets.lifecycle_catalog.end_of_support), "MM/yyyy") : "-"}</span>
+              {plans.map((plan) => {
+                const eolStr = plan.assets?.lifecycle_catalog?.end_of_support;
+                const strategicTimeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
+                  product_name: plan.assets?.lifecycle_catalog?.product_name || '',
+                  asset_type: plan.assets?.device_type || 'client',
+                  business_criticality: plan.assets?.business_criticality || plan.priority || 'low',
+                  end_of_support: eolStr || null,
+                  estimated_cost: plan.estimated_cost || 0
+                });
+
+                const rolloutPhase = strategicTimeline.phases.find(p => p.type === 'rollout');
+                const eolDate = eolStr ? parseISO(eolStr) : null;
+                const rolloutEndsAfterEol = eolDate && rolloutPhase && isBefore(eolDate, parseISO(rolloutPhase.end_date));
+
+                return (
+                  <div key={plan.id} className="h-20 border-b flex flex-col justify-center px-6 hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-colors group relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-black tracking-tight group-hover:text-primary transition-colors truncate max-w-[220px]">
+                        {plan.assets?.hostname}
+                      </span>
+                      <div className="flex items-center gap-1 flex-wrap max-w-[200px]">
+                        <Badge variant="outline" className={`text-[8px] uppercase font-black tracking-tighter ${getPriorityBadge(plan.priority)}`}>
+                          {plan.priority}
+                        </Badge>
+                        {strategicTimeline.badges?.map((badge, bIdx) => {
+                          let style = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+                          let hasGlow = false;
+                          if (badge === 'Bloqueado') {
+                            style = 'bg-red-500/20 text-red-600 dark:text-red-400 font-black border-red-300';
+                            hasGlow = true;
+                          } else if (badge === 'Compliance Crítico') {
+                            style = 'bg-rose-500/20 text-rose-600 dark:text-rose-400 font-black border-rose-300';
+                            hasGlow = true;
+                          } else if (badge === 'Ultrapassa EoL') {
+                            style = 'bg-pink-500/20 text-pink-600 dark:text-pink-400 font-black border-pink-300';
+                            hasGlow = true;
+                          } else if (badge === 'High Operational Risk') {
+                            style = 'bg-orange-500/10 text-orange-600 dark:text-orange-400 font-bold border-orange-200';
+                          } else if (badge === 'Requires Assessment') {
+                            style = 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 font-bold border-yellow-200';
+                          } else if (badge === 'Safe Window') {
+                            style = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-200';
+                          }
+                          return (
+                            <Badge 
+                              key={bIdx} 
+                              variant="outline" 
+                              className={`text-[8px] uppercase font-black tracking-tighter transition-all ${style} ${hasGlow ? 'shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-pulse' : ''}`}
+                            >
+                              {badge}
+                            </Badge>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="h-1 w-1 rounded-full bg-slate-300" />
-                    <Badge variant="secondary" className="text-[8px] h-4 font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-500">
-                      {plan.status.replace('_', ' ')}
-                    </Badge>
-                    {plan.assets?.lifecycle_catalog?.end_of_support && isBefore(parseISO(plan.assets.lifecycle_catalog.end_of_support), today) && (
-                      <Badge className="bg-rose-500 text-white text-[8px] h-4 font-black uppercase border-none animate-pulse">
-                        EOL Expired
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 truncate max-w-[200px]">
+                        {plan.assets?.lifecycle_catalog?.product_name} {plan.assets?.lifecycle_catalog?.version}
+                      </span>
+                      <ChevronRight className="h-3 w-3 text-slate-300" />
+                      <span className="text-[10px] font-black text-primary truncate max-w-[120px]">
+                        {plan.assets?.lifecycle_catalog?.successor_version || "TBD"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-slate-400" />
+                        <span className="text-[9px] font-bold text-muted-foreground">
+                          EoL: {eolStr ? format(parseISO(eolStr), "MM/yyyy") : "-"}
+                        </span>
+                      </div>
+                      <div className="h-1 w-1 rounded-full bg-slate-300" />
+                      <Badge variant="secondary" className="text-[8px] h-4 font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-500">
+                        {plan.status.replace('_', ' ')}
                       </Badge>
-                    )}
+                      {rolloutEndsAfterEol ? (
+                        <Badge className="bg-rose-500 text-white text-[8px] h-4 font-black uppercase border-none animate-pulse">
+                          Ultrapassa EoL
+                        </Badge>
+                      ) : eolStr ? (
+                        <Badge className="bg-emerald-500 text-white text-[8px] h-4 font-black uppercase border-none">
+                          Janela Segura
+                        </Badge>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -287,154 +511,16 @@ export function GanttView({ projectId }: { projectId?: string }) {
 
               {/* Linhas dos Ativos */}
               <div className="relative z-10">
-                {plans.map((plan) => {
-                  const eolStr = plan.assets?.lifecycle_catalog?.end_of_support;
-                  const eolDate = eolStr ? parseISO(eolStr) : null;
-                  const planStart = plan.planned_start_date ? parseISO(plan.planned_start_date) : null;
-                  
-                  // Marcador de EoL para este ativo
-                  let eolOffset = -1;
-                  if (eolDate) {
-                    eolOffset = differenceInMonths(eolDate, timelineStart);
-                  }
-
-                  // 1. Chamar o motor de inteligência estratégico para extrair fases
-                  const mockReviewItem = {
-                    vendor: plan.assets?.lifecycle_catalog?.vendor || '',
-                    product_name: plan.assets?.lifecycle_catalog?.product_name || '',
-                    version: plan.assets?.lifecycle_catalog?.version || '',
-                    asset_type: plan.assets?.device_type || 'client',
-                    calculated_criticality: plan.priority || 'low',
-                  } as any;
-
-                  const phaseResult = lifecycleIntelligenceEngine.calculateMigrationPhases(
-                    mockReviewItem,
-                    eolStr || null
-                  );
-
-                  // 2. Definir as fases cronologicamente
-                  const phasesConfig = [
-                    {
-                      name: 'Homologação',
-                      start: phaseResult.phases.homologation_start,
-                      end: phaseResult.phases.homologation_end,
-                      color: 'bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400 text-white shadow-[0_0_8px_rgba(59,130,246,0.3)]',
-                      description: 'Homologação de aplicações, drivers e testes de compatibilidade em laboratório.'
-                    },
-                    {
-                      name: 'Piloto',
-                      start: phaseResult.phases.pilot_start,
-                      end: phaseResult.phases.pilot_end,
-                      color: 'bg-gradient-to-r from-violet-500 to-purple-600 border-violet-400 text-white shadow-[0_0_8px_rgba(139,92,246,0.3)]',
-                      description: 'Fase de testes em produção controlada com um grupo limitado de usuários.'
-                    },
-                    {
-                      name: 'Rollout',
-                      start: phaseResult.phases.rollout_start,
-                      end: phaseResult.phases.rollout_end,
-                      color: 'bg-gradient-to-r from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-[0_0_8px_rgba(16,185,129,0.3)]',
-                      description: 'Migração progressiva em larga escala para todos os ambientes corporativos.'
-                    },
-                    ...(phaseResult.phases.coexistence_start && phaseResult.phases.coexistence_end ? [{
-                      name: 'Coexistência',
-                      start: phaseResult.phases.coexistence_start,
-                      end: phaseResult.phases.coexistence_end,
-                      color: 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-white shadow-[0_0_8px_rgba(245,158,11,0.3)]',
-                      description: 'Período obrigatório de coexistência e operação assistida dos ambientes legado e novo.'
-                    }] : []),
-                    {
-                      name: 'Desativação',
-                      start: phaseResult.phases.deactivation_start,
-                      end: phaseResult.phases.deactivation_end,
-                      color: 'bg-gradient-to-r from-slate-500 to-slate-600 border-slate-400 text-white shadow-[0_0_8px_rgba(100,116,139,0.3)]',
-                      description: 'Descarte seguro de hardware ou desativação permanente de serviços do sistema antigo.'
-                    }
-                  ];
-
-                  return (
-                    <div key={plan.id} className="h-20 border-b relative group/row hover:bg-primary/[0.02] transition-colors">
-                      {/* Marcador EoL do Ativo */}
-                      {eolOffset >= 0 && eolOffset < months.length && (
-                        <div 
-                          className="absolute top-0 bottom-0 border-l border-rose-500/50 border-dashed z-0 flex flex-col"
-                          style={{ left: eolOffset * colWidth }}
-                        >
-                          <div className="opacity-0 group-row:opacity-100 bg-rose-500 text-white text-[7px] font-black px-1 py-0.5 rounded absolute top-2 -left-3 uppercase transition-opacity">EoL</div>
-                        </div>
-                      )}
-
-                      {/* Renderizar os Segmentos de Fase */}
-                      {planStart && phasesConfig.map((phase, pIdx) => {
-                        const pStart = parseISO(phase.start!);
-                        const pEnd = parseISO(phase.end!);
-                        
-                        const pStartOffset = differenceInMonths(pStart, timelineStart);
-                        const pDuration = Math.max(0.1, differenceInMonths(pEnd, pStart));
-                        
-                        if (pStartOffset + pDuration < 0 || pStartOffset > months.length) return null;
-
-                        return (
-                          <Tooltip key={pIdx}>
-                            <TooltipTrigger asChild>
-                              <motion.div
-                                initial={{ opacity: 0, scaleY: 0.8 }}
-                                animate={{ opacity: 1, scaleY: 1 }}
-                                whileHover={{ scale: 1.05, zIndex: 40 }}
-                                className={`absolute top-1/2 -translate-y-1/2 h-8 rounded-lg border flex flex-col justify-center px-2 cursor-pointer overflow-hidden backdrop-blur-sm ${phase.color}`}
-                                style={{ 
-                                  left: Math.max(0, pStartOffset) * colWidth + 5,
-                                  width: Math.max(0.4, pDuration) * colWidth - 10,
-                                }}
-                              >
-                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />
-                                <div className="relative z-10 flex items-center justify-between text-white text-[8px] font-black truncate leading-none">
-                                  <span className="truncate uppercase">{phase.name}</span>
-                                </div>
-                              </motion.div>
-                            </TooltipTrigger>
-                            <TooltipContent className="w-[360px] p-6 rounded-[1.5rem] overflow-hidden shadow-2xl border-none bg-white dark:bg-slate-900" side="top" sideOffset={10}>
-                              <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                  <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase">
-                                    Fase: {phase.name}
-                                  </Badge>
-                                  <span className="text-[10px] font-black text-muted-foreground">ID: {plan.assets?.hostname}</span>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="text-base font-black tracking-tight text-slate-900 dark:text-white">
-                                    {plan.assets?.lifecycle_catalog?.product_name} v{plan.assets?.lifecycle_catalog?.version}
-                                  </h4>
-                                  <p className="text-[10px] text-slate-500 font-medium mt-1">
-                                    {phase.description}
-                                  </p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 pt-2 border-t text-xs">
-                                  <div>
-                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Início</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">{pStart.toLocaleDateString()}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Fim</span>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">{pEnd.toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-
-                                <div className="pt-2 border-t flex justify-between items-center text-[10px]">
-                                  <span className="text-muted-foreground font-semibold">Custo Alocado</span>
-                                  <span className="font-black text-primary">
-                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(plan.estimated_cost || 0)}
-                                  </span>
-                                </div>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                {plans.map((plan) => (
+                  <GanttRow 
+                    key={plan.id}
+                    plan={plan}
+                    timelineStart={timelineStart}
+                    colWidth={colWidth}
+                    months={months}
+                    today={today}
+                  />
+                ))}
               </div>
             </div>
           </div>

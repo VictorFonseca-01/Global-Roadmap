@@ -36,7 +36,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Usar o hook robusto
-  const { profile, isLoading, isAuthenticated, userId, initials } = useUserProfile();
+  const { profile, isLoading, isAuthenticated, userId, initials, avatarUrl } = useUserProfile();
 
   const { register, handleSubmit, formState: { errors, isDirty } } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -183,8 +183,8 @@ export default function ProfilePage() {
                 <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-primary/20 group-hover:border-primary transition-all duration-300 bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-inner">
                   {uploading ? (
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  ) : profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                  ) : avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary to-primary/80 text-white text-3xl font-black">
                       {initials}

@@ -76,8 +76,58 @@ export interface AIReviewItem extends AIRoadmapParsedItem {
   opex_savings?: number;
   requirements?: string[];
   phases?: MigrationPhases;
+  strategic_timeline?: StrategicTimelineResult;
   
   notes?: string;
+}
+
+export interface StrategicPhase {
+  type: 'homologation' | 'pilot' | 'rollout' | 'coexistence' | 'decommission';
+  start_date: string;
+  end_date: string;
+  duration_days: number;
+  status: 'planned' | 'active' | 'completed' | 'delayed';
+  objective?: string;
+  risks?: string[];
+  dependencies?: string[];
+  compliance_notes?: string[];
+}
+
+export interface StrategicTimelineResult {
+  phases: StrategicPhase[];
+  critical_path_status: 'on_track' | 'at_risk' | 'overdue' | 'blocked';
+  compliance_impact: 'low' | 'medium' | 'high' | 'critical';
+  migration_readiness?: 'ready' | 'requires_assessment' | 'blocked' | 'high_risk';
+  health_score_impact?: number;
+  
+  // V2 Hardened decision properties
+  recommended_target_version?: string;
+  migration_strategy?: string;
+  recommended_platform?: string;
+  migration_target_label?: string;
+  recommended_start_date?: string;
+  safe_migration_window_days?: number;
+  contingency_buffer_days?: number;
+  urgency_level?: 'immediate' | 'high' | 'medium' | 'low';
+  migration_window_status?: 'safe' | 'warning' | 'critical' | 'expired';
+  operational_risk_cost?: number;
+  badges?: string[];
+  executive_narrative?: string;
+  health_score_breakdown?: Array<{ penalty: number; reason: string }>;
+  
+  // Simulation layer
+  simulation_impact?: string;
+  predicted_health_score?: number;
+  predicted_opex_savings?: number;
+  predicted_risk_reduction?: number;
+
+  // V3 Decision Simulation and Deadline properties
+  recommended_cutover_date?: string;
+  rollback_deadline?: string;
+  safe_window_remaining_days?: number;
+  migration_prerequisites?: string[];
+  blocked_by?: string[];
+  dependencies?: string[];
 }
 
 export interface AIReviewData {
