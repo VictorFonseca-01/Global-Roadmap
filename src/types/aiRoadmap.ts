@@ -37,6 +37,19 @@ export const AIRoadmapParseResponseSchema = z.object({
 export type AIRoadmapParsedItem = z.infer<typeof AIRoadmapParsedItemSchema>;
 export type AIRoadmapParseResponse = z.infer<typeof AIRoadmapParseResponseSchema>;
 
+export interface MigrationPhases {
+  homologation_start?: string;
+  homologation_end?: string;
+  pilot_start?: string;
+  pilot_end?: string;
+  rollout_start?: string;
+  rollout_end?: string;
+  coexistence_start?: string;
+  coexistence_end?: string;
+  deactivation_start?: string;
+  deactivation_end?: string;
+}
+
 export interface AIReviewItem extends AIRoadmapParsedItem {
   id: string; // Gerado no frontend para controle de lista
   end_of_support?: string | null;
@@ -46,7 +59,24 @@ export interface AIReviewItem extends AIRoadmapParsedItem {
   planned_end_date?: string;
   estimated_cost: number;
   compatibility_risk: 'low' | 'medium' | 'high';
-  confidence_source?: 'ai' | 'deterministic_fallback';
+  confidence_source?: 'ai' | 'deterministic_fallback' | 'lifecycle_catalog';
+  support_status?: 'supported' | 'near_eol' | 'out_of_support' | 'extended_support' | 'unknown';
+  suggested_start?: string;
+  suggested_deadline?: string;
+  risk_insights?: string[];
+  compatibility_notes?: string[];
+  lifecycle_url?: string;
+  last_verified?: string;
+  vendor_source?: string;
+  
+  // Enterprise Evolution Fields
+  migration_strategy?: string;
+  migration_complexity?: 'low' | 'medium' | 'high' | 'critical';
+  rollback_plan?: string;
+  opex_savings?: number;
+  requirements?: string[];
+  phases?: MigrationPhases;
+  
   notes?: string;
 }
 

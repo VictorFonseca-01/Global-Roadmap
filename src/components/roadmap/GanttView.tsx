@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
+import { lifecycleIntelligenceEngine } from "@/services/lifecycleIntelligenceEngine";
 import { Badge } from "@/components/ui/badge";
 import { 
   format, 
@@ -8,7 +9,6 @@ import {
   addMonths, 
   startOfMonth, 
   differenceInMonths, 
-  differenceInDays, 
   isBefore
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,7 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { 
-  ArrowRight, 
   Map as MapIcon, 
   RefreshCw, 
   AlertTriangle,
@@ -28,7 +27,6 @@ import {
   ChevronRight,
   Info,
   Maximize2,
-  Calendar,
   Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -88,16 +86,6 @@ export function GanttView({ projectId }: { projectId?: string }) {
 
   const colWidth = getColWidth();
   const timelineWidth = months.length * colWidth;
-
-  const getPriorityColor = (p: string) => {
-    switch (p) {
-      case 'critical': return 'bg-gradient-to-r from-rose-500 to-rose-600 border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.4)]';
-      case 'high': return 'bg-gradient-to-r from-orange-500 to-orange-600 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)]';
-      case 'medium': return 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]';
-      case 'low': return 'bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)]';
-      default: return 'bg-gradient-to-r from-slate-400 to-slate-500 border-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.4)]';
-    }
-  };
 
   const getPriorityBadge = (p: string) => {
     switch (p) {
@@ -303,17 +291,65 @@ export function GanttView({ projectId }: { projectId?: string }) {
                   const eolStr = plan.assets?.lifecycle_catalog?.end_of_support;
                   const eolDate = eolStr ? parseISO(eolStr) : null;
                   const planStart = plan.planned_start_date ? parseISO(plan.planned_start_date) : null;
-                  const planEnd = plan.planned_end_date ? parseISO(plan.planned_end_date) : null;
-
-                  // Cálculo de posicionamento da barra
-                  const startOffset = planStart ? differenceInMonths(planStart, timelineStart) : -1;
-                  const duration = (planStart && planEnd) ? Math.max(1, differenceInMonths(planEnd, planStart)) : 4;
                   
                   // Marcador de EoL para este ativo
                   let eolOffset = -1;
                   if (eolDate) {
                     eolOffset = differenceInMonths(eolDate, timelineStart);
                   }
+
+                  // 1. Chamar o motor de inteligência estratégico para extrair fases
+                  const mockReviewItem = {
+                    vendor: plan.assets?.lifecycle_catalog?.vendor || '',
+                    product_name: plan.assets?.lifecycle_catalog?.product_name || '',
+                    version: plan.assets?.lifecycle_catalog?.version || '',
+                    asset_type: plan.assets?.device_type || 'client',
+                    calculated_criticality: plan.priority || 'low',
+                  } as any;
+
+                  const phaseResult = lifecycleIntelligenceEngine.calculateMigrationPhases(
+                    mockReviewItem,
+                    eolStr || null
+                  );
+
+                  // 2. Definir as fases cronologicamente
+                  const phasesConfig = [
+                    {
+                      name: 'Homologação',
+                      start: phaseResult.phases.homologation_start,
+                      end: phaseResult.phases.homologation_end,
+                      color: 'bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400 text-white shadow-[0_0_8px_rgba(59,130,246,0.3)]',
+                      description: 'Homologação de aplicações, drivers e testes de compatibilidade em laboratório.'
+                    },
+                    {
+                      name: 'Piloto',
+                      start: phaseResult.phases.pilot_start,
+                      end: phaseResult.phases.pilot_end,
+                      color: 'bg-gradient-to-r from-violet-500 to-purple-600 border-violet-400 text-white shadow-[0_0_8px_rgba(139,92,246,0.3)]',
+                      description: 'Fase de testes em produção controlada com um grupo limitado de usuários.'
+                    },
+                    {
+                      name: 'Rollout',
+                      start: phaseResult.phases.rollout_start,
+                      end: phaseResult.phases.rollout_end,
+                      color: 'bg-gradient-to-r from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-[0_0_8px_rgba(16,185,129,0.3)]',
+                      description: 'Migração progressiva em larga escala para todos os ambientes corporativos.'
+                    },
+                    ...(phaseResult.phases.coexistence_start && phaseResult.phases.coexistence_end ? [{
+                      name: 'Coexistência',
+                      start: phaseResult.phases.coexistence_start,
+                      end: phaseResult.phases.coexistence_end,
+                      color: 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-400 text-white shadow-[0_0_8px_rgba(245,158,11,0.3)]',
+                      description: 'Período obrigatório de coexistência e operação assistida dos ambientes legado e novo.'
+                    }] : []),
+                    {
+                      name: 'Desativação',
+                      start: phaseResult.phases.deactivation_start,
+                      end: phaseResult.phases.deactivation_end,
+                      color: 'bg-gradient-to-r from-slate-500 to-slate-600 border-slate-400 text-white shadow-[0_0_8px_rgba(100,116,139,0.3)]',
+                      description: 'Descarte seguro de hardware ou desativação permanente de serviços do sistema antigo.'
+                    }
+                  ];
 
                   return (
                     <div key={plan.id} className="h-20 border-b relative group/row hover:bg-primary/[0.02] transition-colors">
@@ -327,89 +363,75 @@ export function GanttView({ projectId }: { projectId?: string }) {
                         </div>
                       )}
 
-                      {/* Barra de Migração */}
-                      {planStart && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <motion.div
-                              initial={{ opacity: 0, x: -50 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              whileHover={{ scale: 1.01, zIndex: 30 }}
-                              className={`absolute top-1/2 -translate-y-1/2 h-10 rounded-2xl border-2 flex flex-col justify-center px-4 cursor-pointer overflow-hidden backdrop-blur-sm ${getPriorityColor(plan.priority)}`}
-                              style={{ 
-                                left: Math.max(0, startOffset) * colWidth + 10,
-                                width: Math.max(1.5, duration) * colWidth - 20,
-                              }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent" />
-                              <div className="relative z-10 flex flex-col text-white">
-                                <div className="flex items-center gap-2 text-[10px] font-black leading-tight truncate">
-                                  <span className="truncate">{plan.assets?.lifecycle_catalog?.product_name} {plan.assets?.lifecycle_catalog?.version}</span>
-                                  <ArrowRight className="h-3 w-3 shrink-0 opacity-50" />
-                                  <span className="truncate font-black">{plan.assets?.lifecycle_catalog?.successor_version || "Next Gen"}</span>
-                                </div>
-                                <div className="text-[8px] font-black uppercase opacity-80 tracking-tighter mt-0.5">
-                                  Janela de Migração: {format(planStart, "MMM/yy")} - {planEnd ? format(planEnd, "MMM/yy") : "TBD"}
-                                </div>
-                              </div>
-                            </motion.div>
-                          </TooltipTrigger>
-                          <TooltipContent className="w-[420px] p-0 rounded-[2rem] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border-none bg-white dark:bg-slate-900" side="top" sideOffset={10}>
-                            <div className={`p-8 ${getPriorityColor(plan.priority).replace('shadow-[0_0_15px_rgba', 'shadow-none').replace(' border-', ' border-none ')} text-white relative overflow-hidden`}>
-                              <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 translate-x-4 -translate-y-4">
-                                <Zap className="h-32 w-32" />
-                              </div>
-                              <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-2">
-                                  <Badge className="bg-white/20 text-white border-none text-[9px] font-black uppercase">{plan.priority}</Badge>
-                                  <span className="text-[10px] font-black uppercase opacity-60">ID: {plan.assets?.asset_tag || "N/A"}</span>
-                                </div>
-                                <h4 className="text-2xl font-black tracking-tighter mb-1">{plan.assets?.hostname}</h4>
-                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest">{plan.assets?.lifecycle_catalog?.product_name} v{plan.assets?.lifecycle_catalog?.version}</p>
-                              </div>
-                            </div>
-                            <div className="p-8 space-y-6">
-                              <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-1">
-                                  <span className="text-[9px] font-black uppercase text-muted-foreground block">Fim do Suporte</span>
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-rose-500" />
-                                    <span className="text-sm font-black">{eolDate ? format(eolDate, "dd/MM/yyyy") : "Não cadastrado"}</span>
-                                  </div>
-                                </div>
-                                <div className="space-y-1">
-                                  <span className="text-[9px] font-black uppercase text-muted-foreground block">Dias Restantes</span>
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4 text-amber-500" />
-                                    <span className={`text-sm font-black ${eolDate && isBefore(eolDate, today) ? 'text-rose-500' : 'text-slate-900 dark:text-slate-100'}`}>
-                                      {eolDate ? differenceInDays(eolDate, today) : "N/A"}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-1">
-                                <span className="text-[9px] font-black uppercase text-muted-foreground block">Justificativa Estratégica</span>
-                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border italic text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                                  "{plan.justification}"
-                                </div>
-                              </div>
+                      {/* Renderizar os Segmentos de Fase */}
+                      {planStart && phasesConfig.map((phase, pIdx) => {
+                        const pStart = parseISO(phase.start!);
+                        const pEnd = parseISO(phase.end!);
+                        
+                        const pStartOffset = differenceInMonths(pStart, timelineStart);
+                        const pDuration = Math.max(0.1, differenceInMonths(pEnd, pStart));
+                        
+                        if (pStartOffset + pDuration < 0 || pStartOffset > months.length) return null;
 
-                              <div className="pt-4 border-t flex justify-between items-center">
+                        return (
+                          <Tooltip key={pIdx}>
+                            <TooltipTrigger asChild>
+                              <motion.div
+                                initial={{ opacity: 0, scaleY: 0.8 }}
+                                animate={{ opacity: 1, scaleY: 1 }}
+                                whileHover={{ scale: 1.05, zIndex: 40 }}
+                                className={`absolute top-1/2 -translate-y-1/2 h-8 rounded-lg border flex flex-col justify-center px-2 cursor-pointer overflow-hidden backdrop-blur-sm ${phase.color}`}
+                                style={{ 
+                                  left: Math.max(0, pStartOffset) * colWidth + 5,
+                                  width: Math.max(0.4, pDuration) * colWidth - 10,
+                                }}
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />
+                                <div className="relative z-10 flex items-center justify-between text-white text-[8px] font-black truncate leading-none">
+                                  <span className="truncate uppercase">{phase.name}</span>
+                                </div>
+                              </motion.div>
+                            </TooltipTrigger>
+                            <TooltipContent className="w-[360px] p-6 rounded-[1.5rem] overflow-hidden shadow-2xl border-none bg-white dark:bg-slate-900" side="top" sideOffset={10}>
+                              <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                  <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase">
+                                    Fase: {phase.name}
+                                  </Badge>
+                                  <span className="text-[10px] font-black text-muted-foreground">ID: {plan.assets?.hostname}</span>
+                                </div>
+                                
                                 <div>
-                                  <span className="text-[9px] font-black uppercase text-muted-foreground block">Custo Estimado</span>
-                                  <span className="text-lg font-black text-primary">
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(plan.estimated_cost || 0)}
+                                  <h4 className="text-base font-black tracking-tight text-slate-900 dark:text-white">
+                                    {plan.assets?.lifecycle_catalog?.product_name} v{plan.assets?.lifecycle_catalog?.version}
+                                  </h4>
+                                  <p className="text-[10px] text-slate-500 font-medium mt-1">
+                                    {phase.description}
+                                  </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 pt-2 border-t text-xs">
+                                  <div>
+                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Início</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">{pStart.toLocaleDateString()}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Fim</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">{pEnd.toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t flex justify-between items-center text-[10px]">
+                                  <span className="text-muted-foreground font-semibold">Custo Alocado</span>
+                                  <span className="font-black text-primary">
+                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(plan.estimated_cost || 0)}
                                   </span>
                                 </div>
-                                <Button size="sm" className="rounded-full px-6 font-black text-[10px] uppercase">
-                                  Gerenciar Plano
-                                </Button>
                               </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </div>
                   );
                 })}

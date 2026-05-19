@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { aiHistoryService } from "@/services/aiHistoryService";
+import { lifecycleEnrichmentService } from "@/services/lifecycleEnrichmentService";
 
 interface AIChatGeneratorProps {
   open: boolean;
@@ -118,9 +119,11 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
         throw new Error("Nenhum item de tecnologia pôde ser extraído do texto. Tente fornecer mais detalhes (ex: nomes de sistemas operacionais, versões e datas).");
       }
 
+      const enrichedItems = await lifecycleEnrichmentService.enrichLifecycleData(reviewItems);
+
       setReviewData({
         ...parsed,
-        items: reviewItems
+        items: enrichedItems
       });
 
       if (parsed.warning_message) {
