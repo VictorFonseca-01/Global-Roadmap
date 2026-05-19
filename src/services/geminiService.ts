@@ -166,6 +166,149 @@ export function parseLocalDeterministicRegex(prompt: string): AIRoadmapParseResp
   };
 }
 
+export function getLocalLifecycle(vendor: string, product: string, version: string): LifecycleAIResponse {
+  const normVendor = (vendor || "").toLowerCase();
+  const normProduct = (product || "").toLowerCase();
+  const normVersion = (version || "").toLowerCase();
+  const combined = `${normVendor} ${normProduct} ${normVersion}`.trim();
+
+  // Inicializa uma resposta premium com dados básicos
+  const baseResponse: LifecycleAIResponse = {
+    vendor: vendor || "Desconhecido",
+    product_name: product || "Produto Desconhecido",
+    version: version || "1.0",
+    end_of_support: null,
+    extended_support_end: null,
+    successor_version: null,
+    source_url: "https://learn.microsoft.com/lifecycle/",
+    confidence_score: 95,
+    notes: "Enriquecido localmente (Fallback Determinístico) devido à indisponibilidade ou bloqueio de CORS da API de IA."
+  };
+
+  // 1. Microsoft Windows Server 2025
+  if (combined.includes("windows server 2025") || combined.includes("win server 2025") || combined.includes("server 2025")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2025";
+    baseResponse.version = version || "2025";
+    baseResponse.end_of_support = "2029-10-09";
+    baseResponse.extended_support_end = "2034-10-10";
+    baseResponse.successor_version = "Next Windows Server";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte Geral até out/2029, Estendido até out/2034).";
+    return baseResponse;
+  }
+
+  // 2. Microsoft Windows Server 2022
+  if (combined.includes("windows server 2022") || combined.includes("win server 2022") || combined.includes("server 2022")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2022";
+    baseResponse.version = version || "2022";
+    baseResponse.end_of_support = "2026-10-13";
+    baseResponse.extended_support_end = "2031-10-14";
+    baseResponse.successor_version = "Windows Server 2025";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte Geral até out/2026, Estendido até out/2031).";
+    return baseResponse;
+  }
+
+  // 3. Microsoft Windows Server 2019
+  if (combined.includes("windows server 2019") || combined.includes("win server 2019") || combined.includes("server 2019")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2019";
+    baseResponse.version = version || "2019";
+    baseResponse.end_of_support = "2024-01-09";
+    baseResponse.extended_support_end = "2029-01-09";
+    baseResponse.successor_version = "Windows Server 2022";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte Geral expirado, Suporte Estendido até jan/2029).";
+    return baseResponse;
+  }
+
+  // 4. Microsoft Windows Server 2016
+  if (combined.includes("windows server 2016") || combined.includes("win server 2016") || combined.includes("server 2016")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2016";
+    baseResponse.version = version || "2016";
+    baseResponse.end_of_support = "2022-01-11";
+    baseResponse.extended_support_end = "2027-01-12";
+    baseResponse.successor_version = "Windows Server 2019";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte Geral expirado, Suporte Estendido até jan/2027).";
+    return baseResponse;
+  }
+
+  // 5. Microsoft Windows Server 2012 R2
+  if (combined.includes("windows server 2012 r2") || combined.includes("server 2012 r2") || combined.includes("win server 2012 r2")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2012 R2";
+    baseResponse.version = version || "2012 R2";
+    baseResponse.end_of_support = "2018-10-09";
+    baseResponse.extended_support_end = "2023-10-10";
+    baseResponse.successor_version = "Windows Server 2016";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte encerrado em out/2023).";
+    return baseResponse;
+  } else if (combined.includes("windows server 2012") || combined.includes("server 2012") || combined.includes("win server 2012")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows Server 2012";
+    baseResponse.version = version || "2012";
+    baseResponse.end_of_support = "2018-10-09";
+    baseResponse.extended_support_end = "2023-10-10";
+    baseResponse.successor_version = "Windows Server 2012 R2";
+    baseResponse.notes = "Ciclo de vida determinado via base local (Suporte encerrado em out/2023).";
+    return baseResponse;
+  }
+
+  // 6. Microsoft Windows 11
+  if (combined.includes("windows 11") || combined.includes("win 11")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows 11";
+    
+    if (combined.includes("24h2")) {
+      baseResponse.version = "24H2";
+      baseResponse.end_of_support = "2026-11-10";
+      baseResponse.notes = "Windows 11 24H2 (Suporte Geral até nov/2026).";
+    } else if (combined.includes("23h2")) {
+      baseResponse.version = "23H2";
+      baseResponse.end_of_support = "2025-11-11";
+      baseResponse.notes = "Windows 11 23H2 (Suporte Geral até nov/2025).";
+    } else if (combined.includes("22h2")) {
+      baseResponse.version = "22H2";
+      baseResponse.end_of_support = "2024-10-08";
+      baseResponse.notes = "Windows 11 22H2 (Suporte Geral expirado).";
+    } else {
+      baseResponse.version = version || "23H2";
+      baseResponse.end_of_support = "2025-11-11";
+      baseResponse.notes = "Windows 11 (Ciclo de vida estimado com base nas versões estáveis).";
+    }
+    baseResponse.successor_version = "Next Windows Version";
+    return baseResponse;
+  }
+
+  // 7. Microsoft Windows 10
+  if (combined.includes("windows 10") || combined.includes("win 10")) {
+    baseResponse.vendor = "Microsoft";
+    baseResponse.product_name = "Windows 10";
+    
+    if (combined.includes("22h2")) {
+      baseResponse.version = "22H2";
+      baseResponse.end_of_support = "2025-10-14";
+      baseResponse.extended_support_end = "2028-10-14";
+      baseResponse.notes = "Windows 10 22H2 (Fim do Suporte Geral em out/2025, ESU até out/2028).";
+    } else if (combined.includes("21h2")) {
+      baseResponse.version = "21H2";
+      baseResponse.end_of_support = "2023-06-13";
+      baseResponse.notes = "Windows 10 21H2 (Suporte expirado).";
+    } else {
+      baseResponse.version = version || "22H2";
+      baseResponse.end_of_support = "2025-10-14";
+      baseResponse.notes = "Windows 10 (Fim de vida geral previsto para out/2025).";
+    }
+    baseResponse.successor_version = "Windows 11";
+    return baseResponse;
+  }
+
+  // 8. Fallback Geral (Ex: Linux, macOS ou outros)
+  baseResponse.notes = "Enriquecido localmente (Heurística de Fallback Geral) - Detalhes exatos de suporte indisponíveis.";
+  baseResponse.confidence_score = 50;
+  return baseResponse;
+}
+
 export const geminiService = {
   async enrichLifecycle(vendor: string, product: string, version: string, category: string = 'General'): Promise<LifecycleAIResponse> {
     const prompt = `Return ONLY JSON: {vendor,product_name,version,end_of_support,extended_support_end,successor_version,source_url,confidence_score,notes}. Product: ${vendor} ${product} ${version}`.trim();
@@ -234,9 +377,41 @@ export const geminiService = {
 
     } catch (error: unknown) {
       if (import.meta.env.DEV) {
-        console.error("Gemini Enrich Error:", error);
+        console.warn("[Gemini Enrich] Falha ao chamar a Edge Function. Ativando fallback determinístico local...", error);
       }
-      throw error;
+      
+      const fallbackData = getLocalLifecycle(vendor, product, version);
+
+      try {
+        const ttlDays = getTTLDays(vendor, category);
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + ttlDays);
+
+        // Salvar fallback determinístico no cache com organization_id para conformidade de RLS e evitar novos calls
+        await supabase.from("lifecycle_catalog").upsert({
+          vendor: fallbackData.vendor,
+          product_name: fallbackData.product_name,
+          version: fallbackData.version,
+          end_of_support: fallbackData.end_of_support,
+          extended_support_end: fallbackData.extended_support_end,
+          successor_version: fallbackData.successor_version,
+          source_url: fallbackData.source_url,
+          confidence_score: fallbackData.confidence_score,
+          notes: fallbackData.notes,
+          prompt_hash: promptHash,
+          model_name: "local-deterministic-fallback",
+          expires_at: expiresAt.toISOString(),
+          raw_response: fallbackData as any,
+          last_verified_at: new Date().toISOString(),
+          organization_id: organizationId
+        }, { onConflict: 'vendor,product_name,version,organization_id' });
+      } catch (cacheError) {
+        if (import.meta.env.DEV) {
+          console.error("[Gemini Enrich] Erro ao gravar cache do fallback local:", cacheError);
+        }
+      }
+
+      return fallbackData;
     } finally {
       releaseToken();
     }
