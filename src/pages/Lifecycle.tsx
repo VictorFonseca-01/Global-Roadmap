@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { format, parseISO } from "date-fns";
 
 const lifecycleSchema = z.object({
@@ -51,6 +52,7 @@ export default function LifecyclePage() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LifecycleItem | null>(null);
   const [enriching, setEnriching] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
 
   const { data: items = [] } = useQuery({
     queryKey: ["lifecycle"],
@@ -247,11 +249,7 @@ export default function LifecyclePage() {
             variant="ghost" 
             size="icon" 
             className="text-red-500 rounded-full h-8 w-8"
-            onClick={() => {
-              if (confirm("Excluir este item de lifecycle?")) {
-                deleteMutation.mutate(row.original.id);
-              }
-            }}
+            onClick={() => setDeleteItemId(row.original.id)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -431,10 +429,28 @@ export default function LifecyclePage() {
       </div>
     </div>
 
-    <DataTable 
+      <DataTable 
         columns={columns} 
         data={items} 
         searchKey="product_name" 
+      />
+
+      <ConfirmationModal
+        isOpen={!!deleteItemId}
+        onClose={() => setDeleteItemId(null)}
+        onConfirm={async () => {
+          if (deleteItemId) {
+            await deleteMutation.mutateAsync(deleteItemId);
+          }
+        }}
+        title="Excluir Item de Lifecycle?"
+        description="Tem certeza que deseja remover este item de lifecycle do catálogo operacional? Isso afetará os ativos que herdam esses dados."
+        confirmLabel="Excluir Item"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        destructiveLevel="high"
+        isLoading={deleteMutation.isPending}
+        preventCloseOnLoading={true}
       />
     </div>
   );

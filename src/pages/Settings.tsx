@@ -24,6 +24,7 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsService } from "@/services/settingsService";
 import { auditService } from "@/services/auditService";
+import { systemResetService } from "@/services/systemResetService";
 import { useForm } from "react-hook-form";
 import { AIHistoryTab } from "@/components/settings/AIHistoryTab";
 import { SystemHealthTab } from "@/components/settings/SystemHealthTab";
@@ -32,6 +33,7 @@ import { Activity } from "lucide-react";
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["system-settings"],
@@ -65,16 +67,31 @@ export default function SettingsPage() {
 
   const handleResetSystem = async () => {
     try {
-      toast.info("Iniciando reset do sistema...");
-      // Nota: Implementar lógica de reset total se necessário
+      setIsResetting(true);
+      await systemResetService.resetOperationalData();
+
       await auditService.log({
         action: 'SYSTEM_RESET',
-        description: 'O sistema foi resetado para os padrões de fábrica'
+        description: 'O sistema foi resetado para os padrões de fábrica (dados operacionais limpos por tenant)'
       });
-      toast.success("Sistema resetado com sucesso.");
+
+      // Limpeza de caches locais e do React Query
+      localStorage.clear();
+      sessionStorage.clear();
+      queryClient.clear();
+
+      toast.success("Plataforma resetada e base operacional limpa para o tenant atual.");
       setIsResetModalOpen(false);
-    } catch (error) {
-      toast.error("Erro ao resetar sistema.");
+
+      // Recarrega a página após um pequeno delay para que os empty states sejam forçados a renderizar
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error: any) {
+      console.error("[Settings] Erro ao resetar sistema:", error);
+      toast.error(`Erro ao resetar sistema: ${error.message || "Erro desconhecido"}`);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -261,10 +278,14 @@ export default function SettingsPage() {
         onClose={() => setIsResetModalOpen(false)}
         onConfirm={handleResetSystem}
         title="Deseja mesmo resetar o sistema?"
-        description="Esta ação irá apagar permanentemente todos os dados da plataforma. Não há como desfazer isso."
+        description="Esta ação irá apagar permanentemente todos os dados da plataforma para o tenant atual. Essa ação é irreversível."
         confirmLabel="Sim, Resetar Tudo"
         cancelLabel="Cancelar"
         variant="destructive"
+        destructiveLevel="critical"
+        confirmationText="RESETAR"
+        isLoading={isResetting}
+        preventCloseOnLoading={true}
       />
     </div>
   );

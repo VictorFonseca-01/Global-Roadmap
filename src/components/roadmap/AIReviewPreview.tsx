@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,57 +34,70 @@ export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat
       items: prev.items.filter(item => item.id !== id)
     }));
   };
-  const criticalCount = data.items.filter(i => i.calculated_criticality === 'critical').length;
-  
-  // Contamos EoL/Risk de suporte real
-  const eolWarningCount = data.items.filter(i => i.support_status === 'out_of_support' || i.support_status === 'near_eol').length;
-  const estimatedTotal = data.items.reduce((acc, curr) => acc + (curr.estimated_cost || 0), 0);
+  const {
+    criticalCount,
+    eolWarningCount,
+    estimatedTotal,
+    nextCriticalDate,
+    avgMigrationTime,
+    accumulatedRiskPct,
+    nonCompliantCount,
+    withoutSuccessorCount,
+    legacyCriticalCount,
+    opexSavingsTotal
+  } = useMemo(() => {
+    const critCount = data.items.filter(i => i.calculated_criticality === 'critical').length;
+    const eolWarning = data.items.filter(i => i.support_status === 'out_of_support' || i.support_status === 'near_eol').length;
+    const estTotal = data.items.reduce((acc, curr) => acc + (curr.estimated_cost || 0), 0);
 
-  // 1. Próxima Janela Crítica (Menor data de EoL futura ou geral)
-  const allEols = data.items
-    .map(i => i.end_of_support)
-    .filter((eol): eol is string => !!eol)
-    .map(eol => new Date(eol));
-  const nextCriticalDate = allEols.length > 0
-    ? new Date(Math.min(...allEols.map(d => d.getTime())))
-    : null;
+    const allEols = data.items
+      .map(i => i.end_of_support)
+      .filter((eol): eol is string => !!eol)
+      .map(eol => new Date(eol));
+    const nextCrit = allEols.length > 0
+      ? new Date(Math.min(...allEols.map(d => d.getTime())))
+      : null;
 
-  // 2. Tempo Médio de Migração em dias
-  const migrationDaysList = data.items
-    .map(i => {
-      if (i.suggested_start && i.suggested_deadline) {
-        const start = new Date(i.suggested_start);
-        const end = new Date(i.suggested_deadline);
-        return Math.max(0, differenceInDays(end, start));
-      }
-      return 0;
-    })
-    .filter(d => d > 0);
-  const avgMigrationTime = migrationDaysList.length > 0
-    ? Math.round(migrationDaysList.reduce((a, b) => a + b, 0) / migrationDaysList.length)
-    : 120; // fallback
+    const migrationDaysList = data.items
+      .map(i => {
+        if (i.suggested_start && i.suggested_deadline) {
+          const start = new Date(i.suggested_start);
+          const end = new Date(i.suggested_deadline);
+          return Math.max(0, differenceInDays(end, start));
+        }
+        return 0;
+      })
+      .filter(d => d > 0);
+    const avgMigTime = migrationDaysList.length > 0
+      ? Math.round(migrationDaysList.reduce((a, b) => a + b, 0) / migrationDaysList.length)
+      : 120;
 
-  // 3. Risco Acumulado (Índice % baseado em criticidade e EoL)
-  const totalAssets = data.items.length || 1;
-  const highRiskAssets = data.items.filter(i => 
-    i.support_status === 'out_of_support' || 
-    i.support_status === 'near_eol' ||
-    i.calculated_criticality === 'critical'
-  ).length;
-  const accumulatedRiskPct = Math.round((highRiskAssets / totalAssets) * 100);
+    const totalAssets = data.items.length || 1;
+    const highRiskAssets = data.items.filter(i => 
+      i.support_status === 'out_of_support' || 
+      i.support_status === 'near_eol' ||
+      i.calculated_criticality === 'critical'
+    ).length;
+    const accRiskPct = Math.round((highRiskAssets / totalAssets) * 100);
 
-  // 4. Ambientes Fora de Compliance
-  const nonCompliantCount = data.items.filter(i => i.support_status === 'out_of_support').length;
+    const nonCompliant = data.items.filter(i => i.support_status === 'out_of_support').length;
+    const withoutSuccessor = data.items.filter(i => !i.successor_version).length;
+    const legacyCrit = data.items.filter(i => i.compatibility_risk === 'high' && i.calculated_criticality === 'critical').length;
+    const opexSavings = data.items.reduce((acc, curr) => acc + (curr.opex_savings || 0), 0);
 
-  // 5. Sistemas sem Sucessor
-  const withoutSuccessorCount = data.items.filter(i => !i.successor_version).length;
-
-  // 6. Ambientes Legados Críticos
-  const legacyCriticalCount = data.items.filter(i => i.compatibility_risk === 'high' && i.calculated_criticality === 'critical').length;
-
-  // 7. CAPEX Estimado: estimatedTotal
-  // 8. OPEX Reduzido
-  const opexSavingsTotal = data.items.reduce((acc, curr) => acc + (curr.opex_savings || 0), 0);
+    return {
+      criticalCount: critCount,
+      eolWarningCount: eolWarning,
+      estimatedTotal: estTotal,
+      nextCriticalDate: nextCrit,
+      avgMigrationTime: avgMigTime,
+      accumulatedRiskPct: accRiskPct,
+      nonCompliantCount: nonCompliant,
+      withoutSuccessorCount: withoutSuccessor,
+      legacyCriticalCount: legacyCrit,
+      opexSavingsTotal: opexSavings
+    };
+  }, [data.items]);
 
   const getSupportStatusBadge = (status: AIReviewItem['support_status']) => {
     switch (status) {
@@ -112,29 +125,31 @@ export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat
   };
 
   // Ordenar itens colocando os mais críticos de suporte e severidade no topo!
-  const sortedItems = [...data.items].sort((a, b) => {
-    const statusWeight = {
-      'out_of_support': 4,
-      'near_eol': 3,
-      'extended_support': 2,
-      'supported': 1,
-      'unknown': 0
-    };
-    const weightA = statusWeight[a.support_status || 'unknown'] || 0;
-    const weightB = statusWeight[b.support_status || 'unknown'] || 0;
-    
-    if (weightA !== weightB) return weightB - weightA;
-    
-    const critWeight = {
-      'critical': 4,
-      'high': 3,
-      'medium': 2,
-      'low': 1
-    };
-    const cA = critWeight[a.calculated_criticality || 'low'] || 0;
-    const cB = critWeight[b.calculated_criticality || 'low'] || 0;
-    return cB - cA;
-  });
+  const sortedItems = useMemo(() => {
+    return [...data.items].sort((a, b) => {
+      const statusWeight = {
+        'out_of_support': 4,
+        'near_eol': 3,
+        'extended_support': 2,
+        'supported': 1,
+        'unknown': 0
+      };
+      const weightA = statusWeight[a.support_status || 'unknown'] || 0;
+      const weightB = statusWeight[b.support_status || 'unknown'] || 0;
+      
+      if (weightA !== weightB) return weightB - weightA;
+      
+      const critWeight = {
+        'critical': 4,
+        'high': 3,
+        'medium': 2,
+        'low': 1
+      };
+      const cA = critWeight[a.calculated_criticality || 'low'] || 0;
+      const cB = critWeight[b.calculated_criticality || 'low'] || 0;
+      return cB - cA;
+    });
+  }, [data.items]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 rounded-lg overflow-hidden border shadow-sm">

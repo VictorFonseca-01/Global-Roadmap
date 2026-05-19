@@ -24,8 +24,12 @@ export const aiRoadmapGeneratorService = {
       const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single();
       const role = profile?.role?.toLowerCase() || '';
       
-      const canGenerateRoadmaps = role.includes('admin') || role.includes('director') || role.includes('manager') || true; 
+      const allowedRoles = ['admin', 'director', 'manager', 'super_admin'];
+      const canGenerateRoadmaps = allowedRoles.includes(role);
+      
       if (!canGenerateRoadmaps) {
+        const { telemetry } = await import('@/lib/telemetry');
+        await telemetry.log('security_event', 'critical', 'Acesso negado (RBAC denied): tentativa de gerar roadmap sem permissão', { role, userId: user.id });
         throw new Error("Usuário não possui permissão (can_generate_roadmaps) para gerar roadmaps.");
       }
 

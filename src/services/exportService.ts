@@ -55,7 +55,9 @@ export const exportService = {
       const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
 
       // 2. Gerar insights de IA sob demanda para o PDF
-      console.log("[Export] Gerando insights estratégicos via IA...");
+      if (import.meta.env.DEV) {
+        console.log("[Export] Gerando insights estratégicos via IA...");
+      }
       const aiInsights = await geminiService.getExecutiveInsights(data.stats, true);
       const combinedInsights = [...data.insights, ...aiInsights];
 

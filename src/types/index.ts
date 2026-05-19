@@ -124,6 +124,7 @@ export interface UserProfile {
   last_login?: string;
   updated_at?: string;
   created_at?: string;
+  organization_id?: string;
 }
 
 

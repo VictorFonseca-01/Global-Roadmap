@@ -1,11 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "@/lib/supabase";
 import { AIRoadmapParseResponseSchema, type AIRoadmapParseResponse } from "@/types";
+import { userService } from "./userService";
+import { sanitizePromptInput } from "@/lib/promptSanitizer";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 const MODEL_NAME = "gemini-1.5-flash-latest";
-
 
 export interface LifecycleAIResponse {
   vendor: string;
@@ -57,27 +55,10 @@ function getTTLDays(vendor: string, category: string): number {
   return 90;
 }
 
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
-  let lastError: unknown;
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      const delay = Math.pow(2, i) * 1000;
-      console.warn(`[Gemini] Tentativa ${i + 1} falhou. Tentando novamente em ${delay}ms...`);
-      await sleep(delay);
-    }
-  }
-  throw lastError;
-}
-
 export function parseLocalDeterministicRegex(prompt: string): AIRoadmapParseResponse {
-  console.log("[AI_PARSE_DEBUG] Executing local deterministic regex fallback...");
+  if (import.meta.env.DEV) {
+    console.log("[AI_PARSE_DEBUG] Executing local deterministic regex fallback...");
+  }
   const items: any[] = [];
 
   const rules = [
@@ -190,93 +171,100 @@ export const geminiService = {
     const prompt = `Return ONLY JSON: {vendor,product_name,version,end_of_support,extended_support_end,successor_version,source_url,confidence_score,notes}. Product: ${vendor} ${product} ${version}`.trim();
     const promptHash = await generateHash(prompt);
     
+    // Obter perfil do usuário autenticado para cache multi-tenant isolado
+    const profile = await userService.getProfile();
+    const organizationId = profile?.organization_id || "d290f1ee-6c54-4b01-90e6-d701748f0851";
+
     // 1. Check Cache
     const { data: cached } = await supabase
       .from("lifecycle_catalog")
       .select("*")
       .eq("prompt_hash", promptHash)
+      .eq("organization_id", organizationId)
       .gt("expires_at", new Date().toISOString())
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (cached) {
-      console.log(`[Gemini] Cache hit for ${vendor} ${product}`);
-      return cached.raw_response as LifecycleAIResponse;
+      if (import.meta.env.DEV) {
+        console.log(`[Gemini] Cache hit para ${vendor} ${product}`);
+      }
+      return cached.raw_response as unknown as LifecycleAIResponse;
     }
 
-    // 2. Acquire Token for Concurrency
+    // 2. Controle de Concorrência
     await acquireToken();
-    const startTime = Date.now();
     
     try {
-      const data = await withRetry(async () => {
-        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        const cleanJson = text.replace(/```json|```/g, "").trim();
-        return JSON.parse(cleanJson) as LifecycleAIResponse;
+      // 3. Invocar Edge Function no Supabase de forma segura
+      const { data, error: functionError } = await supabase.functions.invoke('ai-roadmap-parser', {
+        body: { prompt, action: "enrich_lifecycle", category }
       });
 
-      // 3. Persist and Cache
+      if (functionError || !data) {
+        throw new Error(functionError?.message || "Falha ao enriquecer dados de ciclo de vida através da Edge Function.");
+      }
 
+      const responseData = data as LifecycleAIResponse;
+
+      // 4. Persistir no Cache local por Tenant
       const ttlDays = getTTLDays(vendor, category);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + ttlDays);
 
       await supabase.from("lifecycle_catalog").upsert({
-        vendor: data.vendor,
-        product_name: data.product_name,
-        version: data.version,
-        end_of_support: data.end_of_support,
-        extended_support_end: data.extended_support_end,
-        successor_version: data.successor_version,
-        source_url: data.source_url,
-        confidence_score: data.confidence_score,
-        notes: data.notes,
+        vendor: responseData.vendor,
+        product_name: responseData.product_name,
+        version: responseData.version,
+        end_of_support: responseData.end_of_support,
+        extended_support_end: responseData.extended_support_end,
+        successor_version: responseData.successor_version,
+        source_url: responseData.source_url,
+        confidence_score: responseData.confidence_score,
+        notes: responseData.notes,
         prompt_hash: promptHash,
         model_name: MODEL_NAME,
         expires_at: expiresAt.toISOString(),
-        raw_response: data,
-        last_verified_at: new Date().toISOString()
-      }, { onConflict: 'vendor,product_name,version' });
+        raw_response: responseData,
+        last_verified_at: new Date().toISOString(),
+        organization_id: organizationId
+      }, { onConflict: 'vendor,product_name,version,organization_id' });
 
-      await this.logUsage(MODEL_NAME, "lifecycle_enrichment", startTime, true, promptHash);
-      return data;
+      return responseData;
 
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Gemini Error:", error);
-      await this.logUsage(MODEL_NAME, "lifecycle_enrichment", startTime, false, promptHash, errorMessage);
+      if (import.meta.env.DEV) {
+        console.error("Gemini Enrich Error:", error);
+      }
       throw error;
     } finally {
       releaseToken();
     }
   },
 
-
   async getExecutiveInsights(kpis: Record<string, unknown>, onDemand: boolean = false): Promise<string[]> {
-    if (!onDemand) return []; // Only generate on demand to save tokens
+    if (!onDemand) return [];
 
     const prompt = `As CTO advisor, analyze KPIs and return JSON array of 3 short strategic insights: ${JSON.stringify(kpis)}`;
-    const promptHash = await generateHash(prompt);
-    const startTime = Date.now();
 
+    await acquireToken();
     try {
-      const insights = await withRetry(async () => {
-        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return JSON.parse(response.text().replace(/```json|```/g, "").trim());
+      const { data, error: functionError } = await supabase.functions.invoke('ai-roadmap-parser', {
+        body: { prompt, action: "executive_insights" }
       });
 
-      await this.logUsage(MODEL_NAME, "executive_insights", startTime, true, promptHash);
-      return insights;
+      if (functionError || !data) {
+        throw new Error(functionError?.message || "Erro ao obter insights executivos.");
+      }
+
+      return data as string[];
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      await this.logUsage(MODEL_NAME, "executive_insights", startTime, false, promptHash, errorMessage);
+      if (import.meta.env.DEV) {
+        console.error("Gemini Insights Error:", error);
+      }
       return ["Análise estratégica indisponível no momento."];
+    } finally {
+      releaseToken();
     }
   },
 
@@ -301,42 +289,25 @@ Parse the following text and extract roadmap data in JSON format EXACTLY matchin
 }
 If information like 'implemented_at' is missing, set it to null and add a note in 'missing_information' indicating what is missing. Do NOT invent dates or metrics.`;
 
-    const fullPrompt = `${systemInstruction}\n\nUser Input:\n${prompt}`;
-    const promptHash = await generateHash(fullPrompt);
+    const sanitizedUserPrompt = sanitizePromptInput(prompt);
+    const fullPrompt = `${systemInstruction}\n\nUser Input:\n${sanitizedUserPrompt}`;
     const startTime = Date.now();
 
     await acquireToken();
     try {
-      const data = await withRetry(async () => {
-        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-        const result = await model.generateContent(fullPrompt);
-        const text = await result.response.text();
-        
-        console.log("[AI_PARSE_DEBUG] Raw response Gemini:", text);
-        
-        const cleanJson = text.replace(/```json|```/gi, "").trim();
-        console.log("[AI_PARSE_DEBUG] Cleaned response:", cleanJson);
-        
-        let parsed;
-        try {
-          parsed = JSON.parse(cleanJson);
-          console.log("[AI_PARSE_DEBUG] JSON.parse result:", parsed);
-        } catch (e) {
-          console.error("[AI_PARSE_DEBUG] JSON.parse failed:", e);
-          throw new Error("A IA não retornou um JSON válido.");
-        }
-
-        console.log("[AI_PARSE_DEBUG] missing_information contents:", parsed.missing_information);
-
-        const validated = AIRoadmapParseResponseSchema.safeParse(parsed);
-        if (!validated.success) {
-          console.error("[AI_PARSE_DEBUG] safeParse failed. Error format:", validated.error.format());
-          throw new Error("O JSON retornado pela IA não respeita o contrato estrito: " + validated.error.message);
-        }
-
-        return validated.data;
+      const { data, error: functionError } = await supabase.functions.invoke('ai-roadmap-parser', {
+        body: { prompt: fullPrompt, action: "parse_roadmap_prompt" }
       });
+
+      if (functionError || !data) {
+        throw new Error(functionError?.message || "Erro desconhecido ao processar o Roadmap.");
+      }
+
+      // Validar dados estruturados da resposta
+      const validated = AIRoadmapParseResponseSchema.safeParse(data);
+      if (!validated.success) {
+        throw new Error("Resposta da IA está fora do formato estruturado esperado: " + validated.error.message);
+      }
 
       const duration = Date.now() - startTime;
       if (duration > 5000) {
@@ -345,52 +316,25 @@ If information like 'implemented_at' is missing, set it to null and add a note i
         });
       }
 
-      await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash);
-      return data;
+      return validated.data;
     } catch (error: any) {
-      const errorMessage = error.message || String(error);
-      console.error("[AI_PARSE_DEBUG] Gemini Parse Error encountered:", error);
+      if (import.meta.env.DEV) {
+        console.error("[AI_PARSE_DEBUG] Edge Function Parse Error:", error);
+      }
       
-      // EXECUTAR FALLBACK DETERMINÍSTICO REGEX LOCAL
-      console.warn("[AI_PARSE_DEBUG] Invoking deterministic local regex parser...");
+      // Fallback determinístico de regex local se tudo falhar
+      if (import.meta.env.DEV) {
+        console.warn("[AI_PARSE_DEBUG] Executando parser determinístico de regex local...");
+      }
       const localResult = parseLocalDeterministicRegex(prompt);
       
       if (localResult.items.length > 0) {
-        console.log("[AI_PARSE_DEBUG] Regex parser extracted items successfully:", localResult.items);
-        await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash, "regex_fallback: " + errorMessage);
         return localResult;
       }
 
-      let friendlyMessage = "Nossa IA não conseguiu interpretar completamente o ambiente. Tente reformular o texto.";
-      if (errorMessage.includes("400") || errorMessage.includes("API_KEY")) {
-         friendlyMessage = "Problema de conexão com o servidor de IA. Verifique as configurações.";
-      } else if (errorMessage.includes("JSON") || errorMessage.includes("contrato")) {
-         friendlyMessage = "A resposta da IA estava truncada ou fora do padrão esperado. Tente enviar menos dados por vez.";
-      }
-
-      await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, false, promptHash, errorMessage);
-      throw new Error(friendlyMessage);
+      throw new Error("A IA não conseguiu processar as informações do Roadmap. Tente simplificar o texto ou inserir itens em lotes menores.");
     } finally {
       releaseToken();
-    }
-  },
-
-
-  async logUsage(model: string, type: string, startTime: number, success: boolean, promptHash?: string, error?: string) {
-    try {
-      await supabase.from("ai_usage_logs").insert({
-        model,
-        prompt_type: type,
-        execution_time_ms: Date.now() - startTime,
-        latency_ms: Date.now() - startTime,
-        success,
-        status: success ? 'success' : 'error',
-        error_message: error,
-        prompt_hash: promptHash,
-        tokens_used: 0 
-      });
-    } catch (e) {
-      console.error("Log Error:", e);
     }
   }
 };

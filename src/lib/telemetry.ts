@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type EventType = 'react_crash' | 'performance_warning' | 'api_error' | 'workflow_error';
+type EventType = 'react_crash' | 'performance_warning' | 'api_error' | 'workflow_error' | 'security_event' | 'pdf_failure' | 'rate_limit';
 type Severity = 'info' | 'warning' | 'error' | 'critical';
 
 export const telemetry = {

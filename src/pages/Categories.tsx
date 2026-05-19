@@ -26,6 +26,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+
 
 const categorySchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -38,6 +40,7 @@ export default function CategoriesPage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AssetCategory | null>(null);
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -134,11 +137,7 @@ export default function CategoriesPage() {
               variant="ghost" 
               size="icon" 
               className="text-red-500"
-              onClick={() => {
-                if (confirm("Tem certeza que deseja excluir esta categoria?")) {
-                  deleteMutation.mutate(row.original.id);
-                }
-              }}
+              onClick={() => setDeleteCategoryId(row.original.id)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -248,6 +247,24 @@ export default function CategoriesPage() {
         columns={columns} 
         data={categories} 
         searchKey="name" 
+      />
+
+      <ConfirmationModal
+        isOpen={!!deleteCategoryId}
+        onClose={() => setDeleteCategoryId(null)}
+        onConfirm={async () => {
+          if (deleteCategoryId) {
+            await deleteMutation.mutateAsync(deleteCategoryId);
+          }
+        }}
+        title="Excluir Categoria?"
+        description="Tem certeza que deseja remover esta categoria de ativos? Esta ação afetará a categorização dos seus ativos cadastrados."
+        confirmLabel="Excluir Categoria"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        destructiveLevel="high"
+        isLoading={deleteMutation.isPending}
+        preventCloseOnLoading={true}
       />
     </div>
   );

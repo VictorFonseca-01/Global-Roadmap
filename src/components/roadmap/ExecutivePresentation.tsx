@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { lifecycleIntelligenceEngine } from "@/services/lifecycleIntelligenceEngine";
@@ -47,107 +47,124 @@ export function ExecutivePresentation({ projectId }: { projectId?: string }) {
 
   if (isLoading) return <div className="p-20 text-center animate-pulse font-black text-slate-300 uppercase tracking-widest">Gerando Relatório Executivo...</div>;
 
-  // 1. Calcular métricas consolidadas do Dashboard
-  const strategicInput = plans.map(p => ({
-    product_name: p.assets?.lifecycle_catalog?.product_name || '',
-    asset_type: p.assets?.device_type || 'client',
-    business_criticality: p.assets?.business_criticality || p.priority || 'low',
-    end_of_support: p.assets?.lifecycle_catalog?.end_of_support || null,
-    estimated_cost: p.estimated_cost || 0
-  }));
+  // 1. Memoizar o cálculo de métricas consolidadas do Dashboard
+  const {
+    healthScore,
+    simulatedHealthScore,
+    activeSimulationsCount,
+    securityScore,
+    complianceScore,
+    stabilityScore,
+    governanceScore,
+    readinessScore,
+    totalCost
+  } = useMemo(() => {
+    const strategicInput = plans.map(p => ({
+      product_name: p.assets?.lifecycle_catalog?.product_name || '',
+      asset_type: p.assets?.device_type || 'client',
+      business_criticality: p.assets?.business_criticality || p.priority || 'low',
+      end_of_support: p.assets?.lifecycle_catalog?.end_of_support || null,
+      estimated_cost: p.estimated_cost || 0
+    }));
 
-  const healthScore = lifecycleIntelligenceEngine.calculateInfrastructureHealthScore(strategicInput);
+    const computedHealth = lifecycleIntelligenceEngine.calculateInfrastructureHealthScore(strategicInput, today);
 
-  // Calcular score simulado
-  const simulatedHealthScore = Math.round(
-    plans.reduce((acc, p) => {
-      const eol = p.assets?.lifecycle_catalog?.end_of_support || null;
-      const delay = simulatedDelays[p.id] || 0;
-      const todaySimulated = delay > 0 ? new Date(today.getTime() + delay * 30 * 24 * 60 * 60 * 1000) : today;
-      return acc + lifecycleIntelligenceEngine.calculateInfrastructureHealthScore([{
-        product_name: p.assets?.lifecycle_catalog?.product_name || '',
-        asset_type: p.assets?.device_type || 'client',
-        business_criticality: p.assets?.business_criticality || p.priority || 'low',
-        end_of_support: eol,
-        estimated_cost: p.estimated_cost || 0
-      }], todaySimulated);
-    }, 0) / (plans.length || 1)
-  );
+    // Calcular score simulado
+    const computedSimulated = Math.round(
+      plans.reduce((acc, p) => {
+        const eol = p.assets?.lifecycle_catalog?.end_of_support || null;
+        const delay = simulatedDelays[p.id] || 0;
+        const todaySimulated = delay > 0 ? new Date(today.getTime() + delay * 30 * 24 * 60 * 60 * 1000) : today;
+        return acc + lifecycleIntelligenceEngine.calculateInfrastructureHealthScore([{
+          product_name: p.assets?.lifecycle_catalog?.product_name || '',
+          asset_type: p.assets?.device_type || 'client',
+          business_criticality: p.assets?.business_criticality || p.priority || 'low',
+          end_of_support: eol,
+          estimated_cost: p.estimated_cost || 0
+        }], todaySimulated);
+      }, 0) / (plans.length || 1)
+    );
 
-  const activeSimulationsCount = Object.values(simulatedDelays).filter(d => d > 0).length;
+    const simCount = Object.values(simulatedDelays).filter(d => d > 0).length;
 
-  // Calcular pilares determinísticos baseados nos itens
-  let securityScore = 100;
-  let complianceScore = 100;
-  let stabilityScore = 100;
-  let governanceScore = 100;
-  let readinessScore = 100;
+    // Calcular pilares determinísticos baseados nos itens
+    let sec = 100;
+    let comp = 100;
+    let stab = 100;
+    let gov = 100;
+    let read = 100;
 
-  plans.forEach(p => {
-    const eolStr = p.assets?.lifecycle_catalog?.end_of_support || null;
-    const eolDate = eolStr ? parseISO(eolStr) : null;
-    const product = (p.assets?.lifecycle_catalog?.product_name || '').toLowerCase();
-    const assetType = (p.assets?.device_type || 'client').toLowerCase();
-    const criticality = (p.assets?.business_criticality || p.priority || 'low').toLowerCase();
+    plans.forEach(p => {
+      const eolStr = p.assets?.lifecycle_catalog?.end_of_support || null;
+      const eolDate = eolStr ? parseISO(eolStr) : null;
+      const product = (p.assets?.lifecycle_catalog?.product_name || '').toLowerCase();
+      const assetType = (p.assets?.device_type || 'client').toLowerCase();
+      const criticality = (p.assets?.business_criticality || p.priority || 'low').toLowerCase();
 
-    const isServer = assetType === 'server' || product.includes('server');
-    const isCritical = criticality === 'critical';
-    const hasSuccessor = !!eolStr && !!(product.includes('10') ? 'Windows 11 24H2' : product.includes('2012') ? 'Windows Server 2022' : product.includes('2016') ? 'Windows Server 2022' : product.includes('sql') ? 'SQL Server 2022' : '');
+      const isServer = assetType === 'server' || product.includes('server');
+      const isCritical = criticality === 'critical';
+      const hasSuccessor = !!eolStr && !!(product.includes('10') ? 'Windows 11 24H2' : product.includes('2012') ? 'Windows Server 2022' : product.includes('2016') ? 'Windows Server 2022' : product.includes('sql') ? 'SQL Server 2022' : '');
 
-    let support_status: 'supported' | 'near_eol' | 'out_of_support' = 'supported';
-    if (eolDate) {
-      if (isBefore(eolDate, today)) {
-        support_status = 'out_of_support';
-      } else if (differenceInDays(eolDate!, today) <= 180) {
-        support_status = 'near_eol';
-      }
-    }
-
-    if (support_status === 'out_of_support') {
-      securityScore -= 15;
-      complianceScore -= 15;
-    }
-    if (support_status === 'near_eol') {
-      complianceScore -= 10;
-    }
-    if (isServer && isCritical) {
-      stabilityScore -= 10;
-    }
-    if (!hasSuccessor) {
-      governanceScore -= 10;
-    }
-
-    let isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
-    if (isBlocked) {
-      readinessScore -= 15;
-    }
-
-    if (eolStr && support_status !== 'out_of_support') {
-      const timeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
-        product_name: product,
-        asset_type: assetType,
-        business_criticality: criticality,
-        end_of_support: eolStr,
-        estimated_cost: p.estimated_cost || 0
-      });
-      const rolloutPhase = timeline.phases.find(ph => ph.type === 'rollout');
-      if (rolloutPhase) {
-        const rEnd = parseISO(rolloutPhase.end_date);
-        if (isBefore(eolDate!, rEnd)) {
-          readinessScore -= 20;
+      let support_status: 'supported' | 'near_eol' | 'out_of_support' = 'supported';
+      if (eolDate) {
+        if (isBefore(eolDate, today)) {
+          support_status = 'out_of_support';
+        } else if (differenceInDays(eolDate!, today) <= 180) {
+          support_status = 'near_eol';
         }
       }
-    }
-  });
 
-  securityScore = Math.max(15, Math.min(100, securityScore));
-  complianceScore = Math.max(15, Math.min(100, complianceScore));
-  stabilityScore = Math.max(15, Math.min(100, stabilityScore));
-  governanceScore = Math.max(15, Math.min(100, governanceScore));
-  readinessScore = Math.max(15, Math.min(100, readinessScore));
-  
-  // Calcular Custos, OPEX e Risco GRC
-  const totalCost = plans.reduce((acc, p) => acc + (p.estimated_cost || 0), 0);
+      if (support_status === 'out_of_support') {
+        sec -= 15;
+        comp -= 15;
+      }
+      if (support_status === 'near_eol') {
+        comp -= 10;
+      }
+      if (isServer && isCritical) {
+        stab -= 10;
+      }
+      if (!hasSuccessor) {
+        gov -= 10;
+      }
+
+      let isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
+      if (isBlocked) {
+        read -= 15;
+      }
+
+      if (eolStr && support_status !== 'out_of_support') {
+        const timeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
+          product_name: product,
+          asset_type: assetType,
+          business_criticality: criticality,
+          end_of_support: eolStr,
+          estimated_cost: p.estimated_cost || 0
+        });
+        const rolloutPhase = timeline.phases.find(ph => ph.type === 'rollout');
+        if (rolloutPhase) {
+          const rEnd = parseISO(rolloutPhase.end_date);
+          if (isBefore(eolDate!, rEnd)) {
+            read -= 20;
+          }
+        }
+      }
+    });
+
+    const totCost = plans.reduce((acc, p) => acc + (p.estimated_cost || 0), 0);
+
+    return {
+      healthScore: computedHealth,
+      simulatedHealthScore: computedSimulated,
+      activeSimulationsCount: simCount,
+      securityScore: Math.max(15, Math.min(100, sec)),
+      complianceScore: Math.max(15, Math.min(100, comp)),
+      stabilityScore: Math.max(15, Math.min(100, stab)),
+      governanceScore: Math.max(15, Math.min(100, gov)),
+      readinessScore: Math.max(15, Math.min(100, read)),
+      totalCost: totCost
+    };
+  }, [plans, simulatedDelays, today]);
   
   let totalOpexSavings = 0;
   let totalDependencies = 0;

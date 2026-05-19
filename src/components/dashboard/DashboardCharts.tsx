@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { 
   PieChart, 
   Pie, 
@@ -16,7 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle } from "lucide-react"
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = memo(({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-xl">
@@ -33,17 +34,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
   }
   return null;
-};
+});
 
-const ChartEmptyState = ({ title }: { title: string }) => (
+CustomTooltip.displayName = "CustomTooltip";
+
+const ChartEmptyState = memo(({ title }: { title: string }) => (
   <Card className="col-span-1 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-sm bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl flex flex-col items-center justify-center p-6 min-h-[300px]">
     <AlertCircle className="h-8 w-8 text-slate-300 mb-3" />
     <h3 className="text-sm font-bold text-slate-500">{title}</h3>
     <p className="text-xs text-slate-400 text-center mt-1">Dados insuficientes para exibição</p>
   </Card>
-);
+));
 
-export function RiskChart({ data }: { data: any[] }) {
+ChartEmptyState.displayName = "ChartEmptyState";
+
+export const RiskChart = memo(function RiskChart({ data }: { data: any[] }) {
   if (!data || data.length === 0) return <ChartEmptyState title="Distribuição por Criticidade" />;
   return (
     <Card className="col-span-1 md:col-span-2 lg:col-span-1 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
@@ -73,9 +78,11 @@ export function RiskChart({ data }: { data: any[] }) {
       </CardContent>
     </Card>
   );
-}
+});
 
-export function MigrationStatusChart({ data }: { data: any[] }) {
+RiskChart.displayName = "RiskChart";
+
+export const MigrationStatusChart = memo(function MigrationStatusChart({ data }: { data: any[] }) {
   if (!data || data.length === 0) return <ChartEmptyState title="Status das Migrações" />;
   return (
     <Card className="col-span-1 md:col-span-2 lg:col-span-1 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
@@ -105,9 +112,11 @@ export function MigrationStatusChart({ data }: { data: any[] }) {
       </CardContent>
     </Card>
   );
-}
+});
 
-export function CategoryDistributionChart({ data }: { data: any[] }) {
+MigrationStatusChart.displayName = "MigrationStatusChart";
+
+export const CategoryDistributionChart = memo(function CategoryDistributionChart({ data }: { data: any[] }) {
   if (!data || data.length === 0) return <ChartEmptyState title="Ativos por Categoria" />;
   return (
     <Card className="col-span-1 lg:col-span-2 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
@@ -133,9 +142,11 @@ export function CategoryDistributionChart({ data }: { data: any[] }) {
       </CardContent>
     </Card>
   );
-}
+});
 
-export function EolTimelineChart({ data }: { data: any[] }) {
+CategoryDistributionChart.displayName = "CategoryDistributionChart";
+
+export const EolTimelineChart = memo(function EolTimelineChart({ data }: { data: any[] }) {
   if (!data || data.length === 0) return <ChartEmptyState title="End of Support (Time-series)" />;
   return (
     <Card className="col-span-1 lg:col-span-2 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
@@ -161,4 +172,6 @@ export function EolTimelineChart({ data }: { data: any[] }) {
       </CardContent>
     </Card>
   );
-}
+});
+
+EolTimelineChart.displayName = "EolTimelineChart";

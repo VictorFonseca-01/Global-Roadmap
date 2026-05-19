@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+
 
 const appSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -42,6 +44,7 @@ export default function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
+  const [deleteAppId, setDeleteAppId] = useState<string | null>(null);
 
   const { data: apps = [] } = useQuery({
     queryKey: ["applications"],
@@ -156,11 +159,7 @@ export default function ApplicationsPage() {
             variant="ghost" 
             size="icon" 
             className="text-red-500"
-            onClick={() => {
-              if (confirm("Excluir esta aplicação?")) {
-                deleteMutation.mutate(row.original.id);
-              }
-            }}
+            onClick={() => setDeleteAppId(row.original.id)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -286,6 +285,24 @@ export default function ApplicationsPage() {
         columns={columns} 
         data={apps} 
         searchKey="name" 
+      />
+
+      <ConfirmationModal
+        isOpen={!!deleteAppId}
+        onClose={() => setDeleteAppId(null)}
+        onConfirm={async () => {
+          if (deleteAppId) {
+            await deleteMutation.mutateAsync(deleteAppId);
+          }
+        }}
+        title="Excluir Aplicação?"
+        description="Tem certeza que deseja remover esta aplicação? Todos os dados associados a ela serão desvinculados permanentemente."
+        confirmLabel="Excluir Aplicação"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        destructiveLevel="high"
+        isLoading={deleteMutation.isPending}
+        preventCloseOnLoading={true}
       />
     </div>
   );

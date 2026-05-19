@@ -53,11 +53,16 @@ export default function DashboardPage() {
 
 
   const handlePdfExport = async () => {
+    if (stats && stats.totalAssets > 200) {
+      toast.warning("Relatório grande. A exportação pode levar mais tempo.");
+    }
     setExporting(true);
     toast.promise(
       exportService.exportExecutivePdf(projectId),
       {
-        loading: "Gerando relatório executivo de alta fidelidade...",
+        loading: stats && stats.totalAssets > 200
+          ? "Gerando relatório volumoso (>200 ativos). Isso pode demorar um momento..."
+          : "Gerando relatório executivo de alta fidelidade...",
         success: () => {
           setExporting(false);
           return "Relatório PDF gerado com sucesso!";

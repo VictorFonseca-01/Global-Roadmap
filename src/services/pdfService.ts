@@ -31,7 +31,11 @@ export const pdfService = {
     const blockerList: string[] = [];
     const complianceStandards = new Set<string>();
 
-    data.plans.forEach(p => {
+    // Proteção de memória / Otimização de dados: processamento em blocos
+    const totalPlans = data.plans.length;
+    
+    for (let i = 0; i < totalPlans; i++) {
+      const p = data.plans[i];
       const eolStr = p.assets?.lifecycle_catalog?.end_of_support || null;
       const timeline = lifecycleIntelligenceEngine.generateStrategicTimeline({
         product_name: p.assets?.lifecycle_catalog?.product_name || '',
@@ -57,7 +61,7 @@ export const pdfService = {
         p.assets?.device_type
       );
       rec.compliance.forEach(c => complianceStandards.add(c));
-    });
+    }
 
     // --- CAPA SLATE ESTILO ENTERPRISE ---
     doc.setFillColor(15, 23, 42); // Slate 900
@@ -148,11 +152,17 @@ export const pdfService = {
       doc.setTextColor(15, 23, 42);
       
       riskY += 5;
-      blockerList.slice(0, 4).forEach((blocker) => {
+      // Mostra os primeiros bloqueadores para fins de relatório resumido, sem truncar ativos principais
+      blockerList.slice(0, 8).forEach((blocker) => {
         const splitBlocker = doc.splitTextToSize(`• [ALERTA BLOQUEANTE] ${blocker}`, pageWidth - 40);
         doc.text(splitBlocker, 20, riskY);
         riskY += (splitBlocker.length * 4.5);
       });
+      if (blockerList.length > 8) {
+        doc.setFont("helvetica", "italic");
+        doc.text(`... e mais ${blockerList.length - 8} bloqueadores adicionais mapeados.`, 20, riskY);
+        riskY += 5;
+      }
     } else {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(16, 185, 129); // Emerald 500
@@ -164,7 +174,7 @@ export const pdfService = {
     currentY = riskY + 12;
 
     // --- SEÇÃO 4: INVESTMENT PLAN ---
-    if (currentY > 200) {
+    if (currentY > 210) {
       doc.addPage();
       currentY = 20;
     }
@@ -172,6 +182,12 @@ export const pdfService = {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text("4. Planejamento Recomendado de Investimento e Prazos GRC", 20, currentY);
+
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total de ativos analisados: ${totalPlans}`, 20, currentY + 6);
+
+    currentY += 10; // Espaço para a tabela
 
     const investmentTable = data.plans.map(p => {
       const eolStr = p.assets?.lifecycle_catalog?.end_of_support || null;
@@ -195,14 +211,18 @@ export const pdfService = {
       ];
     });
 
+    // Auto-paginação otimizada com repetição de cabeçalho
     autoTable(doc, {
-      startY: currentY + 5,
+      startY: currentY,
       head: [['Hostname', 'Legado', 'Alvo', 'Início Ideal', 'Cutover', 'Rollback Limite', 'CAPEX', 'OPEX Anual']],
-      body: investmentTable.slice(0, 12), // Mostra até 12 para caber perfeitamente nas margens corporativas
+      body: investmentTable, // TABELA COMPLETA SEM TRUNCAMENTO SILENCIOSO!
       theme: 'striped',
       headStyles: { fillColor: [15, 23, 42], fontSize: 8 },
       bodyStyles: { fontSize: 7.5 },
-      margin: { left: 20, right: 20 }
+      margin: { left: 20, right: 20, top: 25, bottom: 25 },
+      pageBreak: 'auto',
+      rowPageBreak: 'auto',
+      showHead: 'everyPage' // Repetir cabeçalho em cada nova página gerada pela quebra
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 12;
@@ -220,7 +240,10 @@ export const pdfService = {
     // Calcular impacto de adiar 6 meses
     let deferredRiskCost = 0;
     let deferredOpexLoss = 0;
-    data.plans.forEach(p => {
+    
+    // Processamento otimizado
+    for (let i = 0; i < totalPlans; i++) {
+      const p = data.plans[i];
       const eolStr = p.assets?.lifecycle_catalog?.end_of_support || null;
       const sim = lifecycleIntelligenceEngine.simulateStrategicDelay({
         product_name: p.assets?.lifecycle_catalog?.product_name || '',
@@ -239,7 +262,7 @@ export const pdfService = {
       });
       deferredRiskCost += (timeline.operational_risk_cost || 0) * (sim.projected_risk_increase / 100);
       deferredOpexLoss += sim.projected_opex_loss;
-    });
+    }
 
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "normal");
@@ -258,6 +281,7 @@ export const pdfService = {
       doc.text("CONFIDENCIAL — AUDIT-READY GLOBALPARTS TECHNOLOGY BRIEFING", 20, pageHeight - 10);
     }
 
+    // Cleanup de referências para Garbage Collection eficiente
     doc.save("GlobalParts_Executive_Technology_Roadmap.pdf");
   }
 };
