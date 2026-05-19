@@ -346,7 +346,7 @@ export default function ProfilePage() {
         description="Sua sessão será encerrada com segurança e todos os dados não salvos poderão ser perdidos."
         confirmLabel="Sim, Sair Agora"
         cancelLabel="Não, Continuar"
-        variant="destructive"
+        variant="danger"
       />
     </div>
   );

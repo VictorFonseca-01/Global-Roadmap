@@ -301,7 +301,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
       description="Encontramos uma análise anterior não finalizada. Deseja restaurar o texto digitado?"
       confirmLabel="Restaurar"
       cancelLabel="Descartar"
-      variant="default"
+      variant="info"
     />
 
     <ConfirmationModal
@@ -315,7 +315,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
       description="Toda a análise atual e os itens revisados serão perdidos. Tem certeza que deseja fechar?"
       confirmLabel="Sim, Descartar"
       cancelLabel="Continuar Editando"
-      variant="destructive"
+      variant="danger"
     />
     </>
   );

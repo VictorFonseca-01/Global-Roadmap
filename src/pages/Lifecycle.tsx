@@ -447,8 +447,8 @@ export default function LifecyclePage() {
         description="Tem certeza que deseja remover este item de lifecycle do catálogo operacional? Isso afetará os ativos que herdam esses dados."
         confirmLabel="Excluir Item"
         cancelLabel="Cancelar"
-        variant="destructive"
-        destructiveLevel="high"
+        variant="danger"
+        destructiveLevel="normal"
         isLoading={deleteMutation.isPending}
         preventCloseOnLoading={true}
       />

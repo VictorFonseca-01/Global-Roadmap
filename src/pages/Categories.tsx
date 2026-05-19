@@ -261,8 +261,8 @@ export default function CategoriesPage() {
         description="Tem certeza que deseja remover esta categoria de ativos? Esta ação afetará a categorização dos seus ativos cadastrados."
         confirmLabel="Excluir Categoria"
         cancelLabel="Cancelar"
-        variant="destructive"
-        destructiveLevel="high"
+        variant="danger"
+        destructiveLevel="normal"
         isLoading={deleteMutation.isPending}
         preventCloseOnLoading={true}
       />

@@ -281,7 +281,7 @@ export default function SettingsPage() {
         description="Esta ação irá apagar permanentemente todos os dados da plataforma para o tenant atual. Essa ação é irreversível."
         confirmLabel="Sim, Resetar Tudo"
         cancelLabel="Cancelar"
-        variant="destructive"
+        variant="danger"
         destructiveLevel="critical"
         confirmationText="RESETAR"
         isLoading={isResetting}

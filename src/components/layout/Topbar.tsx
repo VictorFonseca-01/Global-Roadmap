@@ -170,7 +170,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
         description="Sua sessão será encerrada com segurança e todos os dados não salvos poderão ser perdidos."
         confirmLabel="Sim, Sair Agora"
         cancelLabel="Cancelar"
-        variant="destructive"
+        variant="danger"
       />
     </header>
   )

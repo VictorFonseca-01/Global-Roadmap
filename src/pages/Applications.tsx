@@ -299,8 +299,8 @@ export default function ApplicationsPage() {
         description="Tem certeza que deseja remover esta aplicação? Todos os dados associados a ela serão desvinculados permanentemente."
         confirmLabel="Excluir Aplicação"
         cancelLabel="Cancelar"
-        variant="destructive"
-        destructiveLevel="high"
+        variant="danger"
+        destructiveLevel="normal"
         isLoading={deleteMutation.isPending}
         preventCloseOnLoading={true}
       />

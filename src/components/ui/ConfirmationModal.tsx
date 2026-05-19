@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, ShieldAlert, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, ShieldAlert, Loader2, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ConfirmationModalProps {
@@ -19,8 +19,8 @@ interface ConfirmationModalProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "default" | "destructive";
-  destructiveLevel?: "warning" | "high" | "critical";
+  variant?: "danger" | "warning" | "info";
+  destructiveLevel?: "normal" | "critical";
   confirmationText?: string;
   isLoading?: boolean;
   preventCloseOnLoading?: boolean;
@@ -34,8 +34,8 @@ export function ConfirmationModal({
   description,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
-  variant = "default",
-  destructiveLevel = "high",
+  variant = "danger",
+  destructiveLevel = "normal",
   confirmationText,
   isLoading = false,
   preventCloseOnLoading = true,
@@ -44,7 +44,11 @@ export function ConfirmationModal({
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Limpa o input de confirmação quando o modal abre ou fecha
+  // Se o nível for crítico, exige confirmação textual.
+  // Se não foi informada uma palavra explícita, usamos "CONFIRMAR" como padrão corporativo crítico.
+  const finalConfirmationText = confirmationText || (destructiveLevel === "critical" ? "CONFIRMAR" : undefined);
+
+  // Limpa o input de confirmação quando o modal abre
   useEffect(() => {
     if (isOpen) {
       setTypedConfirmation("");
@@ -56,20 +60,24 @@ export function ConfirmationModal({
   }, [isOpen]);
 
   const handleConfirm = async () => {
-    if (confirmationText && typedConfirmation !== confirmationText) return;
+    if (finalConfirmationText && typedConfirmation.trim().toUpperCase() !== finalConfirmationText.trim().toUpperCase()) return;
     if (isLoading) return;
     await onConfirm();
-    if (!isLoading) {
-      onClose();
-    }
+    onClose();
   };
 
-  const isConfirmationInvalid = confirmationText ? typedConfirmation !== confirmationText : false;
+  const isConfirmationInvalid = finalConfirmationText 
+    ? typedConfirmation.trim().toUpperCase() !== finalConfirmationText.trim().toUpperCase() 
+    : false;
   const isConfirmDisabled = isLoading || isConfirmationInvalid;
 
   // Tratar submissão via atalho ENTER no input
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isConfirmDisabled) {
+    if (e.key === "Enter") {
+      if (isConfirmDisabled) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       handleConfirm();
     }
@@ -77,39 +85,40 @@ export function ConfirmationModal({
 
   // Níveis de design destrutivo ou de segurança
   const getAlertStyles = () => {
-    if (variant === "default") {
+    if (variant === "info") {
       return {
-        iconContainer: "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]",
-        icon: <Sparkles className="h-8 w-8 text-primary animate-pulse" />,
-        accentColor: "border-primary/20 focus-visible:ring-primary shadow-primary/20 bg-primary hover:bg-primary/95",
+        iconContainer: "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]",
+        icon: <Info className="h-8 w-8 text-blue-400 animate-pulse" />,
+        accentColor: "border-blue-500/20 focus-visible:ring-blue-500 bg-blue-500 hover:bg-blue-600 text-white",
         accentGlow: "shadow-[0_0_20px_rgba(59,130,246,0.2)]",
       };
     }
 
-    switch (destructiveLevel) {
-      case "warning":
-        return {
-          iconContainer: "bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
-          icon: <AlertTriangle className="h-8 w-8 text-amber-500" />,
-          accentColor: "border-amber-500/20 focus-visible:ring-amber-500 bg-amber-500 hover:bg-amber-600 text-slate-950",
-          accentGlow: "shadow-[0_0_20px_rgba(245,158,11,0.25)]",
-        };
-      case "critical":
-        return {
-          iconContainer: "bg-purple-500/10 text-purple-500 border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.3)] animate-pulse",
-          icon: <ShieldAlert className="h-8 w-8 text-purple-500" />,
-          accentColor: "border-purple-500/20 focus-visible:ring-purple-500 bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white",
-          accentGlow: "shadow-[0_0_25px_rgba(239,68,68,0.4)] border border-red-500/30",
-        };
-      case "high":
-      default:
-        return {
-          iconContainer: "bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.2)]",
-          icon: <AlertTriangle className="h-8 w-8 text-red-500" />,
-          accentColor: "border-red-500/20 focus-visible:ring-red-500 bg-red-500 hover:bg-red-600 text-white",
-          accentGlow: "shadow-[0_0_20px_rgba(239,68,68,0.25)]",
-        };
+    if (variant === "warning") {
+      return {
+        iconContainer: "bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]",
+        icon: <AlertTriangle className="h-8 w-8 text-amber-500" />,
+        accentColor: "border-amber-500/20 focus-visible:ring-amber-500 bg-amber-500 hover:bg-amber-600 text-slate-950",
+        accentGlow: "shadow-[0_0_20px_rgba(245,158,11,0.25)]",
+      };
     }
+
+    // Default variant = "danger"
+    if (destructiveLevel === "critical") {
+      return {
+        iconContainer: "bg-purple-500/10 text-purple-500 border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.3)] animate-pulse",
+        icon: <ShieldAlert className="h-8 w-8 text-purple-500 animate-bounce" />,
+        accentColor: "border-purple-500/20 focus-visible:ring-purple-500 bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white",
+        accentGlow: "shadow-[0_0_25px_rgba(239,68,68,0.4)] border border-red-500/30",
+      };
+    }
+
+    return {
+      iconContainer: "bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.2)]",
+      icon: <AlertTriangle className="h-8 w-8 text-red-500" />,
+      accentColor: "border-red-500/20 focus-visible:ring-red-500 bg-red-500 hover:bg-red-600 text-white",
+      accentGlow: "shadow-[0_0_20px_rgba(239,68,68,0.25)]",
+    };
   };
 
   const design = getAlertStyles();
@@ -124,6 +133,10 @@ export function ConfirmationModal({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmation-modal-title"
+        aria-describedby="confirmation-modal-description"
         onPointerDownOutside={(e) => {
           if (preventCloseOnLoading && isLoading) e.preventDefault();
         }}
@@ -146,17 +159,19 @@ export function ConfirmationModal({
                   <div className={`p-4 rounded-3xl transition-transform ${design.iconContainer}`}>
                     {design.icon}
                   </div>
-                  <DialogTitle className="text-2xl font-black tracking-tight text-white">{title}</DialogTitle>
-                  <DialogDescription className="text-slate-400 text-base leading-relaxed">
+                  <DialogTitle id="confirmation-modal-title" className="text-2xl font-black tracking-tight text-white">
+                    {title}
+                  </DialogTitle>
+                  <DialogDescription id="confirmation-modal-description" className="text-slate-400 text-base leading-relaxed">
                     {description}
                   </DialogDescription>
                 </DialogHeader>
 
                 {/* Exibição de input de texto caso confirmação textual seja necessária */}
-                {confirmationText && (
+                {finalConfirmationText && (
                   <div className="mt-6 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-red-400 text-center">
-                      Digite exatamente <span className="font-black bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">{confirmationText}</span> para confirmar
+                      Digite exatamente <span className="font-black bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">{finalConfirmationText}</span> para confirmar
                     </p>
                     <Input
                       type="text"
@@ -164,7 +179,7 @@ export function ConfirmationModal({
                       value={typedConfirmation}
                       onChange={(e) => setTypedConfirmation(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={confirmationText}
+                      placeholder={finalConfirmationText}
                       className="w-full h-12 bg-slate-950/40 border-white/10 rounded-2xl text-center font-bold text-white tracking-widest uppercase placeholder:text-slate-600 focus:border-red-500/40 focus:ring-1 focus:ring-red-500/30 transition-all text-base"
                     />
                   </div>

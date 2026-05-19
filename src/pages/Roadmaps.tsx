@@ -513,7 +513,7 @@ export default function RoadmapsPage() {
       title="Excluir Projeto de Roadmap?"
       description="Esta ação é irreversível. Todos os planos de migração atrelados a este projeto serão apagados permanentemente."
       confirmLabel="Sim, Excluir Projeto"
-      variant="destructive"
+      variant="danger"
     />
   </div>
 );
