@@ -9,7 +9,7 @@ export const AIRoadmapParsedItemSchema = z.object({
   implemented_at: z.string().nullable().describe('ISO date or YYYY-MM-DD. Null se não informado.'),
   current_usage: z.string().optional(),
   business_criticality: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
-  confidence_score: z.number().min(0).max(100).describe('Pontuação de confiança gerada pela IA (0-100)')
+  confidence_score: z.number().min(0).max(100).optional().describe('Pontuação de confiança gerada pela IA (0-100)')
 });
 
 export const AIRoadmapParseResponseSchema = z.object({
@@ -32,6 +32,7 @@ export interface AIReviewItem extends AIRoadmapParsedItem {
   planned_end_date?: string;
   estimated_cost: number;
   compatibility_risk: 'low' | 'medium' | 'high';
+  confidence_source?: 'ai' | 'deterministic_fallback';
   notes?: string;
 }
 

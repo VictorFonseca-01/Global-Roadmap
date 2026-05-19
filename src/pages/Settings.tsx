@@ -26,6 +26,8 @@ import { settingsService } from "@/services/settingsService";
 import { auditService } from "@/services/auditService";
 import { useForm } from "react-hook-form";
 import { AIHistoryTab } from "@/components/settings/AIHistoryTab";
+import { SystemHealthTab } from "@/components/settings/SystemHealthTab";
+import { Activity } from "lucide-react";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -116,6 +118,9 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
             <Palette className="h-4 w-4 mr-2" /> Aparência
           </TabsTrigger>
+          <TabsTrigger value="health" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
+            <Activity className="h-4 w-4 mr-2" /> Saúde do Sistema
+          </TabsTrigger>
           <TabsTrigger value="system" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
             <Cpu className="h-4 w-4 mr-2" /> Sistema
           </TabsTrigger>
@@ -205,6 +210,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="health" className="space-y-6 outline-none">
+          <SystemHealthTab />
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6 outline-none">

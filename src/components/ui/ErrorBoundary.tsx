@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { ShieldAlert, RefreshCw, Home } from "lucide-react";
+import { telemetry } from "@/lib/telemetry";
 import { Button } from "./button";
 
 interface Props {
@@ -22,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    telemetry.logCrash(error, errorInfo.componentStack || '');
   }
 
   public render() {

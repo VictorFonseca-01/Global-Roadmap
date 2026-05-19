@@ -220,6 +220,13 @@ If information like 'implemented_at' is missing, set it to null and add a note i
         return validated.data;
       });
 
+      const duration = Date.now() - startTime;
+      if (duration > 5000) {
+        import('@/lib/telemetry').then(({ telemetry }) => {
+          telemetry.log('performance_warning', 'warning', 'Lentidão no parse do Roadmap IA', { duration }, duration);
+        });
+      }
+
       await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash);
       return data;
     } catch (error: any) {

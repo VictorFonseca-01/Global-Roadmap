@@ -89,13 +89,27 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
            notes = 'Aplicações legadas podem falhar na migração direta';
         }
 
+        let calculatedScore = 0;
+        let confidence_source: 'ai' | 'deterministic_fallback' = 'ai';
+        let confidence_score = item.confidence_score;
+        if (confidence_score === undefined || confidence_score === null) {
+          confidence_source = 'deterministic_fallback';
+          if (item.vendor) calculatedScore += 15;
+          if (item.product_name) calculatedScore += 20;
+          if (item.version && item.version.toLowerCase() !== 'unknown' && item.version.toLowerCase() !== 'n/a') calculatedScore += 25;
+          if (item.asset_type) calculatedScore += 15;
+          if (item.implemented_at) calculatedScore += 25;
+          confidence_score = calculatedScore;
+        }
+
         return {
           ...item,
           id: `gen-${Date.now()}-${idx}`,
           calculated_criticality: item.business_criticality,
           compatibility_risk,
           estimated_cost: item.asset_type === 'server' ? 5000 : 1200,
-          confidence_score: item.confidence_score || Math.floor(Math.random() * (99 - 50) + 50),
+          confidence_score,
+          confidence_source,
           notes
         };
       });
