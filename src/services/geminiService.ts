@@ -76,6 +76,115 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
   throw lastError;
 }
 
+export function parseLocalDeterministicRegex(prompt: string): AIRoadmapParseResponse {
+  console.log("[AI_PARSE_DEBUG] Executing local deterministic regex fallback...");
+  const items: any[] = [];
+
+  const rules = [
+    {
+      regex: /(Windows\s+10(?:\s+22H2)?)/gi,
+      vendor: "Microsoft",
+      product: "Windows 10",
+      version: "22H2",
+      type: "client" as const
+    },
+    {
+      regex: /(Windows\s+11(?:\s+23H2)?)/gi,
+      vendor: "Microsoft",
+      product: "Windows 11",
+      version: "23H2",
+      type: "client" as const
+    },
+    {
+      regex: /(Windows\s+Server\s+2012(?:\s+R2)?|Win\s+Server\s+2012(?:\s+R2)?|Server\s+2012(?:\s+R2)?)/gi,
+      vendor: "Microsoft",
+      product: "Windows Server",
+      version: "2012 R2",
+      type: "server" as const
+    },
+    {
+      regex: /(Windows\s+Server\s+2016|Win\s+Server\s+2016|Server\s+2016)/gi,
+      vendor: "Microsoft",
+      product: "Windows Server",
+      version: "2016",
+      type: "server" as const
+    },
+    {
+      regex: /(Windows\s+Server\s+2019|Win\s+Server\s+2019|Server\s+2019)/gi,
+      vendor: "Microsoft",
+      product: "Windows Server",
+      version: "2019",
+      type: "server" as const
+    },
+    {
+      regex: /(Windows\s+Server\s+2022|Win\s+Server\s+2022|Server\s+2022)/gi,
+      vendor: "Microsoft",
+      product: "Windows Server",
+      version: "2022",
+      type: "server" as const
+    }
+  ];
+
+  rules.forEach(rule => {
+    rule.regex.lastIndex = 0;
+    let match;
+    while ((match = rule.regex.exec(prompt)) !== null) {
+      const matchedText = match[0];
+      const matchIndex = match.index;
+      
+      // Determine version precisely
+      let finalVersion = rule.version;
+      if (rule.product === "Windows Server") {
+        if (/2012\s+R2/i.test(matchedText) || /2012\s+R2/i.test(prompt.substring(matchIndex, matchIndex + 40))) {
+          finalVersion = "2012 R2";
+        } else if (/2012/i.test(matchedText)) {
+          finalVersion = "2012";
+        }
+      }
+
+      // Look forward 60 characters for a date
+      const context = prompt.substring(matchIndex, matchIndex + 100);
+      const dateMatch = context.match(/(\d{2})\/(\d{2})\/(\d{4})|(\d{4})-(\d{2})-(\d{2})/);
+      
+      let implemented_at: string | null = null;
+      if (dateMatch) {
+        if (dateMatch[1] && dateMatch[2] && dateMatch[3]) {
+          implemented_at = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+        } else if (dateMatch[4] && dateMatch[5] && dateMatch[6]) {
+          implemented_at = `${dateMatch[4]}-${dateMatch[5]}-${dateMatch[6]}`;
+        }
+      }
+
+      const alreadyExists = items.some(item => 
+        item.product_name === rule.product && 
+        item.version === finalVersion && 
+        item.implemented_at === implemented_at
+      );
+
+      if (!alreadyExists) {
+        items.push({
+          vendor: rule.vendor,
+          product_name: rule.product,
+          version: finalVersion,
+          asset_type: rule.type,
+          implemented_at,
+          business_criticality: rule.type === 'server' ? 'high' : 'medium',
+          confidence_score: 90
+        });
+      }
+    }
+  });
+
+  return {
+    project_name: "Roadmap de Infraestrutura Microsoft",
+    category: "Microsoft OS",
+    items: items,
+    assumptions: ["Identificado via parser determinístico de regex local devido a instabilidade no parsing de IA."],
+    missing_information: [],
+    warning_message: "Alguns dados precisarão de revisão manual. A IA falhou em estruturar o ambiente e usamos a extração por regex local."
+  };
+}
+
 export const geminiService = {
   async enrichLifecycle(vendor: string, product: string, version: string, category: string = 'General'): Promise<LifecycleAIResponse> {
     const prompt = `Return ONLY JSON: {vendor,product_name,version,end_of_support,extended_support_end,successor_version,source_url,confidence_score,notes}. Product: ${vendor} ${product} ${version}`.trim();
@@ -203,17 +312,26 @@ If information like 'implemented_at' is missing, set it to null and add a note i
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
         const result = await model.generateContent(fullPrompt);
         const text = await result.response.text();
+        
+        console.log("[AI_PARSE_DEBUG] Raw response Gemini:", text);
+        
         const cleanJson = text.replace(/```json|```/gi, "").trim();
+        console.log("[AI_PARSE_DEBUG] Cleaned response:", cleanJson);
         
         let parsed;
         try {
           parsed = JSON.parse(cleanJson);
+          console.log("[AI_PARSE_DEBUG] JSON.parse result:", parsed);
         } catch (e) {
+          console.error("[AI_PARSE_DEBUG] JSON.parse failed:", e);
           throw new Error("A IA não retornou um JSON válido.");
         }
 
+        console.log("[AI_PARSE_DEBUG] missing_information contents:", parsed.missing_information);
+
         const validated = AIRoadmapParseResponseSchema.safeParse(parsed);
         if (!validated.success) {
+          console.error("[AI_PARSE_DEBUG] safeParse failed. Error format:", validated.error.format());
           throw new Error("O JSON retornado pela IA não respeita o contrato estrito: " + validated.error.message);
         }
 
@@ -231,8 +349,18 @@ If information like 'implemented_at' is missing, set it to null and add a note i
       return data;
     } catch (error: any) {
       const errorMessage = error.message || String(error);
-      console.error("Gemini Parse Error:", error);
+      console.error("[AI_PARSE_DEBUG] Gemini Parse Error encountered:", error);
       
+      // EXECUTAR FALLBACK DETERMINÍSTICO REGEX LOCAL
+      console.warn("[AI_PARSE_DEBUG] Invoking deterministic local regex parser...");
+      const localResult = parseLocalDeterministicRegex(prompt);
+      
+      if (localResult.items.length > 0) {
+        console.log("[AI_PARSE_DEBUG] Regex parser extracted items successfully:", localResult.items);
+        await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash, "regex_fallback: " + errorMessage);
+        return localResult;
+      }
+
       let friendlyMessage = "Nossa IA não conseguiu interpretar completamente o ambiente. Tente reformular o texto.";
       if (errorMessage.includes("400") || errorMessage.includes("API_KEY")) {
          friendlyMessage = "Problema de conexão com o servidor de IA. Verifique as configurações.";

@@ -114,10 +114,18 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
         };
       });
 
+      if (!parsed.items || parsed.items.length === 0) {
+        throw new Error("Nenhum item de tecnologia pôde ser extraído do texto. Tente fornecer mais detalhes (ex: nomes de sistemas operacionais, versões e datas).");
+      }
+
       setReviewData({
         ...parsed,
         items: reviewItems
       });
+
+      if (parsed.warning_message) {
+        toast.warning(parsed.warning_message, { duration: 8000 });
+      }
 
     } catch (err: any) {
       setError(err.message || "Erro desconhecido ao interpretar dados.");
