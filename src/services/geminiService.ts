@@ -4,7 +4,7 @@ import { AIRoadmapParseResponseSchema, type AIRoadmapParseResponse } from "@/typ
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-1.5-flash-latest";
 
 
 export interface LifecycleAIResponse {
@@ -184,7 +184,8 @@ Parse the following text and extract roadmap data in JSON format EXACTLY matchin
     "asset_type": "client|server|other",
     "implemented_at": "YYYY-MM-DD or null",
     "current_usage": "string (optional)",
-    "business_criticality": "low|medium|high|critical"
+    "business_criticality": "low|medium|high|critical",
+    "confidence_score": "number between 0 and 100 based on data completeness"
   }],
   "assumptions": ["string"],
   "missing_information": ["string"]
@@ -221,11 +222,19 @@ If information like 'implemented_at' is missing, set it to null and add a note i
 
       await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash);
       return data;
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    } catch (error: any) {
+      const errorMessage = error.message || String(error);
       console.error("Gemini Parse Error:", error);
+      
+      let friendlyMessage = "Nossa IA não conseguiu interpretar completamente o ambiente. Tente reformular o texto.";
+      if (errorMessage.includes("400") || errorMessage.includes("API_KEY")) {
+         friendlyMessage = "Problema de conexão com o servidor de IA. Verifique as configurações.";
+      } else if (errorMessage.includes("JSON") || errorMessage.includes("contrato")) {
+         friendlyMessage = "A resposta da IA estava truncada ou fora do padrão esperado. Tente enviar menos dados por vez.";
+      }
+
       await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, false, promptHash, errorMessage);
-      throw error;
+      throw new Error(friendlyMessage);
     } finally {
       releaseToken();
     }

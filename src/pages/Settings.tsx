@@ -7,7 +7,6 @@ import {
   Shield, 
   Globe, 
   Cpu,
-  ChevronRight,
   Save,
   Info,
   Trash2,
@@ -21,15 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsService } from "@/services/settingsService";
 import { auditService } from "@/services/auditService";
 import { useForm } from "react-hook-form";
+import { AIHistoryTab } from "@/components/settings/AIHistoryTab";
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
@@ -110,7 +108,7 @@ export default function SettingsPage() {
             <Globe className="h-4 w-4 mr-2" /> Geral
           </TabsTrigger>
           <TabsTrigger value="ai" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
-            <Brain className="h-4 w-4 mr-2" /> Inteligência Artificial
+            <Brain className="h-4 w-4 mr-2" /> IA & Copilot
           </TabsTrigger>
           <TabsTrigger value="notifications" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
             <Bell className="h-4 w-4 mr-2" /> Notificações
@@ -145,30 +143,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="ai" className="space-y-6 outline-none">
-          <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white dark:bg-slate-900/50 backdrop-blur-sm">
-            <CardHeader className="p-10 pb-4">
-              <CardTitle className="text-2xl font-black flex items-center gap-3">
-                <Brain className="h-7 w-7 text-primary" /> Configuração do Motor Gemini
-              </CardTitle>
-              <CardDescription className="text-base">Gerencie as chaves e o comportamento da inteligência artificial.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-10 pt-0 space-y-8">
-              <div className="p-8 bg-gradient-to-br from-primary/5 to-transparent rounded-[2.5rem] border border-primary/10 flex items-center justify-between group hover:border-primary/30 transition-all">
-                <div className="flex items-center gap-6">
-                  <div className="p-5 bg-primary/10 rounded-[1.5rem] group-hover:scale-110 transition-transform">
-                    <Shield className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-black">Painel de Controle de IA</h4>
-                    <p className="text-sm text-muted-foreground italic mt-1">Acesse as ferramentas avançadas de enriquecimento e telemetria.</p>
-                  </div>
-                </div>
-                <Button variant="outline" className="rounded-full px-8 h-12 font-bold shadow-sm" onClick={() => navigate("/settings/ai")}>
-                  Abrir Painel IA <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <AIHistoryTab />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6 outline-none">

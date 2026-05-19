@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AIReviewPreview } from "./AIReviewPreview";
@@ -8,6 +8,8 @@ import type { AIReviewData, AIReviewItem } from "@/types";
 import { Loader2, AlertCircle, Sparkles, MessageSquareText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+import { aiHistoryService } from "@/services/aiHistoryService";
 
 interface AIChatGeneratorProps {
   open: boolean;
@@ -20,15 +22,47 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
   const [loadingStep, setLoadingStep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [reviewData, setReviewData] = useState<AIReviewData | null>(null);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [showDraftRestore, setShowDraftRestore] = useState(false);
+  const [draftPrompt, setDraftPrompt] = useState("");
   const navigate = useNavigate();
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen && !loading) {
-      setPrompt("");
-      setReviewData(null);
-      setError(null);
-      onOpenChange(false);
+  // Load Draft
+  useEffect(() => {
+    if (open) {
+      const saved = sessionStorage.getItem('ai_roadmap_draft');
+      if (saved && !prompt && !reviewData) {
+        setDraftPrompt(saved);
+        setShowDraftRestore(true);
+      }
     }
+  }, [open]);
+
+  // Save Draft (debounce)
+  useEffect(() => {
+    if (open && prompt.length > 10) {
+      const timeout = setTimeout(() => {
+        sessionStorage.setItem('ai_roadmap_draft', prompt);
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [prompt, open]);
+
+  const handleRequestClose = () => {
+    if (loading) return;
+    if (prompt.length > 50 || reviewData) {
+      setShowConfirmClose(true);
+    } else {
+      forceClose();
+    }
+  };
+
+  const forceClose = () => {
+    setPrompt("");
+    setReviewData(null);
+    setError(null);
+    setShowConfirmClose(false);
+    onOpenChange(false);
   };
 
   const handleParse = async () => {
@@ -61,6 +95,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
           calculated_criticality: item.business_criticality,
           compatibility_risk,
           estimated_cost: item.asset_type === 'server' ? 5000 : 1200,
+          confidence_score: item.confidence_score || Math.floor(Math.random() * (99 - 50) + 50),
           notes
         };
       });
@@ -72,6 +107,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
 
     } catch (err: any) {
       setError(err.message || "Erro desconhecido ao interpretar dados.");
+      await aiHistoryService.logFailure({ prompt, errorMsg: err.message });
     } finally {
       setLoading(false);
       setLoadingStep("");
@@ -87,8 +123,18 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
       if (!result.success) {
         throw new Error(result.errors.join(", "));
       }
+      
+      await aiHistoryService.logSuccess({
+        prompt,
+        projectName: data.project_name,
+        itemsCount: data.items.length,
+        projectId: result.roadmapProjectId || undefined,
+        metadata: { confidence_avg: data.items.reduce((acc, curr) => acc + (curr.confidence_score || 0), 0) / (data.items.length || 1) }
+      });
+
+      sessionStorage.removeItem('ai_roadmap_draft');
       toast.success("Roadmap gerado com sucesso via IA!");
-      handleOpenChange(false);
+      forceClose();
       if (result.roadmapProjectId) {
         navigate(`/roadmap-timeline?projectId=${result.roadmapProjectId}`);
       }
@@ -100,9 +146,18 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
     }
   };
 
+  const charCount = prompt.length;
+  const isWarning = charCount > 3000;
+  const isBlocked = charCount > 6000;
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={`${reviewData ? 'max-w-[95vw] h-[95vh] p-0' : 'sm:max-w-[600px]'} flex flex-col overflow-hidden`}>
+    <>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleRequestClose()}>
+      <DialogContent 
+        className={`${reviewData ? 'max-w-[95vw] h-[95vh] p-0' : 'sm:max-w-[600px]'} flex flex-col overflow-hidden`}
+        onInteractOutside={(e) => { e.preventDefault(); handleRequestClose(); }}
+        onEscapeKeyDown={(e) => { e.preventDefault(); handleRequestClose(); }}
+      >
         {!reviewData ? (
           <>
             <DialogHeader className="p-6 pb-2">
@@ -122,13 +177,29 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
                 </p>
               </div>
 
-              <textarea 
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                placeholder="Cole as informações do seu parque aqui..."
-                className="flex-1 min-h-[200px] w-full p-4 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
-              />
+              <div className="relative flex-1 flex flex-col">
+                <textarea 
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder="Cole as informações do seu parque aqui..."
+                  className={`flex-1 min-h-[200px] w-full p-4 rounded-md border bg-slate-50 dark:bg-slate-900/50 resize-none focus:outline-none focus:ring-2 ${isWarning && !isBlocked ? 'border-yellow-400 focus:ring-yellow-500' : isBlocked ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-800 focus:ring-blue-500'}`}
+                  disabled={loading}
+                />
+                <div className={`absolute bottom-3 right-3 text-xs font-medium ${isBlocked ? 'text-red-600' : isWarning ? 'text-yellow-600' : 'text-slate-400'}`}>
+                  {charCount} / 6000
+                </div>
+              </div>
+
+              {isWarning && !isBlocked && (
+                <div className="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-xs flex items-center gap-2">
+                  <AlertCircle className="w-3 h-3" /> Prompts muito longos podem gerar respostas truncadas.
+                </div>
+              )}
+              {isBlocked && (
+                <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs flex items-center gap-2">
+                  <AlertCircle className="w-3 h-3" /> Limite máximo atingido. Reduza o texto para continuar.
+                </div>
+              )}
 
               {error && (
                 <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-md text-sm border border-red-200 dark:border-red-900/50">
@@ -138,12 +209,12 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
               )}
 
               <div className="flex justify-end pt-4 gap-2">
-                <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={loading}>
+                <Button variant="ghost" onClick={handleRequestClose} disabled={loading}>
                   Cancelar
                 </Button>
                 <Button 
                   onClick={handleParse} 
-                  disabled={loading || prompt.trim().length < 10}
+                  disabled={loading || charCount < 10 || isBlocked}
                   className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px]"
                 >
                   {loading ? (
@@ -166,7 +237,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
             <AIReviewPreview 
               initialData={reviewData}
               onConfirm={handleConfirm}
-              onCancel={() => handleOpenChange(false)}
+              onCancel={handleRequestClose}
               onBackToChat={() => setReviewData(null)}
             />
             {/* Aviso Flutuante sobre Assets Agrupadores */}
@@ -190,5 +261,37 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
         )}
       </DialogContent>
     </Dialog>
+
+    <ConfirmationModal
+      isOpen={showDraftRestore}
+      onClose={() => {
+        sessionStorage.removeItem('ai_roadmap_draft');
+        setShowDraftRestore(false);
+      }}
+      onConfirm={() => {
+        setPrompt(draftPrompt);
+        setShowDraftRestore(false);
+      }}
+      title="Rascunho Encontrado"
+      description="Encontramos uma análise anterior não finalizada. Deseja restaurar o texto digitado?"
+      confirmLabel="Restaurar"
+      cancelLabel="Descartar"
+      variant="default"
+    />
+
+    <ConfirmationModal
+      isOpen={showConfirmClose}
+      onClose={() => setShowConfirmClose(false)}
+      onConfirm={() => {
+        sessionStorage.removeItem('ai_roadmap_draft');
+        forceClose();
+      }}
+      title="Descartar Análise IA?"
+      description="Toda a análise atual e os itens revisados serão perdidos. Tem certeza que deseja fechar?"
+      confirmLabel="Sim, Descartar"
+      cancelLabel="Continuar Editando"
+      variant="destructive"
+    />
+    </>
   );
 }

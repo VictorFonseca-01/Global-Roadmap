@@ -153,6 +153,7 @@ export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat
                     <TableHead>Criticidade</TableHead>
                     <TableHead>Custo ($)</TableHead>
                     <TableHead>Risco Compatibilidade</TableHead>
+                    <TableHead>Confiança IA</TableHead>
                     <TableHead>Status IA</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
@@ -219,6 +220,17 @@ export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat
                           {item.compatibility_risk === 'high' ? 'Alto risco em legados' : item.compatibility_risk === 'medium' ? 'Exige homologação' : 'Compatível'}
                         </span>
                         {item.notes && <div className="text-[10px] text-slate-400 mt-1 max-w-[200px] truncate" title={item.notes}>{item.notes}</div>}
+                      </TableCell>
+                      <TableCell>
+                        {item.confidence_score !== undefined ? (
+                          <Badge variant="outline" className={`font-semibold
+                            ${item.confidence_score >= 80 ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-900/20' : 
+                              item.confidence_score >= 50 ? 'border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20' : 
+                              'border-red-500 text-red-600 bg-red-50 dark:bg-red-900/20'}
+                          `}>
+                            {item.confidence_score}%
+                          </Badge>
+                        ) : <span className="text-slate-400 text-xs">-</span>}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(item)}
