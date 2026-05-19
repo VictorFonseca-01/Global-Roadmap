@@ -6,14 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { 
   LayoutDashboard, 
   Map, 
-  Tag, 
-  BookOpen, 
   Monitor, 
-  AppWindow, 
-  ArrowRightCircle, 
-  FileText, 
   Settings,
-  Bot,
   Bell,
   ChevronLeft,
   ChevronRight
@@ -40,15 +34,9 @@ export function Sidebar({
 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/" },
+    { name: "Inventário", icon: Monitor, path: "/assets" },
     { name: "Roadmaps", icon: Map, path: "/roadmaps" },
-    { name: "Categorias", icon: Tag, path: "/categories" },
-    { name: "Lifecycle Catalog", icon: BookOpen, path: "/lifecycle" },
-    { name: "Assets", icon: Monitor, path: "/assets" },
     { name: "Notificações", icon: Bell, path: "/notifications", badge: true },
-    { name: "Applications", icon: AppWindow, path: "/applications" },
-    { name: "Migration Plans", icon: ArrowRightCircle, path: "/migration-plans" },
-    { name: "Roadmap Timeline", icon: FileText, path: "/roadmap-timeline" },
-    { name: "IA Intelligence", icon: Bot, path: "/settings/ai" },
     { name: "Configurações", icon: Settings, path: "/settings" },
   ]
 

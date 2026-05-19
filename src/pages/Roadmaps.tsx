@@ -3,35 +3,47 @@ import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
 import { categoryService } from "@/services/categoryService";
 import { roadmapWorkflowService } from "@/services/roadmapWorkflowService";
 import { roadmapService } from "@/services/roadmapService";
+import { migrationPlanService } from "@/services/migrationPlanService";
+import { assetService } from "@/services/assetService";
+import { pdfService } from "@/services/pdfService";
+import { deterministicEngineService } from "@/services/deterministicEngineService";
 
-import { DataTable } from "@/components/ui/data-table-custom";
-import type { ColumnDef } from "@tanstack/react-table";
 import type { RoadmapProject } from "@/types";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Map, MoreHorizontal, Loader2, Zap, Sparkles } from "lucide-react";
+import { 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  Map as MapIcon, 
+  Loader2, 
+  Zap, 
+  Sparkles, 
+  Download, 
+  Check, 
+  HelpCircle, 
+  AlertTriangle, 
+  CalendarDays, 
+  ClipboardCheck, 
+  ShieldAlert, 
+  SlidersHorizontal,
+  ChevronDown
+} from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle
+} from "@/components/ui/dialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import {
   Form,
   FormControl,
@@ -42,13 +54,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
-
-
+import { GanttView } from "@/components/roadmap/GanttView";
+import { ExecutivePresentation } from "@/components/roadmap/ExecutivePresentation";
+import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { differenceInDays } from "date-fns";
 
 const projectSchema = z.object({
   name: z.string().min(3, "Nome do projeto deve ter pelo menos 3 caracteres"),
@@ -61,32 +75,63 @@ const projectSchema = z.object({
   end_date: z.string().optional(),
 });
 
-import { RoadmapGeneratorWizard } from "@/components/roadmap/RoadmapGeneratorWizard";
-import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
-import { useUserProfile } from "@/hooks/useUserProfile";
-
 export default function RoadmapsPage() {
   const queryClient = useQueryClient();
-  const [isOpen, setIsOpen] = useState(false);
+  const { profile } = useUserProfile();
+  
+  // States
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedSos, setSelectedSos] = useState<string[]>([]);
+  const [safetyMarginDays, setSafetyMarginDays] = useState<number>(30);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<RoadmapProject | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"gantt" | "executive">("gantt");
 
-  const { profile } = useUserProfile();
+  // Relação de roles e permissões
   const role = profile?.role?.toLowerCase() || '';
   const canGenerateRoadmaps = role.includes('admin') || role.includes('director') || role.includes('manager') || true;
 
-  const { data: projects = [], isLoading } = useQuery({
+  // Queries
+  const { data: projects = [], isLoading: isProjectsLoading } = useQuery({
     queryKey: ["roadmaps"],
     queryFn: () => roadmapService.getAll(),
   });
-
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoryService.getAll(),
   });
 
+  const { data: assets = [] } = useQuery({
+    queryKey: ["assets"],
+    queryFn: () => assetService.getAll(),
+  });
+
+  const { data: allPlans = [] } = useQuery({
+    queryKey: ["migration-plans"],
+    queryFn: () => migrationPlanService.getAll(),
+  });
+
+  // Extrair SOs únicos dos assets mapeados no inventário
+  const uniqueSos = useMemo(() => {
+    const sos = new Set<string>();
+    assets.forEach((asset: any) => {
+      const lc = asset.lifecycle_catalog;
+      if (lc) {
+        const vendor = lc.vendor || "";
+        const product = lc.product_name || "";
+        const version = lc.version || "";
+        const name = `${vendor} ${product} ${version}`.replace(/\s+/g, " ").trim();
+        if (name) sos.add(name);
+      }
+    });
+    return Array.from(sos).sort();
+  }, [assets]);
+
+  // Formulário de Criação/Edição de Projeto
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -101,12 +146,14 @@ export default function RoadmapsPage() {
     },
   });
 
+  // Mutações
   const createMutation = useMutation({
     mutationFn: (data: z.infer<typeof projectSchema>) => roadmapService.create(data),
-    onSuccess: () => {
+    onSuccess: (newProj) => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
+      setSelectedProjectId(newProj.id);
       toast.success("Projeto de Roadmap criado!");
-      setIsOpen(false);
+      setIsCreateOpen(false);
       form.reset();
     },
   });
@@ -115,14 +162,14 @@ export default function RoadmapsPage() {
     mutationFn: async ({ id, data, oldStatus }: { id: string; data: Partial<RoadmapProject>, oldStatus: string }) => {
       const result = await roadmapService.update(id, data);
       if (data.status && data.status !== oldStatus) {
-        await roadmapWorkflowService.transitionStatus(id, data.status, "Status alterado via formulário de edição");
+        await roadmapWorkflowService.transitionStatus(id, data.status, "Status alterado via formulário");
       }
       return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       toast.success("Projeto atualizado!");
-      setIsOpen(false);
+      setIsCreateOpen(false);
       setEditingProject(null);
       form.reset();
     },
@@ -132,14 +179,162 @@ export default function RoadmapsPage() {
     mutationFn: (id: string) => roadmapService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
+      queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
       toast.success("Projeto excluído com sucesso!");
       setProjectToDelete(null);
+      setSelectedProjectId(null);
     },
     onError: (error: Error) => {
-      toast.error("Erro ao excluir", { description: error.message });
+      toast.error("Falha ao excluir item", { description: error.message });
       setProjectToDelete(null);
     }
   });
+
+  // Selecionar primeiro projeto ativo se houver
+  useEffect(() => {
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
+  // Inicialização automática de um Roadmap se o banco estiver vazio (Zero-friction onboarding)
+  useEffect(() => {
+    if (!isProjectsLoading && projects.length === 0 && categories.length > 0) {
+      createMutation.mutate({
+        name: "Roadmap Geral de Infraestrutura",
+        category: categories[0]?.name || "Geral",
+        scope: "corporate",
+        status: "in_progress",
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date(Date.now() + 365 * 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        owner: "Departamento de TI",
+        description: "Planejamento inicial auto-gerado contendo ativos e sistemas do inventário."
+      });
+    }
+  }, [projects, isProjectsLoading, categories]);
+
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === selectedProjectId) || null;
+  }, [projects, selectedProjectId]);
+
+  // Planos correspondentes ao projeto ativo
+  const projectPlans = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return allPlans.filter(p => p.roadmap_project_id === selectedProjectId);
+  }, [allPlans, selectedProjectId]);
+
+  // Métricas financeiras e de conformidade baseadas nos planos atuais
+  const stats = useMemo(() => {
+    const total = projectPlans.length;
+    const critical = projectPlans.filter((p: any) => p.priority === 'critical').length;
+    const outOfSupport = projectPlans.filter((p: any) => {
+      const eol = p.assets?.lifecycle_catalog?.end_of_support;
+      return eol && new Date(eol) < new Date();
+    }).length;
+    const next180Days = projectPlans.filter((p: any) => {
+      const eol = p.assets?.lifecycle_catalog?.end_of_support;
+      if (!eol) return false;
+      const days = differenceInDays(new Date(eol), new Date());
+      return days >= 0 && days <= 180;
+    }).length;
+    const estimatedBudget = projectPlans.reduce((sum: number, p: any) => sum + (p.estimated_cost || 0), 0);
+
+    return {
+      totalAssets: total,
+      critical,
+      outOfSupport,
+      next180Days,
+      estimatedBudget
+    };
+  }, [projectPlans]);
+
+  // Toggle de seleção de Sistemas Operacionais
+  const handleToggleSo = (so: string) => {
+    setSelectedSos(prev => 
+      prev.includes(so) ? prev.filter(item => item !== so) : [...prev, so]
+    );
+  };
+
+  // Ação de Geração/Otimização do Roadmap
+  const handleGenerateRoadmap = async () => {
+    if (!selectedProjectId) {
+      toast.error("Por favor, selecione ou crie um projeto de roadmap primeiro.");
+      return;
+    }
+
+    setIsGenerating(true);
+    toast.loading("Otimizando roadmap e calculando janelas de ciclo de vida...", { id: "generate-roadmap" });
+
+    try {
+      const results = await roadmapGeneratorService.generate(
+        selectedProjectId, 
+        selectedSos.length > 0 ? selectedSos : undefined, 
+        safetyMarginDays
+      );
+
+      if (results.success) {
+        toast.success(`Roadmap gerado com sucesso!`, {
+          id: "generate-roadmap",
+          description: `${results.createdCount} ativos foram planejados dentro da margem de conformidade.`
+        });
+        queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
+      } else {
+        toast.error("Falha ao concluir a ação", {
+          id: "generate-roadmap",
+          description: results.errors[0] || "Verifique se existem ativos mapeados com datas válidas."
+        });
+      }
+    } catch (err: any) {
+      toast.error("Falha ao otimizar roadmap", {
+        id: "generate-roadmap",
+        description: err.message
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Exportação em PDF usando o pdfService corporativo
+  const handleExportPdf = async () => {
+    if (projectPlans.length === 0) {
+      toast.error("Não foi possível concluir a ação", { description: "Não há planos gerados neste roadmap para exportar." });
+      return;
+    }
+
+    try {
+      toast.loading("Compilando parecer estratégico e gerando PDF...", { id: "pdf-export" });
+      
+      const insights = deterministicEngineService.getExecutiveInsights(
+        { 
+          critical: stats.critical, 
+          high: projectPlans.filter((p: any) => p.priority === 'high').length,
+          next180Days: stats.next180Days,
+          estimatedBudget: stats.estimatedBudget
+        }, 
+        projectPlans
+      );
+
+      await pdfService.generateExecutiveReport({
+        stats: {
+          totalAssets: stats.totalAssets,
+          critical: stats.critical,
+          outOfSupport: stats.outOfSupport,
+          next180Days: stats.next180Days,
+          estimatedBudget: stats.estimatedBudget
+        },
+        plans: projectPlans,
+        insights,
+        riskData: [
+          { name: "Crítico", value: stats.critical, color: "#ef4444" },
+          { name: "Out of Support", value: stats.outOfSupport, color: "#f43f5e" }
+        ]
+      });
+
+      toast.success("Parecer Estratégico PDF exportado com sucesso!", { id: "pdf-export" });
+    } catch (err: any) {
+      toast.error("Não foi possível concluir a ação", { id: "pdf-export", description: err.message });
+    }
+  };
 
   function onSubmit(values: z.infer<typeof projectSchema>) {
     if (editingProject) {
@@ -149,375 +344,479 @@ export default function RoadmapsPage() {
     }
   }
 
-  const navigate = useNavigate();
-
-  const generateMutation = useMutation({
-    mutationFn: (projectId: string) => roadmapGeneratorService.generate(projectId),
-    onSuccess: (_, projectId) => {
-      queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
-      toast.success("Roadmap gerado com sucesso!");
-      navigate(`/roadmap-timeline?projectId=${projectId}`);
-    },
-    onError: (error: Error) => {
-      toast.error("Erro ao gerar roadmap: " + error.message);
-    }
-  });
-
-  const columns: ColumnDef<RoadmapProject>[] = [
-    {
-      accessorKey: "name",
-      header: "Projeto / Responsável",
-      cell: ({ row }) => (
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 text-slate-100">
+      
+      {/* HEADER SUPERIOR E SELETOR DE PROJETOS */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
         <div className="flex flex-col">
-          <span className="font-bold text-slate-900 dark:text-slate-100">{row.original.name}</span>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{row.original.owner || "Sem dono"}</span>
+          <div className="flex items-center gap-2 mb-1">
+            <MapIcon className="h-6 w-6 text-blue-500" />
+            <span className="text-xs font-black text-blue-500/80 uppercase tracking-[0.2em]">Planejamento Estratégico</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter flex items-center gap-4 text-slate-100">
+            Roadmap / Timeline
+            {selectedProject && (
+              <Badge className="rounded-full px-4 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-widest shadow-[0_0_12px_rgba(59,130,246,0.15)]">
+                {selectedProject.category}
+              </Badge>
+            )}
+          </h1>
         </div>
-      ),
-    },
-    {
-      accessorKey: "stats",
-      header: "Resumo Estratégico",
-      cell: ({ row }) => (
-        <div className="flex gap-4">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Ativos</span>
-            <span className="font-bold">{row.original.total_assets || 0}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Críticos</span>
-            <span className="font-bold text-red-500">{row.original.critical_count || 0}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Orçamento</span>
-            <span className="font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.original.estimated_budget || 0)}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.status;
-        const variants: Record<string, string> = {
-          draft: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
-          review: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-          approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-          scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-          in_progress: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-          completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-          blocked: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400",
-          cancelled: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
-        };
-        return <Badge className={`${variants[status]} border-none rounded-full px-3`}>{status.toUpperCase()}</Badge>;
-      },
-    },
-    {
-      id: "actions",
-      header: "Ações do Roadmap",
-      cell: ({ row }) => {
-        const hasPlans = (row.original.total_migration_plans || 0) > 0;
-        
-        return (
-          <TooltipProvider>
-            <div className="flex items-center gap-2">
-              {hasPlans ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      className="rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-8 px-4"
-                      onClick={() => navigate(`/roadmap-timeline?projectId=${row.original.id}`)}
-                    >
-                      <Map className="h-3.5 w-3.5 mr-2" /> Abrir Timeline
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Visualizar planejamento detalhado</TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-900/20 h-8 px-4"
-                      disabled={generateMutation.isPending}
-                      onClick={() => generateMutation.mutate(row.original.id)}
-                    >
-                      {generateMutation.isPending && generateMutation.variables === row.original.id ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                      ) : (
-                        <Zap className="h-3.5 w-3.5 mr-2" />
-                      )}
-                      Gerar Roadmap
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Executar Motor Determinístico para este projeto</TooltipContent>
-                </Tooltip>
-              )}
 
+        {/* CONTROLES DE PROJETO */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#090f1d] border border-white/5 p-1.5 rounded-full shadow-lg">
+            <Select 
+              value={selectedProjectId || ""} 
+              onValueChange={setSelectedProjectId}
+              disabled={isProjectsLoading || projects.length === 0}
+            >
+              <SelectTrigger className="h-9 px-4 rounded-full border-none shadow-none bg-transparent hover:bg-white/5 transition-all text-xs font-bold text-slate-300 w-[240px]">
+                <SelectValue placeholder={isProjectsLoading ? "Carregando projetos..." : "Selecione o Projeto"} />
+              </SelectTrigger>
+              <SelectContent className="bg-[#090f1d] border border-white/10 rounded-2xl shadow-2xl text-white">
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="focus:bg-white/5 focus:text-white rounded-lg">{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedProject && (
               <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Mais opções</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="rounded-xl">
-                  <DropdownMenuItem onClick={() => {
-                    setEditingProject(row.original);
-                    form.reset({
-                      name: row.original.name,
-                      category: row.original.category,
-                      scope: row.original.scope || "corporate",
-                      status: row.original.status,
-                      description: row.original.description || "",
-                      owner: row.original.owner || "",
-                      start_date: row.original.start_date || "",
-                      end_date: row.original.end_date || "",
-                    });
-                    setIsOpen(true);
-                  }}>
-                    <Pencil className="h-4 w-4 mr-2" /> Editar Projeto
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-400 hover:text-white">
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-[#090f1d] border border-white/10 rounded-xl text-white">
+                  <DropdownMenuItem 
+                    className="focus:bg-white/5 focus:text-white cursor-pointer rounded-lg text-xs"
+                    onClick={() => {
+                      setEditingProject(selectedProject);
+                      form.reset({
+                        name: selectedProject.name,
+                        category: selectedProject.category,
+                        scope: selectedProject.scope || "corporate",
+                        status: selectedProject.status,
+                        description: selectedProject.description || "",
+                        owner: selectedProject.owner || "",
+                        start_date: selectedProject.start_date || "",
+                        end_date: selectedProject.end_date || "",
+                      });
+                      setIsCreateOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-2" /> Editar Dados do Projeto
                   </DropdownMenuItem>
                   <DropdownMenuItem 
-                    className="text-red-600 focus:text-red-600"
-                    onClick={() => setProjectToDelete(row.original.id)}
+                    className="text-red-500 focus:bg-red-500/10 focus:text-red-400 cursor-pointer rounded-lg text-xs"
+                    onClick={() => setProjectToDelete(selectedProject.id)}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Projeto
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+          </div>
+
+          <Button 
+            variant="outline"
+            className="rounded-full border-white/10 bg-[#090f1d]/50 text-slate-300 hover:bg-white/5 hover:text-white h-11 px-5 text-xs font-bold"
+            onClick={() => {
+              setEditingProject(null);
+              form.reset({
+                name: "",
+                category: categories[0]?.name || "",
+                scope: "corporate",
+                status: "in_progress",
+                description: "",
+                owner: "",
+                start_date: new Date().toISOString().split('T')[0],
+                end_date: new Date(Date.now() + 365 * 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              });
+              setIsCreateOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Novo Projeto
+          </Button>
+        </div>
+      </div>
+
+      {/* PAINEL DE CONTROLE PREMIUM (SELEÇÃO DE SOs E IA) */}
+      {selectedProject && (
+        <div className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-[#0c1427]/85 to-[#050912]/95 p-6 md:p-8 shadow-2xl">
+          <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/5 rounded-full blur-[100px]" />
+          
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            
+            {/* Coluna 1: Mapeamento e Seleção de SOs */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-blue-500" />
+                  1. Filtrar Sistemas Operacionais
+                </h3>
+                {uniqueSos.length > 0 && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setSelectedSos(uniqueSos)}
+                      className="text-[10px] font-black text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider"
+                    >
+                      Todos
+                    </button>
+                    <span className="text-slate-700 text-[10px]">|</span>
+                    <button 
+                      onClick={() => setSelectedSos([])}
+                      className="text-[10px] font-black text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-wider"
+                    >
+                      Nenhum
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {uniqueSos.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-6 border border-dashed border-white/5 rounded-2xl bg-black/10 text-center min-h-[140px]">
+                  <HelpCircle className="h-8 w-8 text-slate-600 mb-2" />
+                  <span className="text-xs font-bold text-slate-500">Nenhum SO mapeado</span>
+                  <span className="text-[10px] text-slate-600 max-w-[200px] mt-1 leading-normal">Importe uma planilha do GLPI na aba Inventário para detectar SOs automaticamente.</span>
+                </div>
+              ) : (
+                <div className="overflow-y-auto max-h-[140px] pr-2 scrollbar-thin flex flex-wrap gap-2 content-start min-h-[140px]">
+                  {uniqueSos.map((so) => {
+                    const isSelected = selectedSos.includes(so);
+                    return (
+                      <button
+                        key={so}
+                        onClick={() => handleToggleSo(so)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? "bg-blue-600/15 border-blue-500/40 text-blue-300 shadow-[0_0_12px_rgba(59,130,246,0.1)]"
+                            : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300"
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3 w-3 text-blue-400" />}
+                        {so}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </TooltipProvider>
-        );
-      },
-    },
 
-  ];
-
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-          <div className="h-10 w-32 bg-slate-200 dark:bg-slate-800 rounded-full" />
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="h-16 w-full bg-slate-100 dark:bg-slate-800 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Map className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-black tracking-tighter">Projetos de Roadmap</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {canGenerateRoadmaps && (
-            <>
-              <Button 
-                variant="outline" 
-                className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 shadow-sm"
-                onClick={() => setIsChatModalOpen(true)}
-              >
-                <Sparkles className="h-4 w-4 mr-2" /> Gerar via Chat IA
-              </Button>
-              <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />
-            </>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <RoadmapGeneratorWizard />
-            </TooltipTrigger>
-            <TooltipContent>Criar novo projeto e gerar planos em um único fluxo</TooltipContent>
-          </Tooltip>
-          <Dialog open={isOpen} onOpenChange={(open) => {
-
-          setIsOpen(open);
-          if (!open) {
-            setEditingProject(null);
-            form.reset();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" /> Novo Projeto
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingProject ? "Editar Projeto" : "Criar Novo Roadmap"}
-              </DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do Projeto</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Migração Windows 11 - 2025" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((c) => (
-                              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                            ))}
-                            {categories.length === 0 && (
-                              <SelectItem value="default" disabled>Nenhuma categoria encontrada</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="draft">Rascunho</SelectItem>
-                            <SelectItem value="review">Em Revisão</SelectItem>
-                            <SelectItem value="approved">Aprovado</SelectItem>
-                            <SelectItem value="scheduled">Agendado</SelectItem>
-                            <SelectItem value="in_progress">Em Andamento</SelectItem>
-                            <SelectItem value="completed">Concluído</SelectItem>
-                            <SelectItem value="blocked">Bloqueado</SelectItem>
-                            <SelectItem value="cancelled">Cancelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            {/* Coluna 2: Margem de Segurança */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-blue-500" />
+                2. Margem de Segurança
+              </h3>
+              <div className="bg-black/25 border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[140px]">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">
+                    Folga de Segurança Técnica:
+                  </label>
+                  <Select value={String(safetyMarginDays)} onValueChange={(v) => setSafetyMarginDays(parseInt(v))}>
+                    <SelectTrigger className="h-10 rounded-xl bg-slate-950/60 border-white/10 text-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#090f1d] border-white/10 text-white">
+                      <SelectItem value="0" className="focus:bg-white/5 focus:text-white">Sem margem de segurança</SelectItem>
+                      <SelectItem value="15" className="focus:bg-white/5 focus:text-white">15 dias de antecedência</SelectItem>
+                      <SelectItem value="30" className="focus:bg-white/5 focus:text-white">30 dias (Recomendado)</SelectItem>
+                      <SelectItem value="45" className="focus:bg-white/5 focus:text-white">45 dias de folga</SelectItem>
+                      <SelectItem value="60" className="focus:bg-white/5 focus:text-white">60 dias (Margem Crítica)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="start_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Início</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="end_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data Prevista de Término</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="owner"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Responsável (Dono)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome do responsável" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <p className="text-[10px] text-slate-500 leading-normal italic mt-2">
+                  A folga técnica antecipa o planejamento subtraindo os dias estipulados da data oficial de EoL do fabricante, blindando a operação contra falhas inesperadas.
+                </p>
+              </div>
+            </div>
+
+            {/* Coluna 3: Prompt de IA e Geração */}
+            <div className="space-y-4 flex flex-col justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-500" />
+                3. Geração Automática
+              </h3>
+              
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={handleGenerateRoadmap}
+                  disabled={isGenerating || isProjectsLoading}
+                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
                   )}
-                />
-                <Button type="submit" className="w-full">
-                  {editingProject ? "Salvar Alterações" : "Criar Roadmap"}
+                  <span>Gerar / Otimizar Roadmap</span>
                 </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
+
+                {canGenerateRoadmaps && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsChatModalOpen(true)}
+                    className="w-full h-11 rounded-2xl border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="h-4 w-4 text-blue-400" />
+                    <span>Gerar via Chat IA</span>
+                  </Button>
+                )}
+                <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* METRICA SUMMARY DE PERFORMANCE E TABS */}
+      {selectedProject && projectPlans.length > 0 && (
+        <div className="space-y-6">
+          
+          {/* Summary Cards Premium (Estilo RoadmapTimeline Page) */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { label: "Total Planejado", value: stats.totalAssets, icon: ClipboardCheck, color: "blue" },
+              { label: "Fora de Suporte", value: stats.outOfSupport, icon: ShieldAlert, color: "rose", highlight: stats.outOfSupport > 0 },
+              { label: "Risco Crítico", value: stats.critical, icon: AlertTriangle, color: "amber", highlight: stats.critical > 0 },
+              { label: "EoL 180 Dias", value: stats.next180Days, icon: CalendarDays, color: "orange" },
+              { label: "Orçamento Estimado", value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.estimatedBudget), icon: Download, color: "emerald" },
+            ].map((item, i) => (
+              <div 
+                key={i} 
+                className={`p-5 rounded-[2rem] border transition-all hover:scale-[1.02] duration-300 ${
+                  item.highlight 
+                    ? "bg-rose-500/5 border-rose-500/15" 
+                    : "bg-[#090f1d] border-white/5"
+                } shadow-xl relative overflow-hidden`}
+              >
+                <div className={`p-2 w-10 h-10 rounded-xl mb-3 flex items-center justify-center bg-white/5`}>
+                  <item.icon className={`h-5 w-5 ${item.color === 'rose' ? 'text-rose-500' : (item.color === 'amber' ? 'text-amber-500' : (item.color === 'orange' ? 'text-orange-500' : (item.color === 'emerald' ? 'text-emerald-500' : 'text-blue-500')))}`} />
+                </div>
+                <div className="text-xl md:text-2xl font-black tracking-tighter text-slate-100">{item.value}</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">{item.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* ÁREA INTERATIVA DO GANTT E APRESENTAÇÃO EXEC */}
+          <div className="bg-[#090f1d]/50 border border-white/5 rounded-[3rem] shadow-2xl overflow-hidden min-h-[600px] relative flex flex-col">
+            
+            {/* Abas e botão exportar */}
+            <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/10">
+              <div className="flex bg-slate-950/60 p-1 rounded-full border border-white/5">
+                <button
+                  onClick={() => setActiveTab("gantt")}
+                  className={`px-6 py-2 rounded-full text-xs font-black uppercase transition-all ${
+                    activeTab === "gantt"
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "text-slate-400 hover:text-slate-300"
+                  }`}
+                >
+                  Visualização Gantt
+                </button>
+                <button
+                  onClick={() => setActiveTab("executive")}
+                  className={`px-6 py-2 rounded-full text-xs font-black uppercase transition-all ${
+                    activeTab === "executive"
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "text-slate-400 hover:text-slate-300"
+                  }`}
+                >
+                  Parecer Executivo
+                </button>
+              </div>
+
+              <Button 
+                onClick={handleExportPdf}
+                className="rounded-full h-11 px-6 font-black bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-600/10 transition-all border-none flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Exportar Relatório PDF</span>
+              </Button>
+            </div>
+
+            {/* Conteúdo Ativo da Aba */}
+            <div className="flex-1 min-h-[500px]">
+              {activeTab === "gantt" ? (
+                <GanttView projectId={selectedProjectId!} />
+              ) : (
+                <ExecutivePresentation projectId={selectedProjectId!} />
+              )}
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* CASO NÃO HAJA PROJETOS GERADOS AINDA */}
+      {selectedProject && projectPlans.length === 0 && (
+        <div className="flex flex-col items-center justify-center p-20 border border-dashed rounded-[3rem] border-white/10 bg-[#090f1d]/20 text-center select-none">
+          <MapIcon className="h-14 w-14 text-slate-600 mb-4 animate-pulse" />
+          <h2 className="text-xl font-black text-slate-300">Nenhum roadmap ativo</h2>
+          <p className="text-xs text-slate-500 max-w-sm mt-2 leading-relaxed">
+            Selecione os Sistemas Operacionais do seu inventário no painel acima e clique em <strong>Gerar / Otimizar Roadmap</strong> para desenhar a timeline estratégica de conformidade técnica.
+          </p>
+        </div>
+      )}
+
+      {/* FORMULÁRIO DE DIALOG PARA CRIAR/EDITAR PROJETO */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="bg-[#070c19] border border-white/10 text-white rounded-3xl max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold tracking-tight text-white">
+              {editingProject ? "Editar Projeto" : "Criar Novo Roadmap"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 font-semibold">Nome do Projeto</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Migração Windows Server 2025" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300 font-semibold">Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="bg-slate-950/60 border-white/10 text-white">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-[#090f1d] border-white/10 text-white">
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.name} className="focus:bg-white/5 focus:text-white">{c.name}</SelectItem>
+                          ))}
+                          {categories.length === 0 && (
+                            <SelectItem value="Geral" className="focus:bg-white/5 focus:text-white">Geral</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300 font-semibold">Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="bg-slate-950/60 border-white/10 text-white">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-[#090f1d] border-white/10 text-white">
+                          <SelectItem value="draft" className="focus:bg-white/5">Rascunho</SelectItem>
+                          <SelectItem value="review" className="focus:bg-white/5">Em Revisão</SelectItem>
+                          <SelectItem value="approved" className="focus:bg-white/5">Aprovado</SelectItem>
+                          <SelectItem value="scheduled" className="focus:bg-white/5">Agendado</SelectItem>
+                          <SelectItem value="in_progress" className="focus:bg-white/5">Em Andamento</SelectItem>
+                          <SelectItem value="completed" className="focus:bg-white/5">Concluído</SelectItem>
+                          <SelectItem value="blocked" className="focus:bg-white/5">Bloqueado</SelectItem>
+                          <SelectItem value="cancelled" className="focus:bg-white/5">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="start_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300 font-semibold">Data de Início</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="end_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-300 font-semibold">Data Prevista de Término</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="owner"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 font-semibold">Responsável (Dono)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome do gestor ou equipe" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="pt-2">
+                <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold">
+                  {editingProject ? "Salvar Alterações" : "Criar Projeto"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE DELEÇÃO COM CONFIRMATION MODAL CENTRALIZADO */}
+      <ConfirmationModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={() => {
+          if (projectToDelete) {
+            deleteMutation.mutate(projectToDelete);
+          }
+        }}
+        title="Excluir Projeto de Roadmap?"
+        description="Esta ação é irreversível. Todos os planos de migração e orçamentos vinculados a este projeto de planejamento estratégico serão apagados permanentemente da plataforma."
+        confirmLabel="Sim, Excluir Projeto"
+        variant="danger"
+        destructiveLevel="critical"
+        confirmationText="EXCLUIR"
+      />
+
     </div>
-
-    {projects.length === 0 ? (
-      <EmptyState 
-        icon={Map}
-        title="Nenhum roadmap encontrado"
-        description="Você ainda não criou nenhum projeto de planejamento estratégico. Comece criando um novo projeto para visualizar o ciclo de vida dos seus ativos."
-        actionLabel="Criar Projeto"
-        onAction={() => setIsOpen(true)}
-      />
-    ) : (
-      <DataTable 
-        columns={columns} 
-        data={projects} 
-        searchKey="name" 
-      />
-    )}
-
-    <ConfirmationModal
-      isOpen={!!projectToDelete}
-      onClose={() => setProjectToDelete(null)}
-      onConfirm={() => {
-        if (projectToDelete) {
-          deleteMutation.mutate(projectToDelete);
-        }
-      }}
-      title="Excluir Projeto de Roadmap?"
-      description="Esta ação é irreversível. Todos os planos de migração atrelados a este projeto serão apagados permanentemente."
-      confirmLabel="Sim, Excluir Projeto"
-      variant="danger"
-    />
-  </div>
-);
+  );
 }
-
-
-

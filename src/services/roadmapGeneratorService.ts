@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { roadmapService } from './roadmapService';
 import { deterministicEngineService } from './deterministicEngineService';
 import { auditService } from './auditService';
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, addDays, parseISO } from 'date-fns';
 
 export const roadmapGeneratorService = {
   async generateAuto(params: {
@@ -40,7 +40,7 @@ export const roadmapGeneratorService = {
     };
   },
 
-  async generate(projectId: string) {
+  async generate(projectId: string, selectedSos?: string[], safetyMarginDays?: number) {
     const today = new Date();
     const results = {
       success: false,
@@ -81,10 +81,31 @@ export const roadmapGeneratorService = {
         return results;
       }
 
+      // Filtrar assets com base nos SOs selecionados
+      const filteredAssets = assets.filter(asset => {
+        const lifecycle = asset.lifecycle_catalog;
+        if (!lifecycle) return false;
+        
+        if (selectedSos && selectedSos.length > 0) {
+          const soName = `${lifecycle.vendor || ''} ${lifecycle.product_name} ${lifecycle.version || ''}`.replace(/\s+/g, ' ').trim().toLowerCase();
+          // Verifica se o SO do asset bate com algum dos SOs selecionados
+          return selectedSos.some(so => {
+            const cleanSo = so.trim().toLowerCase();
+            return soName.includes(cleanSo) || cleanSo.includes(soName);
+          });
+        }
+        return true;
+      });
+
+      if (filteredAssets.length === 0) {
+        results.errors.push(`Nenhum ativo corresponde aos Sistemas Operacionais selecionados.`);
+        return results;
+      }
+
       // 4. Preparar planos de migração
       const plansToUpsert = [];
 
-      for (const asset of assets) {
+      for (const asset of filteredAssets) {
         const lifecycle = asset.lifecycle_catalog;
         
         if (!lifecycle) {
@@ -99,8 +120,16 @@ export const roadmapGeneratorService = {
           continue;
         }
 
-        const priority = deterministicEngineService.calculatePriority(lifecycle.end_of_support, asset.business_criticality);
-        const window = deterministicEngineService.calculateMigrationWindow(lifecycle.end_of_support);
+        // Aplicar a folga de segurança subtraindo dias do EoL original para fins de planejamento
+        let plannedEol = lifecycle.end_of_support;
+        if (safetyMarginDays && safetyMarginDays > 0) {
+          const originalEolDate = parseISO(lifecycle.end_of_support);
+          const adjustedEolDate = addDays(originalEolDate, -safetyMarginDays);
+          plannedEol = adjustedEolDate.toISOString().split('T')[0];
+        }
+
+        const priority = deterministicEngineService.calculatePriority(plannedEol, asset.business_criticality);
+        const window = deterministicEngineService.calculateMigrationWindow(plannedEol);
         
         plansToUpsert.push({
           roadmap_project_id: projectId,
@@ -116,7 +145,7 @@ export const roadmapGeneratorService = {
             lifecycle.product_name,
             lifecycle.version || '',
             lifecycle.end_of_support
-          ),
+          ) + (safetyMarginDays ? ` [Planejado com folga de segurança de ${safetyMarginDays} dias]` : ''),
           estimated_cost: asset.device_type === 'server' ? 5000 : 1200
         });
       }
@@ -166,8 +195,8 @@ export const roadmapGeneratorService = {
         action: 'GENERATE_ROADMAP',
         entity_type: 'roadmap_projects',
         entity_id: projectId,
-        description: `Roadmap gerado: ${results.createdCount} planos criados, ${results.skippedCount} pulados.`,
-        metadata: results
+        description: `Roadmap gerado: ${results.createdCount} planos criados, ${results.skippedCount} pulados. Filtros: SOs=${selectedSos?.join(', ') || 'Nenhum'}, Folga=${safetyMarginDays || 0}d.`,
+        metadata: { ...results, selectedSos, safetyMarginDays }
       });
 
       return results;
