@@ -3,15 +3,12 @@ import type { BackgroundJob, JobType, JobStatus } from '@/types';
 import { auditService } from './auditService';
 
 export const jobService = {
-  async createJob(organizationId: string, type: JobType, payload: any = {}): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
-
+  async createJob(type: JobType, payload: any = {}): Promise<BackgroundJob> {
     const { data: { user } } = await supabase.auth.getUser();
 
     const { data, error } = await supabase
       .from('background_jobs')
       .insert([{
-        organization_id: organizationId,
         type,
         payload,
         created_by: user?.id,
@@ -35,13 +32,10 @@ export const jobService = {
     return data as BackgroundJob;
   },
 
-  async getJobs(organizationId: string, limit = 50, status?: JobStatus): Promise<BackgroundJob[]> {
-    if (!organizationId) throw new Error('organization_id is required');
-
+  async getJobs(limit = 50, status?: JobStatus): Promise<BackgroundJob[]> {
     let query = supabase
       .from('background_jobs')
       .select('*')
-      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -55,31 +49,42 @@ export const jobService = {
     return data as BackgroundJob[];
   },
 
-  async getJob(id: string, organizationId: string): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
-
+  async getJob(id: string): Promise<BackgroundJob> {
     const { data, error } = await supabase
       .from('background_jobs')
       .select('*')
       .eq('id', id)
-      .eq('organization_id', organizationId)
       .single();
 
     if (error) throw error;
     return data as BackgroundJob;
   },
 
-  async markRunning(id: string, organizationId: string): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
+  async deleteJob(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('background_jobs')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  async updateJobStatus(
+    id: string,
+    status: JobStatus,
+    result?: any,
+    errorMsg?: any
+  ): Promise<BackgroundJob> {
+    const updates: any = { status };
+    if (result) updates.result = result;
+    if (errorMsg) updates.error = errorMsg;
+    if (status === 'running') updates.started_at = new Date().toISOString();
+    if (status === 'completed' || status === 'failed') updates.finished_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('background_jobs')
-      .update({
-        status: 'running',
-        started_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id)
-      .eq('organization_id', organizationId)
       .select()
       .single();
 
@@ -89,97 +94,32 @@ export const jobService = {
       action: 'job_status_changed',
       entity_type: 'background_job',
       entity_id: id,
-      description: `Job ${id} marked as running`,
-      metadata: { status: 'running' }
+      description: `Job ${id} status changed to ${status}`,
+      metadata: { status, result, error: errorMsg }
     });
 
     return data as BackgroundJob;
   },
 
-  async markCompleted(id: string, organizationId: string, result?: any): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
-
-    const { data, error } = await supabase
-      .from('background_jobs')
-      .update({
-        status: 'completed',
-        result,
-        finished_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .eq('organization_id', organizationId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await auditService.log({
-      action: 'job_status_changed',
-      entity_type: 'background_job',
-      entity_id: id,
-      description: `Job ${id} marked as completed`,
-      metadata: { status: 'completed', result }
-    });
-
-    return data as BackgroundJob;
-  },
-
-  async markFailed(id: string, organizationId: string, errorDetail?: any): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
-
-    // First fetch attempts to decide if retrying or failing
+  async retryJob(id: string): Promise<BackgroundJob> {
     const { data: job, error: fetchError } = await supabase
       .from('background_jobs')
-      .select('attempts, max_attempts')
+      .select('attempts')
       .eq('id', id)
-      .eq('organization_id', organizationId)
       .single();
 
     if (fetchError) throw fetchError;
-
-    const newAttempts = job.attempts + 1;
-    const isRetrying = newAttempts < job.max_attempts;
-    const newStatus = isRetrying ? 'retrying' : 'failed';
-
-    const { data, error } = await supabase
-      .from('background_jobs')
-      .update({
-        status: newStatus,
-        error: errorDetail,
-        attempts: newAttempts,
-        ...(newStatus === 'failed' ? { finished_at: new Date().toISOString() } : {})
-      })
-      .eq('id', id)
-      .eq('organization_id', organizationId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await auditService.log({
-      action: 'job_status_changed',
-      entity_type: 'background_job',
-      entity_id: id,
-      description: `Job ${id} marked as ${newStatus}`,
-      metadata: { status: newStatus, error: errorDetail, attempts: newAttempts }
-    });
-
-    return data as BackgroundJob;
-  },
-
-  async retryJob(id: string, organizationId: string): Promise<BackgroundJob> {
-    if (!organizationId) throw new Error('organization_id is required');
 
     const { data, error } = await supabase
       .from('background_jobs')
       .update({
         status: 'queued',
+        attempts: job.attempts + 1,
         error: null,
         started_at: null,
         finished_at: null
       })
       .eq('id', id)
-      .eq('organization_id', organizationId)
       .select()
       .single();
 

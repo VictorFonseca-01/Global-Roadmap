@@ -41,14 +41,3 @@ BEFORE UPDATE ON user_profiles
 FOR EACH ROW
 EXECUTE FUNCTION handle_updated_at();
 
--- Nota: Como estamos em um ambiente de demonstração, 
--- vou inserir um perfil inicial para o ID de teste se ele não existir.
-INSERT INTO user_profiles (id, full_name, email, role, department, avatar_url)
-SELECT 
-  '00000000-0000-0000-0000-000000000000', -- ID Mock para dev
-  'Victor Fonseca',
-  'victor.fonseca@globalparts.com',
-  'IT Director',
-  'Infrastructure & Security',
-  'https://github.com/shadcn.png'
-ON CONFLICT (id) DO NOTHING;

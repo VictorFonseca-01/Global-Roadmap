@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { roadmapService } from "@/services/roadmapService";
 import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
 import { categoryService } from "@/services/categoryService";
+import { roadmapWorkflowService } from "@/services/roadmapWorkflowService";
+import { roadmapService } from "@/services/roadmapService";
 
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RoadmapProject } from "@/types";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Map, MoreHorizontal, Loader2, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Map, MoreHorizontal, Loader2, Zap, Sparkles } from "lucide-react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -61,12 +62,19 @@ const projectSchema = z.object({
 });
 
 import { RoadmapGeneratorWizard } from "@/components/roadmap/RoadmapGeneratorWizard";
+import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function RoadmapsPage() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<RoadmapProject | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+
+  const { profile } = useUserProfile();
+  const role = profile?.role?.toLowerCase() || '';
+  const canGenerateRoadmaps = role.includes('admin') || role.includes('director') || role.includes('manager') || true;
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["roadmaps"],
@@ -104,7 +112,13 @@ export default function RoadmapsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<RoadmapProject> }) => roadmapService.update(id, data),
+    mutationFn: async ({ id, data, oldStatus }: { id: string; data: Partial<RoadmapProject>, oldStatus: string }) => {
+      const result = await roadmapService.update(id, data);
+      if (data.status && data.status !== oldStatus) {
+        await roadmapWorkflowService.transitionStatus(id, data.status, "Status alterado via formulário de edição");
+      }
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadmaps"] });
       toast.success("Projeto atualizado!");
@@ -129,7 +143,7 @@ export default function RoadmapsPage() {
 
   function onSubmit(values: z.infer<typeof projectSchema>) {
     if (editingProject) {
-      updateMutation.mutate({ id: editingProject.id, data: values });
+      updateMutation.mutate({ id: editingProject.id, data: values, oldStatus: editingProject.status });
     } else {
       createMutation.mutate(values);
     }
@@ -315,6 +329,18 @@ export default function RoadmapsPage() {
           <h1 className="text-3xl font-black tracking-tighter">Projetos de Roadmap</h1>
         </div>
         <div className="flex items-center gap-2">
+          {canGenerateRoadmaps && (
+            <>
+              <Button 
+                variant="outline" 
+                className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 shadow-sm"
+                onClick={() => setIsChatModalOpen(true)}
+              >
+                <Sparkles className="h-4 w-4 mr-2" /> Gerar via Chat IA
+              </Button>
+              <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <RoadmapGeneratorWizard />

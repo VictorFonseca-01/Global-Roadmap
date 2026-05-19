@@ -77,9 +77,14 @@ export const dashboardService = {
           const date = new Date(p.recommended_start_date);
           const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           timelineMap[key] = (timelineMap[key] || 0) + 1;
+        }
 
-          if (date < today) stats.outOfSupport++;
-          if (date > today && date <= next180Days) stats.next180Days++;
+        const asset = assets.find(a => a.id === p.asset_id);
+        const eolStr = asset?.lifecycle_catalog?.end_of_support;
+        if (eolStr) {
+          const eolDate = new Date(eolStr);
+          if (eolDate < today) stats.outOfSupport++;
+          if (eolDate > today && eolDate <= next180Days) stats.next180Days++;
         }
       });
 

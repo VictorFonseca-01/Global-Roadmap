@@ -213,6 +213,8 @@ export interface BackgroundJob {
   max_attempts: number;
   created_by?: string;
   created_at: string;
-  started_at?: string;
   finished_at?: string;
 }
+
+export * from './aiRoadmap';
+

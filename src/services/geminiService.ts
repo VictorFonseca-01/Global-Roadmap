@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "@/lib/supabase";
+import { AIRoadmapParseResponseSchema, type AIRoadmapParseResponse } from "@/types";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
@@ -167,6 +168,66 @@ export const geminiService = {
       const errorMessage = error instanceof Error ? error.message : String(error);
       await this.logUsage(MODEL_NAME, "executive_insights", startTime, false, promptHash, errorMessage);
       return ["Análise estratégica indisponível no momento."];
+    }
+  },
+
+  async parseRoadmapPrompt(prompt: string): Promise<AIRoadmapParseResponse> {
+    const systemInstruction = `You are a strict IT Roadmap analyzer. 
+Parse the following text and extract roadmap data in JSON format EXACTLY matching this schema:
+{
+  "project_name": "string",
+  "category": "string",
+  "items": [{
+    "vendor": "string",
+    "product_name": "string",
+    "version": "string",
+    "asset_type": "client|server|other",
+    "implemented_at": "YYYY-MM-DD or null",
+    "current_usage": "string (optional)",
+    "business_criticality": "low|medium|high|critical"
+  }],
+  "assumptions": ["string"],
+  "missing_information": ["string"]
+}
+If information like 'implemented_at' is missing, set it to null and add a note in 'missing_information' indicating what is missing. Do NOT invent dates or metrics.`;
+
+    const fullPrompt = `${systemInstruction}\n\nUser Input:\n${prompt}`;
+    const promptHash = await generateHash(fullPrompt);
+    const startTime = Date.now();
+
+    await acquireToken();
+    try {
+      const data = await withRetry(async () => {
+        if (!genAI) throw new Error("VITE_GEMINI_API_KEY não configurada.");
+        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+        const result = await model.generateContent(fullPrompt);
+        const text = await result.response.text();
+        const cleanJson = text.replace(/```json|```/gi, "").trim();
+        
+        let parsed;
+        try {
+          parsed = JSON.parse(cleanJson);
+        } catch (e) {
+          throw new Error("A IA não retornou um JSON válido.");
+        }
+
+        const validated = AIRoadmapParseResponseSchema.safeParse(parsed);
+        if (!validated.success) {
+          throw new Error("O JSON retornado pela IA não respeita o contrato estrito: " + validated.error.message);
+        }
+
+        return validated.data;
+      });
+
+      await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, true, promptHash);
+      return data;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Gemini Parse Error:", error);
+      await this.logUsage(MODEL_NAME, "parse_roadmap_prompt", startTime, false, promptHash, errorMessage);
+      throw error;
+    } finally {
+      releaseToken();
     }
   },
 
