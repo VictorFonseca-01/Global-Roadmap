@@ -24,7 +24,7 @@ export default function AssetsPage() {
   // Filters State
   const [selectedOS, setSelectedOS] = useState<string>("all");
   const [selectedVersion, setSelectedVersion] = useState<string>("all");
-  const [selectedCriticality, setSelectedCriticality] = useState<string>("all");
+
 
   const { data: assets = [], isLoading } = useQuery({
     queryKey: ["assets"],
@@ -57,10 +57,9 @@ export default function AssetsPage() {
     return assets.filter(asset => {
       const matchOS = selectedOS === "all" || asset.lifecycle_catalog?.product_name === selectedOS;
       const matchVersion = selectedVersion === "all" || asset.lifecycle_catalog?.version === selectedVersion;
-      const matchCriticality = selectedCriticality === "all" || asset.business_criticality === selectedCriticality;
-      return matchOS && matchVersion && matchCriticality;
+      return matchOS && matchVersion;
     });
-  }, [assets, selectedOS, selectedVersion, selectedCriticality]);
+  }, [assets, selectedOS, selectedVersion]);
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -75,7 +74,6 @@ export default function AssetsPage() {
   const resetFilters = () => {
     setSelectedOS("all");
     setSelectedVersion("all");
-    setSelectedCriticality("all");
     toast.success("Filtros limpos com sucesso");
   };
 
@@ -123,30 +121,7 @@ export default function AssetsPage() {
         );
       },
     },
-    {
-      accessorKey: "business_criticality",
-      header: "Criticidade",
-      cell: ({ row }) => {
-        const criticality = row.original.business_criticality;
-        const badgeClasses = {
-          critical: "bg-red-950/60 text-red-400 border-red-800/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]",
-          high: "bg-orange-950/60 text-orange-400 border-orange-800/30",
-          medium: "bg-yellow-950/60 text-yellow-400 border-yellow-800/30",
-          low: "bg-green-950/60 text-green-400 border-green-800/30",
-        };
-        const labels = {
-          critical: "CRÍTICA",
-          high: "ALTA",
-          medium: "MÉDIA",
-          low: "BAIXA",
-        };
-        return (
-          <Badge className={`border font-black text-[10px] tracking-widest px-2 py-0.5 ${badgeClasses[criticality]}`}>
-            {labels[criticality]}
-          </Badge>
-        );
-      },
-    },
+
     {
       accessorKey: "owner_department",
       header: "Setor / Departamento",
@@ -261,21 +236,10 @@ export default function AssetsPage() {
             ))}
           </select>
 
-          {/* Criticality Filter */}
-          <select
-            value={selectedCriticality}
-            onChange={(e) => setSelectedCriticality(e.target.value)}
-            className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer hover:bg-slate-950/80 transition-colors"
-          >
-            <option value="all" className="bg-slate-950 text-slate-200">Todas as Criticidades</option>
-            <option value="critical" className="bg-slate-950 text-slate-200">Crítica</option>
-            <option value="high" className="bg-slate-950 text-slate-200">Alta</option>
-            <option value="medium" className="bg-slate-950 text-slate-200">Média</option>
-            <option value="low" className="bg-slate-950 text-slate-200">Baixa</option>
-          </select>
+
         </div>
         
-        {(selectedOS !== "all" || selectedVersion !== "all" || selectedCriticality !== "all") && (
+        {(selectedOS !== "all" || selectedVersion !== "all") && (
           <Button 
             variant="ghost" 
             onClick={resetFilters}
