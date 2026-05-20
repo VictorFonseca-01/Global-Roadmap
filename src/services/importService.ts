@@ -249,10 +249,23 @@ export const importService = {
 
     // 2. Enriquecimento em Lote (GeminiService gerencia cache e tokens)
     console.log(`[Import] Enriquecendo ${uniqueItems.length} itens únicos via IA/Cache...`);
-    await Promise.all(uniqueItems.map(item => 
-      geminiService.enrichLifecycle(item.vendor, item.product, item.version)
-        .catch(err => console.warn(`[Import] Falha no enriquecimento: ${item.product}`, err))
-    ));
+    const enrichmentMap = new Map<string, { vendor: string; product: string; version: string }>();
+    
+    await Promise.all(uniqueItems.map(async item => {
+      try {
+        const enriched = await geminiService.enrichLifecycle(item.vendor, item.product, item.version);
+        if (enriched) {
+          const key = `${item.vendor}|${item.product}|${item.version}`.toLowerCase();
+          enrichmentMap.set(key, {
+            vendor: enriched.vendor,
+            product: enriched.product_name,
+            version: enriched.version
+          });
+        }
+      } catch (err) {
+        console.warn(`[Import] Falha no enriquecimento: ${item.product}`, err);
+      }
+    }));
 
     // 3. Carregar dados para matching
     const [categories, catalog, apps] = await Promise.all([
@@ -264,9 +277,17 @@ export const importService = {
     // 4. Processar Ativos O(N)
     for (const row of normalizedData) {
       try {
-        const vendor = (row.os_vendor || row.vendor || '').toLowerCase();
-        const product = (row.os_product || row.os_name || row.product || '').toLowerCase();
-        const version = (row.os_version || row.version || '').toLowerCase();
+        let vendor = (row.os_vendor || row.vendor || '').toLowerCase();
+        let product = (row.os_product || row.os_name || row.product || '').toLowerCase();
+        let version = (row.os_version || row.version || '').toLowerCase();
+        
+        const originalKey = `${vendor}|${product}|${version}`;
+        const enriched = enrichmentMap.get(originalKey);
+        if (enriched) {
+          vendor = (enriched.vendor || '').toLowerCase();
+          product = (enriched.product || '').toLowerCase();
+          version = (enriched.version || '').toLowerCase();
+        }
 
         const matchedCategory = categories.data?.find(c => 
           c.name.toLowerCase() === (row.category || '').toLowerCase() ||
