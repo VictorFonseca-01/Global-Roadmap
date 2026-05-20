@@ -53,7 +53,7 @@ export const roadmapGeneratorService = {
       
       if (userId) {
         const { data: profile } = await supabase
-          .from('profiles')
+          .from('user_profiles')
           .select('organization_id')
           .eq('id', userId)
           .maybeSingle();
