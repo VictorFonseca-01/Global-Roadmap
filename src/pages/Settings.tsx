@@ -75,9 +75,8 @@ export default function SettingsPage() {
         description: 'O sistema foi resetado para os padrões de fábrica (dados operacionais limpos por tenant)'
       });
 
-      // Limpeza de caches locais e do React Query
-      localStorage.clear();
-      sessionStorage.clear();
+      // ATENÇÃO: Não limpamos mais o localStorage.clear() inteiro pois isso exclui o token
+      // de sessão do Supabase, o que desloga o usuário da plataforma.
       queryClient.clear();
 
       toast.success("Plataforma resetada e base operacional limpa para o tenant atual.");
