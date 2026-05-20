@@ -10,6 +10,71 @@ import { auditService } from './auditService';
 import { supabase } from '@/lib/supabase';
 import type { Criticality } from '@/types';
 
+export function parseOsFromText(text: string): { vendor: string; product: string; version: string } {
+  const t = (text || '').trim();
+  let vendor = 'Unknown';
+  let product = 'Unknown';
+  let version = '';
+
+  const lower = t.toLowerCase();
+
+  // 1. Detect Vendor
+  if (lower.includes('microsoft') || lower.includes('windows') || lower.includes('win ')) {
+    vendor = 'Microsoft';
+  } else if (lower.includes('ubuntu') || lower.includes('canonical')) {
+    vendor = 'Canonical';
+  } else if (lower.includes('red hat') || lower.includes('redhat') || lower.includes('rhel')) {
+    vendor = 'Red Hat';
+  } else if (lower.includes('centos')) {
+    vendor = 'CentOS';
+  } else if (lower.includes('debian')) {
+    vendor = 'Debian';
+  }
+
+  // 2. Detect Product
+  if (lower.includes('windows server') || lower.includes('win server') || lower.includes('winserver')) {
+    product = 'Windows Server';
+  } else if (lower.includes('windows 11') || lower.includes('win 11')) {
+    product = 'Windows 11';
+  } else if (lower.includes('windows 10') || lower.includes('win 10')) {
+    product = 'Windows 10';
+  } else if (lower.includes('windows 7') || lower.includes('win 7')) {
+    product = 'Windows 7';
+  } else if (lower.includes('windows 8') || lower.includes('win 8')) {
+    product = 'Windows 8';
+  } else if (lower.includes('ubuntu')) {
+    product = 'Ubuntu';
+  } else if (lower.includes('red hat') || lower.includes('redhat') || lower.includes('rhel')) {
+    product = 'Red Hat Enterprise Linux';
+  } else if (lower.includes('centos')) {
+    product = 'CentOS';
+  }
+
+  // 3. Detect Version
+  const yearMatch = t.match(/\b(2008|2012|2016|2019|2022|2025)\b/);
+  if (yearMatch) {
+    version = yearMatch[1];
+    if (lower.includes('r2')) {
+      version += ' R2';
+    }
+  } else {
+    const winVerMatch = t.match(/\b(24h2|23h2|22h2|21h2|20h2|1909|1809|1607)\b/i);
+    if (winVerMatch) {
+      version = winVerMatch[1].toUpperCase();
+    } else {
+      const linuxVerMatch = t.match(/\b(\d+\.\d+)\b/);
+      if (linuxVerMatch) {
+        version = linuxVerMatch[1];
+      }
+    }
+  }
+
+  if (product === 'Unknown' && t) {
+    product = t;
+  }
+
+  return { vendor, product, version };
+}
 
 export const importService = {
   async parseCSV(file: File): Promise<Record<string, string>[]> {
@@ -126,6 +191,14 @@ export const importService = {
         normalized.business_criticality = 'medium';
       }
 
+      // Se não há vendor ou os_name ou os_version, extrair do hostname
+      if (normalized.hostname && (!normalized.vendor || !normalized.os_name || normalized.os_name === 'Unknown' || normalized.vendor === 'Unknown')) {
+        const parsed = parseOsFromText(normalized.hostname);
+        if (!normalized.vendor || normalized.vendor === 'Unknown') normalized.vendor = parsed.vendor;
+        if (!normalized.os_name || normalized.os_name === 'Unknown') normalized.os_name = parsed.product;
+        if (!normalized.os_version) normalized.os_version = parsed.version;
+      }
+
       return normalized;
     });
 
@@ -170,7 +243,9 @@ export const importService = {
 
         const matchedCategory = categories.data?.find(c => 
           c.name.toLowerCase() === (row.category || '').toLowerCase() ||
-          c.name.toLowerCase() === (row.device_type || '').toLowerCase()
+          c.name.toLowerCase() === (row.device_type || '').toLowerCase() ||
+          (row.device_type === 'server' && c.name === 'Servers') ||
+          (row.device_type === 'workstation' && c.name === 'Computers')
         );
 
         const matchedLifecycle = catalog.find(l => 

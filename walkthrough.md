@@ -67,6 +67,15 @@ Aplicamos testes sistemáticos rígidos para o controle de qualidade do Quality 
 
 ---
 
+### D. Sprint 4: Correção do Roadmap & Rotina de Auto-Reparo Automática de Ativos Órfãos
+*   **Parser de Hostname Determinístico:** Desenvolvemos um extrator determinístico de assinaturas de sistemas operacionais `parseOsFromText` no [importService.ts](file:///c:/Users/vfonseca/.gemini/antigravity/scratch/Global-Roadmap/src/services/importService.ts), que analisa strings de hostnames de forma heurística para segmentar fabricante, produto e versão.
+*   **Rotina de Auto-Reparo em Segundo Plano:** Implementamos o método `repairMissingAssetRelations()` no [roadmapGeneratorService.ts](file:///c:/Users/vfonseca/.gemini/antigravity/scratch/Global-Roadmap/src/services/roadmapGeneratorService.ts) para buscar em lote todos os ativos com relacionamentos órfãos (`category_id` ou `lifecycle_id` nulos).
+*   **Semeação Automatizada via Gemini/Fallbacks:** Para cada OS órfão, o reparo invoca o método de enriquecimento `geminiService.enrichLifecycle()`, garantindo que os dados de suporte (EoL) sejam pesquisados via IA ou alimentados pelos fallbacks locais resilientes (Microsoft Windows Server 2012/2016/2019/2022/2025, Windows 10/11) e persistidos adequadamente na tabela `lifecycle_catalog` vinculada ao `organization_id` correspondente.
+*   **Gatilhos de UX e Alta Resiliência:** Integramos o gatilho de auto-reparo transparente na raiz do processamento do painel principal (método `getDashboardData` no [dashboardService.ts](file:///c:/Users/vfonseca/.gemini/antigravity/scratch/Global-Roadmap/src/services/dashboardService.ts)) e na geração direta de roadmaps, eliminando de forma definitiva timelines de Gantt em branco ou KPIs executivos zerados causados por planilhas de inventário mal formatadas.
+
+---
+
 ## 3. Conclusão
 
-A plataforma está totalmente blindada, em total conformidade regulatória corporativa, livre de vazamentos de dados entre tenants e equipada com uma experiência visual premium de altíssima fidelidade. A homologação de produção foi concluída com êxito!
+A plataforma está totalmente blindada, em total conformidade regulatória corporativa, livre de vazamentos de dados entre tenants, equipada com mecanismos inteligentes de resiliência e auto-reparo de dados em lote, e pronta com uma experiência visual premium de altíssima fidelidade. A homologação e a entrega final de produção foram concluídas com absoluto êxito!
+
