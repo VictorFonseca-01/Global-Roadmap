@@ -4,7 +4,6 @@ import { categoryService } from "@/services/categoryService";
 import { roadmapWorkflowService } from "@/services/roadmapWorkflowService";
 import { roadmapService } from "@/services/roadmapService";
 import { migrationPlanService } from "@/services/migrationPlanService";
-import { assetService } from "@/services/assetService";
 import { pdfService } from "@/services/pdfService";
 import { deterministicEngineService } from "@/services/deterministicEngineService";
 
@@ -19,14 +18,11 @@ import {
   Zap, 
   Sparkles, 
   Download, 
-  Check, 
-  HelpCircle, 
   AlertTriangle, 
-  CalendarDays, 
   ClipboardCheck, 
   ShieldAlert, 
-  SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  CalendarDays
 } from "lucide-react";
 import { 
   Dialog, 
@@ -81,8 +77,6 @@ export default function RoadmapsPage() {
   
   // States
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedSos, setSelectedSos] = useState<string[]>([]);
-  const [safetyMarginDays, setSafetyMarginDays] = useState<number>(30);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -105,31 +99,14 @@ export default function RoadmapsPage() {
     queryFn: () => categoryService.getAll(),
   });
 
-  const { data: assets = [] } = useQuery({
-    queryKey: ["assets"],
-    queryFn: () => assetService.getAll(),
-  });
+  // assets query removed as SO lists are abstracted
 
   const { data: allPlans = [] } = useQuery({
     queryKey: ["migration-plans"],
     queryFn: () => migrationPlanService.getAll(),
   });
 
-  // Extrair SOs únicos dos assets mapeados no inventário
-  const uniqueSos = useMemo(() => {
-    const sos = new Set<string>();
-    assets.forEach((asset: any) => {
-      const lc = asset.lifecycle_catalog;
-      if (lc) {
-        const vendor = lc.vendor || "";
-        const product = lc.product_name || "";
-        const version = lc.version || "";
-        const name = `${vendor} ${product} ${version}`.replace(/\s+/g, " ").trim();
-        if (name) sos.add(name);
-      }
-    });
-    return Array.from(sos).sort();
-  }, [assets]);
+  // SO lists are abstracted for simplified UI
 
   // Formulário de Criação/Edição de Projeto
   const form = useForm<z.infer<typeof projectSchema>>({
@@ -248,12 +225,7 @@ export default function RoadmapsPage() {
     };
   }, [projectPlans]);
 
-  // Toggle de seleção de Sistemas Operacionais
-  const handleToggleSo = (so: string) => {
-    setSelectedSos(prev => 
-      prev.includes(so) ? prev.filter(item => item !== so) : [...prev, so]
-    );
-  };
+  // handleToggleSo removed for simplification
 
   // Ação de Geração/Otimização do Roadmap
   const handleGenerateRoadmap = async () => {
@@ -268,8 +240,8 @@ export default function RoadmapsPage() {
     try {
       const results = await roadmapGeneratorService.generate(
         selectedProjectId, 
-        selectedSos.length > 0 ? selectedSos : undefined, 
-        safetyMarginDays
+        undefined, // Sempre processa todo o inventário por padrão
+        30 // Margem recomendada corporativa de 30 dias
       );
 
       if (results.success) {
@@ -443,133 +415,52 @@ export default function RoadmapsPage() {
         </div>
       </div>
 
-      {/* PAINEL DE CONTROLE PREMIUM (SELEÇÃO DE SOs E IA) */}
+      {/* PAINEL DE CONTROLE SIMPLIFICADO (Apple Enterprise SaaS style) */}
       {selectedProject && (
-        <div className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-[#0c1427]/85 to-[#050912]/95 p-6 md:p-8 shadow-2xl">
-          <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/5 rounded-full blur-[100px]" />
+        <div className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-gradient-to-br from-[#0c1427]/85 to-[#050912]/95 p-8 md:p-10 shadow-2xl">
+          <div className="absolute top-0 right-0 h-40 w-40 bg-blue-500/10 rounded-full blur-[100px]" />
+          <div className="absolute bottom-0 left-0 h-32 w-32 bg-indigo-500/5 rounded-full blur-[80px]" />
           
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">Inteligência Estrutural Ativa</span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-black tracking-tight text-white">
+                Geração Automática de Roadmap
+              </h2>
+              <p className="text-slate-400 text-xs md:text-sm leading-relaxed">
+                O motor inteligente analisa automaticamente o inventário corporativo, cruza dados com os ciclos de vida (EoL) oficiais dos fabricantes e projeta uma linha do tempo segura com margem de segurança padrão de 30 dias.
+              </p>
+            </div>
             
-            {/* Coluna 1: Mapeamento e Seleção de SOs */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4 text-blue-500" />
-                  1. Filtrar Sistemas Operacionais
-                </h3>
-                {uniqueSos.length > 0 && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setSelectedSos(uniqueSos)}
-                      className="text-[10px] font-black text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider"
-                    >
-                      Todos
-                    </button>
-                    <span className="text-slate-700 text-[10px]">|</span>
-                    <button 
-                      onClick={() => setSelectedSos([])}
-                      className="text-[10px] font-black text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-wider"
-                    >
-                      Nenhum
-                    </button>
-                  </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+              <Button 
+                onClick={handleGenerateRoadmap}
+                disabled={isGenerating || isProjectsLoading}
+                className="h-12 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
                 )}
-              </div>
+                <span>Gerar / Otimizar Roadmap</span>
+              </Button>
 
-              {uniqueSos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-6 border border-dashed border-white/5 rounded-2xl bg-black/10 text-center min-h-[140px]">
-                  <HelpCircle className="h-8 w-8 text-slate-600 mb-2" />
-                  <span className="text-xs font-bold text-slate-500">Nenhum SO mapeado</span>
-                  <span className="text-[10px] text-slate-600 max-w-[200px] mt-1 leading-normal">Importe uma planilha do GLPI na aba Inventário para detectar SOs automaticamente.</span>
-                </div>
-              ) : (
-                <div className="overflow-y-auto max-h-[140px] pr-2 scrollbar-thin flex flex-wrap gap-2 content-start min-h-[140px]">
-                  {uniqueSos.map((so) => {
-                    const isSelected = selectedSos.includes(so);
-                    return (
-                      <button
-                        key={so}
-                        onClick={() => handleToggleSo(so)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? "bg-blue-600/15 border-blue-500/40 text-blue-300 shadow-[0_0_12px_rgba(59,130,246,0.1)]"
-                            : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300"
-                        }`}
-                      >
-                        {isSelected && <Check className="h-3 w-3 text-blue-400" />}
-                        {so}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Coluna 2: Margem de Segurança */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-blue-500" />
-                2. Margem de Segurança
-              </h3>
-              <div className="bg-black/25 border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[140px]">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">
-                    Folga de Segurança Técnica:
-                  </label>
-                  <Select value={String(safetyMarginDays)} onValueChange={(v) => setSafetyMarginDays(parseInt(v))}>
-                    <SelectTrigger className="h-10 rounded-xl bg-slate-950/60 border-white/10 text-slate-200">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#090f1d] border-white/10 text-white">
-                      <SelectItem value="0" className="focus:bg-white/5 focus:text-white">Sem margem de segurança</SelectItem>
-                      <SelectItem value="15" className="focus:bg-white/5 focus:text-white">15 dias de antecedência</SelectItem>
-                      <SelectItem value="30" className="focus:bg-white/5 focus:text-white">30 dias (Recomendado)</SelectItem>
-                      <SelectItem value="45" className="focus:bg-white/5 focus:text-white">45 dias de folga</SelectItem>
-                      <SelectItem value="60" className="focus:bg-white/5 focus:text-white">60 dias (Margem Crítica)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-[10px] text-slate-500 leading-normal italic mt-2">
-                  A folga técnica antecipa o planejamento subtraindo os dias estipulados da data oficial de EoL do fabricante, blindando a operação contra falhas inesperadas.
-                </p>
-              </div>
-            </div>
-
-            {/* Coluna 3: Prompt de IA e Geração */}
-            <div className="space-y-4 flex flex-col justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-500" />
-                3. Geração Automática
-              </h3>
-              
-              <div className="flex flex-col gap-3">
+              {canGenerateRoadmaps && (
                 <Button 
-                  onClick={handleGenerateRoadmap}
-                  disabled={isGenerating || isProjectsLoading}
-                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  variant="outline"
+                  onClick={() => setIsChatModalOpen(true)}
+                  className="h-12 px-6 rounded-2xl border-white/10 hover:border-blue-500/30 bg-white/5 hover:bg-blue-500/5 text-slate-300 hover:text-blue-400 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
-                  {isGenerating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Zap className="h-4 w-4" />
-                  )}
-                  <span>Gerar / Otimizar Roadmap</span>
+                  <Sparkles className="h-4 w-4" />
+                  <span>Gerar via Chat IA</span>
                 </Button>
-
-                {canGenerateRoadmaps && (
-                  <Button 
-                    variant="outline"
-                    onClick={() => setIsChatModalOpen(true)}
-                    className="w-full h-11 rounded-2xl border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-                  >
-                    <Sparkles className="h-4 w-4 text-blue-400" />
-                    <span>Gerar via Chat IA</span>
-                  </Button>
-                )}
-                <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />
-              </div>
+              )}
+              <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />
             </div>
-
           </div>
         </div>
       )}

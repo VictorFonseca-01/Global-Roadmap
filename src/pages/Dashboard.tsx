@@ -2,19 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardService } from "@/services/dashboardService";
 import { ExecutiveStats } from "@/components/dashboard/ExecutiveStats";
 import { 
-  RiskChart, 
-  MigrationStatusChart, 
-  CategoryDistributionChart, 
   EolTimelineChart 
 } from "@/components/dashboard/DashboardCharts";
-import { FileDown, Monitor, Loader2 } from "lucide-react";
+import { FileDown, Monitor, Loader2, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 import { exportService } from "@/services/exportService";
-import { motion, AnimatePresence } from "framer-motion";
-import { TrendingDown, ShieldAlert, Zap } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { AnimatePresence } from "framer-motion";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 import { toast } from "sonner";
@@ -118,7 +113,7 @@ export default function DashboardPage() {
     );
   }
   
-  const { stats, riskData, statusData, categoryData, timelineData, insights } = data;
+  const { stats, timelineData } = data;
 
 
   return (
@@ -179,34 +174,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Local Insights Section (Deterministic) */}
-      <AnimatePresence>
-        {insights && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-          >
-            {insights.map((insight: string, i: number) => (
-              <Card key={i} className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden group hover:shadow-md transition-all border-l-4 border-l-primary">
-                <CardContent className="p-4 flex gap-3 items-start">
-                  <div className="p-2 bg-primary/10 rounded-xl mt-1">
-                    {i === 0 ? <ShieldAlert className="h-4 w-4 text-primary" /> : 
-                     i === 1 ? <TrendingDown className="h-4 w-4 text-primary" /> : 
-                     <Zap className="h-4 w-4 text-primary" />}
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">Insight Estratégico</span>
-                    </div>
-                    <p className="text-xs font-bold leading-tight text-slate-700 dark:text-slate-300">{insight}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Local Insights Section (Deterministic) - Removed for Strategic Simplification */}
 
       <AnimatePresence>
         {stats.totalAssets === 0 ? (
@@ -222,10 +190,7 @@ export default function DashboardPage() {
           <>
             <ExecutiveStats stats={stats} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <RiskChart data={riskData} />
-              <MigrationStatusChart data={statusData} />
-              <CategoryDistributionChart data={categoryData} />
+            <div className="grid grid-cols-1 gap-6">
               <EolTimelineChart data={timelineData} />
             </div>
           </>

@@ -147,26 +147,26 @@ export const CategoryDistributionChart = memo(function CategoryDistributionChart
 CategoryDistributionChart.displayName = "CategoryDistributionChart";
 
 export const EolTimelineChart = memo(function EolTimelineChart({ data }: { data: any[] }) {
-  if (!data || data.length === 0) return <ChartEmptyState title="End of Support (Time-series)" />;
+  if (!data || data.length === 0) return <ChartEmptyState title="Timeline Principal" />;
   return (
-    <Card className="col-span-1 lg:col-span-2 rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
+    <Card className="w-full rounded-[2rem] border-slate-200/60 dark:border-slate-800/60 shadow-lg hover:shadow-xl transition-all duration-300 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
       <CardHeader className="pb-0">
-        <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Projeção End of Support (Timeline)</CardTitle>
+        <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Timeline Principal (Projeção End of Support)</CardTitle>
       </CardHeader>
       <CardContent className="h-[280px] mt-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4}/>
-                <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.0}/>
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
             <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} dy={10} fontWeight={600} />
             <YAxis fontSize={10} tickLine={false} axisLine={false} dx={-10} fontWeight={600} />
             <Tooltip content={<CustomTooltip />} />
-            <Area type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} fill="url(#areaGradient)" activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }} />
+            <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} fill="url(#areaGradient)" activeDot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} />
           </AreaChart>
         </ResponsiveContainer>
       </CardContent>

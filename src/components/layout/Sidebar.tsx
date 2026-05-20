@@ -1,22 +1,18 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
 
 import { 
   LayoutDashboard, 
   Map, 
   Monitor, 
   Settings,
-  Bell,
   ChevronLeft,
   ChevronRight
 } from "lucide-react"
 
 import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
-import { notificationService } from "@/services/notificationService"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useUserProfile } from "@/hooks/useUserProfile"
 import { motion } from "framer-motion"
@@ -36,17 +32,8 @@ export function Sidebar({
     { name: "Dashboard", icon: LayoutDashboard, path: "/" },
     { name: "Inventário", icon: Monitor, path: "/assets" },
     { name: "Roadmaps", icon: Map, path: "/roadmaps" },
-    { name: "Notificações", icon: Bell, path: "/notifications", badge: true },
     { name: "Configurações", icon: Settings, path: "/settings" },
   ]
-
-  const { data: notifications = [] } = useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => notificationService.getAll(),
-    refetchInterval: 30000
-  });
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <motion.div 
@@ -108,11 +95,6 @@ export function Sidebar({
                   )}
                   <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary")} />
                   {!collapsed && <span className="text-sm tracking-tight flex-1">{item.name}</span>}
-                  {item.badge && unreadCount > 0 && !collapsed && (
-                    <Badge className="h-5 min-w-[20px] px-1 bg-primary text-white rounded-full text-[10px] font-black border-none">
-                      {unreadCount}
-                    </Badge>
-                  )}
                 </Button>
               </Link>
             );

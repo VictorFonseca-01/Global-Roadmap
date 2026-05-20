@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
-  Monitor,
+  Activity,
   AlertTriangle, 
   DollarSign, 
   Zap
@@ -13,42 +13,63 @@ interface StatsProps {
 import { motion } from "framer-motion"
 
 export function ExecutiveStats({ stats }: StatsProps) {
+  const total = stats?.totalAssets || 0;
+  const outOfSupport = stats?.outOfSupport || 0;
+  const critical = stats?.critical || 0;
+  const high = stats?.high || 0;
+  const healthScore = total > 0 
+    ? Math.max(0, Math.min(100, Math.round(100 - ((outOfSupport + critical) / total) * 100))) 
+    : 100;
+
+  let healthBg = "bg-emerald-500/10";
+  let healthColor = "text-emerald-500";
+  let healthTrend = "Excelente";
+  if (healthScore < 80 && healthScore >= 50) {
+    healthBg = "bg-amber-500/10";
+    healthColor = "text-amber-500";
+    healthTrend = "Atenção";
+  } else if (healthScore < 50) {
+    healthBg = "bg-rose-500/10";
+    healthColor = "text-rose-500";
+    healthTrend = "Crítico";
+  }
+
   const mainCards = [
     { 
-      title: "Ativos Monitorados", 
-      value: stats.totalAssets, 
-      subtitle: `${stats.totalServers} Servidores · ${stats.totalWorkstations} Workstations`,
-      icon: Monitor, 
-      color: "text-blue-500", 
-      bg: "bg-blue-500/10",
-      trend: "Estável"
+      title: "Health Score", 
+      value: `${healthScore}%`, 
+      subtitle: `Saúde Geral da Infraestrutura`,
+      icon: Activity, 
+      color: healthColor, 
+      bg: healthBg,
+      trend: healthTrend
     },
     { 
-      title: "Risco Iminente (EOL)", 
-      value: stats.outOfSupport + stats.next180Days, 
-      subtitle: `${stats.outOfSupport} Expirados · ${stats.next180Days} nos próximos 180 dias`,
-      icon: AlertTriangle, 
-      color: "text-rose-500", 
-      bg: "bg-rose-500/10",
-      trend: "Ação Necessária"
-    },
-    { 
-      title: "Prioridade de Migração", 
-      value: stats.critical + stats.high, 
-      subtitle: `${stats.critical} Críticos · ${stats.high} Altos`,
+      title: "Ativos Críticos", 
+      value: critical + high, 
+      subtitle: `${critical} Críticos · ${high} Altos`,
       icon: Zap, 
       color: "text-amber-500", 
       bg: "bg-amber-500/10",
-      trend: "Crítico"
+      trend: "Ação Imediata"
     },
     { 
-      title: "Orçamento Base Projetado", 
-      value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.estimatedBudget), 
-      subtitle: `Distribuído em ${stats.totalRoadmaps} Roadmaps`,
+      title: "Próximos EoL", 
+      value: outOfSupport + (stats?.next180Days || 0), 
+      subtitle: `${outOfSupport} Expirados · ${stats?.next180Days || 0} em 180 dias`,
+      icon: AlertTriangle, 
+      color: "text-rose-500", 
+      bg: "bg-rose-500/10",
+      trend: "Aviso Prévio"
+    },
+    { 
+      title: "CAPEX Projetado", 
+      value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats?.estimatedBudget || 0), 
+      subtitle: `Estimado para ${stats?.totalRoadmaps || 0} roadmaps`,
       icon: DollarSign, 
       color: "text-emerald-500", 
       bg: "bg-emerald-500/10",
-      trend: "Estimativa"
+      trend: "Orçamento"
     },
   ];
 
