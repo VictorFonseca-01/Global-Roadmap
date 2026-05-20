@@ -11,14 +11,15 @@ import { differenceInDays } from 'date-fns';
 import type { AIReviewData, AIReviewItem, Criticality } from "@/types";
 
 interface AIReviewPreviewProps {
-  initialData: AIReviewData;
+  initialData?: AIReviewData;
+  data?: AIReviewData;
   onConfirm: (data: AIReviewData) => void;
   onCancel: () => void;
-  onBackToChat: () => void;
+  onBackToChat?: () => void;
 }
 
-export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat }: AIReviewPreviewProps) {
-  const [data, setData] = useState<AIReviewData>(initialData);
+export function AIReviewPreview({ initialData, data: dataProp, onConfirm, onCancel, onBackToChat }: AIReviewPreviewProps) {
+  const [data, setData] = useState<AIReviewData>(initialData || dataProp!);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
   const handleUpdateItem = (id: string, updates: Partial<AIReviewItem>) => {
@@ -607,7 +608,7 @@ export function AIReviewPreview({ initialData, onConfirm, onCancel, onBackToChat
       <div className="border-t bg-white dark:bg-slate-950 p-4 flex justify-between items-center">
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button variant="ghost" onClick={onBackToChat}>Voltar ao Chat</Button>
+          {onBackToChat && <Button variant="ghost" onClick={onBackToChat}>Voltar ao Chat</Button>}
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"

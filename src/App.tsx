@@ -49,18 +49,21 @@ function App() {
                       <MainLayout />
                     </AuthGuard>
                   }>
+                    {/* ── Rotas Principais (visíveis na Sidebar) ── */}
                     <Route index element={<Dashboard />} />
+                    <Route path="assets" element={<Assets />} />
                     <Route path="roadmaps" element={<Roadmaps />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="profile" element={<Profile />} />
+
+                    {/* ── Rotas Internas (ocultas da sidebar, mantidas para compatibilidade) ── */}
                     <Route path="categories" element={<Categories />} />
                     <Route path="lifecycle" element={<Lifecycle />} />
-                    <Route path="assets" element={<Assets />} />
                     <Route path="applications" element={<Applications />} />
                     <Route path="migration-plans" element={<MigrationPlans />} />
                     <Route path="roadmap-timeline" element={<RoadmapTimeline />} />
                     <Route path="notifications" element={<Notifications />} />
                     <Route path="settings/ai" element={<SettingsAI />} />
-                    <Route path="profile" element={<Profile />} />
-                    <Route path="settings" element={<Settings />} />
                   </Route>
 
                   {/* Fallback */}

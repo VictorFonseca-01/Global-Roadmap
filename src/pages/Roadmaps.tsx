@@ -456,7 +456,7 @@ export default function RoadmapsPage() {
                   className="h-12 px-6 rounded-2xl border-white/10 hover:border-blue-500/30 bg-white/5 hover:bg-blue-500/5 text-slate-300 hover:text-blue-400 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Sparkles className="h-4 w-4" />
-                  <span>Gerar via Chat IA</span>
+                  <span>Complementar com IA</span>
                 </Button>
               )}
               <AIChatGenerator open={isChatModalOpen} onOpenChange={setIsChatModalOpen} />

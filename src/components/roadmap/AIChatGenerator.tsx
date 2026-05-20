@@ -188,17 +188,17 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
             <DialogHeader className="p-6 pb-2">
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Sparkles className="w-5 h-5 text-blue-600" />
-                Gerador de Roadmap Inteligente
+                Complementar Inventário com IA
               </DialogTitle>
               <DialogDescription>
-                Descreva o seu ambiente em linguagem natural ou cole um relatório existente. A IA identificará os ativos, estimará custos e alertará sobre riscos antes de criar o projeto final.
+                Você pode complementar o inventário com informações que não estão no GLPI, como datas de implantação, prioridades ou restrições. O inventário importado já é a base principal do roadmap.
               </DialogDescription>
             </DialogHeader>
             <div className="p-6 flex-1 flex flex-col gap-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 p-3 rounded-lg text-sm text-blue-800 dark:text-blue-300">
-                <strong className="block mb-1">Exemplo de entrada:</strong>
+                <strong className="block mb-1">Exemplos de complemento:</strong>
                 <p className="opacity-80">
-                  "Temos Windows 10 22H2 implementado em 01/01/2020, Windows 11 23H2 implementado em 10/02/2024 e Windows Server 2012 R2 implementado em 15/03/2016. Gere um roadmap Microsoft Client e Server."
+                  "Windows 10 foi implementado em 01/01/2024 e queremos iniciar a migração 10 dias a partir de hoje." ou "Priorize servidores" ou "Desconsidere máquinas de laboratório".
                 </p>
               </div>
 
@@ -206,7 +206,7 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
                 <textarea 
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
-                  placeholder="Cole as informações do seu parque aqui..."
+                  placeholder="Adicione contexto extra que não está na planilha do GLPI..."
                   className={`flex-1 min-h-[200px] w-full p-4 rounded-md border bg-slate-50 dark:bg-slate-900/50 resize-none focus:outline-none focus:ring-2 ${isWarning && !isBlocked ? 'border-yellow-400 focus:ring-yellow-500' : isBlocked ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 dark:border-slate-800 focus:ring-blue-500'}`}
                   disabled={loading}
                 />

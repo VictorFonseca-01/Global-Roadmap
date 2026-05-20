@@ -1,14 +1,18 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { assetService } from "@/services/assetService";
+import { aiOrchestratorService } from "@/services/aiOrchestratorService";
+import { aiRoadmapGeneratorService } from "@/services/aiRoadmapGeneratorService";
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Asset } from "@/types";
-import { Monitor, Info, Sparkles, Filter, RefreshCw, Server, Laptop, AlertCircle } from "lucide-react";
+import type { Asset, AIReviewData } from "@/types";
+import { Monitor, Info, Filter, RefreshCw, Server, Laptop, AlertCircle, Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ImportWizard } from "@/components/inventory/ImportWizard";
+import { AIReviewPreview } from "@/components/roadmap/AIReviewPreview";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { 
   Tooltip,
@@ -25,6 +29,11 @@ export default function AssetsPage() {
   const [selectedOS, setSelectedOS] = useState<string>("all");
   const [selectedVersion, setSelectedVersion] = useState<string>("all");
 
+  // Auto Roadmap Generation State
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState("");
+  const [autoReviewData, setAutoReviewData] = useState<AIReviewData | null>(null);
+  const [showAutoReview, setShowAutoReview] = useState(false);
 
   const { data: assets = [], isLoading } = useQuery({
     queryKey: ["assets"],
@@ -75,6 +84,61 @@ export default function AssetsPage() {
     setSelectedOS("all");
     setSelectedVersion("all");
     toast.success("Filtros limpos com sucesso");
+  };
+
+  const handleAutoGenerate = async () => {
+    if (assets.length === 0) {
+      toast.error("Importe seu inventário GLPI antes de gerar um roadmap automático.");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      setGeneratingStep("Analisando inventário...");
+      await new Promise(r => setTimeout(r, 500)); // UX breathing
+
+      setGeneratingStep("Identificando tecnologias...");
+      const result = await aiOrchestratorService.orchestrateFromInventory();
+
+      setGeneratingStep("Preparando prévia do roadmap...");
+      await new Promise(r => setTimeout(r, 300));
+
+      setAutoReviewData(result.reviewData);
+      setShowAutoReview(true);
+
+      toast.success(`${result.uniqueTechnologies} tecnologias identificadas em ${result.totalAssetsAnalyzed} ativos.`);
+    } catch (err: any) {
+      if (err.message === 'EMPTY_INVENTORY') {
+        toast.error("Inventário vazio. Importe seus dados do GLPI primeiro.");
+      } else {
+        toast.error("Erro ao gerar roadmap: " + (err.message || "Erro desconhecido"));
+      }
+    } finally {
+      setIsGenerating(false);
+      setGeneratingStep("");
+    }
+  };
+
+  const handleAutoConfirm = async (data: AIReviewData) => {
+    setIsGenerating(true);
+    setGeneratingStep("Gerando roadmap oficial...");
+    try {
+      const result = await aiRoadmapGeneratorService.generateRoadmapFromAIReview(data);
+      if (!result.success) throw new Error(result.errors.join(", "));
+
+      toast.success("Roadmap gerado com sucesso a partir do inventário!");
+      setShowAutoReview(false);
+      setAutoReviewData(null);
+
+      if (result.roadmapProjectId) {
+        navigate(`/roadmaps`);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao confirmar roadmap: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setIsGenerating(false);
+      setGeneratingStep("");
+    }
   };
 
   const columns: ColumnDef<Asset>[] = [
@@ -169,11 +233,21 @@ export default function AssetsPage() {
         <div className="flex items-center gap-3">
           <ImportWizard onComplete={() => queryClient.invalidateQueries({ queryKey: ["assets"] })} />
           <Button 
-            onClick={() => navigate("/roadmaps")}
+            onClick={handleAutoGenerate}
+            disabled={isGenerating || assets.length === 0}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 gap-2 border border-indigo-500/20 transition-all"
           >
-            <Sparkles className="h-4 w-4 text-cyan-300 animate-pulse" />
-            <span>Gerar Roadmap com IA</span>
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{generatingStep || "Gerando..."}</span>
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 text-cyan-300" />
+                <span>Gerar Roadmap Automático</span>
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -259,6 +333,27 @@ export default function AssetsPage() {
           searchKey="hostname" 
         />
       </div>
+
+      {/* Auto Roadmap Review Dialog */}
+      <Dialog open={showAutoReview} onOpenChange={(open) => {
+        if (!open && !isGenerating) {
+          setShowAutoReview(false);
+          setAutoReviewData(null);
+        }
+      }}>
+        <DialogContent className="max-w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden">
+          {autoReviewData && (
+            <AIReviewPreview
+              data={autoReviewData}
+              onConfirm={handleAutoConfirm}
+              onCancel={() => {
+                setShowAutoReview(false);
+                setAutoReviewData(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
