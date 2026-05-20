@@ -129,13 +129,13 @@ export default function DashboardPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Inteligência Estratégica Ativa</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Análise de suporte e migração</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">
-              Executive Dashboard
+              Dashboard Executivo
             </h1>
             <p className="text-slate-400 font-medium max-w-xl text-sm md:text-base leading-relaxed">
-              Visão consolidada do ciclo de vida tecnológico corporativo. Acompanhe riscos de obsolescência, orçamentos estimados e status de migrações em tempo real.
+              Visão clara da saúde tecnológica da sua empresa. Entenda os riscos de fim de suporte, custos estimados e prazos para migração.
             </p>
           </div>
           

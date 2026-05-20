@@ -191,15 +191,18 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
                 Complementar Inventário com IA
               </DialogTitle>
               <DialogDescription>
-                Você pode complementar o inventário com informações que não estão no GLPI, como datas de implantação, prioridades ou restrições. O inventário importado já é a base principal do roadmap.
+                Use este campo apenas para adicionar informações que não estão no inventário. O inventário importado já é a base principal do roadmap.
               </DialogDescription>
             </DialogHeader>
             <div className="p-6 flex-1 flex flex-col gap-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 p-3 rounded-lg text-sm text-blue-800 dark:text-blue-300">
                 <strong className="block mb-1">Exemplos de complemento:</strong>
-                <p className="opacity-80">
-                  "Windows 10 foi implementado em 01/01/2024 e queremos iniciar a migração 10 dias a partir de hoje." ou "Priorize servidores" ou "Desconsidere máquinas de laboratório".
-                </p>
+                <ul className="list-disc list-inside space-y-1 opacity-80 mt-1">
+                  <li>"Windows 10 foi implantado em 01/01/2024."</li>
+                  <li>"Priorizar servidores."</li>
+                  <li>"Usar margem de 10 dias para iniciar a migração."</li>
+                  <li>"Desconsiderar máquinas de laboratório."</li>
+                </ul>
               </div>
 
               <div className="relative flex-1 flex flex-col">

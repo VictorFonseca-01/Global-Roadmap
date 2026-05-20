@@ -176,7 +176,7 @@ export default function RoadmapTimelinePage() {
         </div>
         <div className="p-6 rounded-[2rem] bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800 transition-all hover:shadow-md">
           <h3 className="font-black text-emerald-900 dark:text-emerald-100 mb-2 uppercase text-xs tracking-widest">Planejamento Estratégico</h3>
-          <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium leading-relaxed">As datas sugeridas são calculadas automaticamente pelo Motor Determinístico para mitigar riscos de segurança.</p>
+          <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium leading-relaxed">As datas sugeridas são calculadas pela análise automática de risco e fim de suporte para mitigar vulnerabilidades.</p>
         </div>
       </div>
     </div>

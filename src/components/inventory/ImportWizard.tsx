@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
 
-export function ImportWizard({ onComplete }: { onComplete: () => void }) {
+export function ImportWizard({ onComplete, triggerClassName }: { onComplete: () => void; triggerClassName?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
@@ -94,7 +94,7 @@ export function ImportWizard({ onComplete }: { onComplete: () => void }) {
       if (!open) reset();
     }}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" className={triggerClassName}>
           <Upload className="h-4 w-4 mr-2" /> Importar Inventário
         </Button>
       </DialogTrigger>

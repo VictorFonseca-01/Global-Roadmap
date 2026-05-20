@@ -127,7 +127,7 @@ export default function SettingsPage() {
             <Globe className="h-4 w-4 mr-2" /> Geral
           </TabsTrigger>
           <TabsTrigger value="ai" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
-            <Brain className="h-4 w-4 mr-2" /> IA & Copilot
+            <Brain className="h-4 w-4 mr-2" /> IA de Roadmap
           </TabsTrigger>
           <TabsTrigger value="notifications" className="rounded-full px-6 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">
             <Bell className="h-4 w-4 mr-2" /> Notificações

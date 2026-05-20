@@ -137,66 +137,33 @@ const GanttRow = React.memo(({ plan, timelineStart, colWidth, months, today }: {
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />
                 </motion.div>
               </TooltipTrigger>
-              <TooltipContent className="w-[380px] p-6 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950" side="top" sideOffset={10}>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase">
-                      Fase: {phase.type.toUpperCase()} ({phase.duration_days} dias)
-                    </Badge>
-                    <span className="text-[10px] font-black text-muted-foreground">{plan.assets?.hostname}</span>
+              <TooltipContent className="w-[320px] p-5 rounded-2xl shadow-2xl border border-slate-800 bg-slate-950 text-slate-200" side="top" sideOffset={10}>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="text-[11px] font-black uppercase text-primary">Plano de Migração</span>
+                    <Badge variant="outline" className="text-[9px] font-bold border-slate-700 bg-slate-900">{plan.assets?.hostname}</Badge>
                   </div>
-                  
-                  <div>
-                    <h4 className="text-sm font-black tracking-tight text-slate-900 dark:text-white">
-                      {plan.assets?.lifecycle_catalog?.product_name} v{plan.assets?.lifecycle_catalog?.version}
-                    </h4>
-                    <div className="text-[10px] flex items-center gap-2 mt-1 font-bold text-primary">
-                      <span>Alvo: {strategicTimeline.recommended_target_version}</span>
-                      <span>({strategicTimeline.migration_strategy})</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-2 leading-relaxed">
-                      <strong>Objetivo:</strong> {phase.objective || 'Executar transição técnica.'}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t text-[11px]">
-                    <div>
-                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Início</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{parseISO(phase.start_date).toLocaleDateString()}</span>
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-[11px]">
+                    <div className="col-span-2">
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">EoL (Fim de Suporte)</span>
+                      <span className="font-bold text-rose-400">{eolStr ? format(parseISO(eolStr), "dd/MM/yyyy") : "N/A"}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Data Fim</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{parseISO(phase.end_date).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  {phase.dependencies && phase.dependencies.length > 0 && (
-                    <div className="pt-2 border-t text-[10px]">
-                      <span className="text-[9px] font-black uppercase text-muted-foreground block mb-1">Dependências</span>
-                      <div className="flex flex-wrap gap-1">
-                        {phase.dependencies.map((dep, dIdx) => (
-                          <Badge key={dIdx} variant="outline" className="text-[8px] font-semibold">{dep}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t grid grid-cols-2 gap-4 text-[10px]">
-                    <div>
-                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Janela Segura</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{strategicTimeline.safe_migration_window_days} dias ({strategicTimeline.migration_window_status})</span>
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">Versão Alvo</span>
+                      <span className="font-bold text-slate-100">{strategicTimeline.recommended_target_version}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase text-muted-foreground block">Risco Financeiro</span>
-                      <span className="font-bold text-rose-500">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(strategicTimeline.operational_risk_cost || 0)}</span>
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">Início Recomendado</span>
+                      <span className="font-bold text-slate-100">{format(parseISO(phase.start_date), "dd/MM/yyyy")}</span>
                     </div>
-                  </div>
-
-                  <div className="pt-2 border-t flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground font-semibold">Custo Alocado (CAPEX)</span>
-                    <span className="font-black text-primary">
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(plan.estimated_cost || 0)}
-                    </span>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">Custo Projetado</span>
+                      <span className="font-bold text-emerald-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(plan.estimated_cost || 0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">Risco</span>
+                      <span className="font-bold capitalize text-amber-400">{plan.priority || 'Baixo'}</span>
+                    </div>
                   </div>
                 </div>
               </TooltipContent>
@@ -415,7 +382,7 @@ export function GanttView({ projectId }: { projectId?: string }) {
             <Badge variant="outline" className={`text-[8px] uppercase font-black tracking-tighter ${getPriorityBadge(plan.priority)}`}>
               {plan.priority}
             </Badge>
-            {strategicTimeline.badges?.map((badge, bIdx) => {
+            {strategicTimeline.badges?.slice(0, 1).map((badge, bIdx) => {
               let style = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
               let hasGlow = false;
               if (badge === 'Bloqueado') {

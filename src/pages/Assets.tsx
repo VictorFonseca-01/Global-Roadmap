@@ -6,14 +6,16 @@ import { aiRoadmapGeneratorService } from "@/services/aiRoadmapGeneratorService"
 import { DataTable } from "@/components/ui/data-table-custom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Asset, AIReviewData } from "@/types";
-import { Monitor, Info, Filter, RefreshCw, Server, Laptop, AlertCircle, Loader2, Zap } from "lucide-react";
+import { Monitor, Info, Filter, RefreshCw, Server, Laptop, AlertCircle, Loader2, Zap, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ImportWizard } from "@/components/inventory/ImportWizard";
 import { AIReviewPreview } from "@/components/roadmap/AIReviewPreview";
+import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { 
   Tooltip,
   TooltipContent,
@@ -34,6 +36,7 @@ export default function AssetsPage() {
   const [generatingStep, setGeneratingStep] = useState("");
   const [autoReviewData, setAutoReviewData] = useState<AIReviewData | null>(null);
   const [showAutoReview, setShowAutoReview] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const { data: assets = [], isLoading } = useQuery({
     queryKey: ["assets"],
@@ -88,7 +91,7 @@ export default function AssetsPage() {
 
   const handleAutoGenerate = async () => {
     if (assets.length === 0) {
-      toast.error("Importe seu inventário GLPI antes de gerar um roadmap automático.");
+      toast.error("Importe seu inventário primeiro.");
       return;
     }
 
@@ -100,7 +103,7 @@ export default function AssetsPage() {
       setGeneratingStep("Identificando tecnologias...");
       const result = await aiOrchestratorService.orchestrateFromInventory();
 
-      setGeneratingStep("Preparando prévia do roadmap...");
+      setGeneratingStep("Preparando prévia...");
       await new Promise(r => setTimeout(r, 300));
 
       setAutoReviewData(result.reviewData);
@@ -109,7 +112,7 @@ export default function AssetsPage() {
       toast.success(`${result.uniqueTechnologies} tecnologias identificadas em ${result.totalAssetsAnalyzed} ativos.`);
     } catch (err: any) {
       if (err.message === 'EMPTY_INVENTORY') {
-        toast.error("Inventário vazio. Importe seus dados do GLPI primeiro.");
+        toast.error("Inventário vazio. Importe seus dados primeiro.");
       } else {
         toast.error("Erro ao gerar roadmap: " + (err.message || "Erro desconhecido"));
       }
@@ -173,25 +176,67 @@ export default function AssetsPage() {
     },
     {
       accessorKey: "lifecycle_catalog.product_name",
-      header: "Sistema Operacional",
+      header: "SO",
       cell: ({ row }) => {
         const item = row.original.lifecycle_catalog;
         if (!item) return <span className="text-slate-500 text-xs italic">Não identificado</span>;
+        return <span className="text-sm font-semibold text-slate-200">{item.product_name}</span>;
+      },
+    },
+    {
+      accessorKey: "lifecycle_catalog.version",
+      header: "Versão",
+      cell: ({ row }) => {
+        const item = row.original.lifecycle_catalog;
+        if (!item) return <span className="text-slate-500 text-xs">-</span>;
+        return <span className="text-xs font-mono text-slate-300">{item.version}</span>;
+      },
+    },
+    {
+      accessorKey: "business_criticality",
+      header: "Criticidade",
+      cell: ({ row }) => {
+        const criticality = row.original.business_criticality;
+        if (!criticality) return <span className="text-slate-500 text-xs">Pendente (IA)</span>;
+        
+        const colors: Record<string, string> = {
+          critical: "bg-rose-950/40 text-rose-300 border-rose-800/30",
+          high: "bg-amber-950/40 text-amber-300 border-amber-800/30",
+          medium: "bg-blue-950/40 text-blue-300 border-blue-800/30",
+          low: "bg-slate-950/40 text-slate-300 border-slate-800/30",
+        };
+
+        const labels: Record<string, string> = {
+          critical: "Crítico",
+          high: "Alto",
+          medium: "Médio",
+          low: "Baixo",
+        };
+        
         return (
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-slate-200">{item.product_name} {item.version}</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.vendor}</span>
-          </div>
+          <Badge variant="secondary" className={`text-xs font-semibold ${colors[criticality] || colors.low}`}>
+            {labels[criticality] || "IA"}
+          </Badge>
         );
       },
     },
-
     {
-      accessorKey: "owner_department",
-      header: "Setor / Departamento",
-      cell: ({ row }) => (
-        <span className="text-slate-300 font-medium">{row.original.owner_department || "-"}</span>
-      ),
+      accessorKey: "updated_at",
+      header: "Última Análise",
+      cell: ({ row }) => {
+        const dateStr = row.original.updated_at || row.original.created_at;
+        if (!dateStr) return <span className="text-slate-500 text-xs">-</span>;
+        try {
+          const date = new Date(dateStr);
+          return (
+            <span className="text-xs text-slate-400">
+              {date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+          );
+        } catch {
+          return <span className="text-slate-500 text-xs">-</span>;
+        }
+      },
     },
     {
       id: "details",
@@ -226,16 +271,21 @@ export default function AssetsPage() {
             <Monitor className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">Inventário de Ativos</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Importe seu inventário do GLPI e gerencie o ciclo de vida dos seus sistemas.</p>
+            <h1 className="text-3xl font-black tracking-tight text-white">Inventário</h1>
+            <p className="text-slate-400 text-sm mt-0.5 max-w-xl">
+              Importe seu GLPI, SCCM, Intune ou planilha Excel. A IA analisará automaticamente o ambiente e gerará roadmaps com base nos ativos encontrados.
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ImportWizard onComplete={() => queryClient.invalidateQueries({ queryKey: ["assets"] })} />
+        <div className="flex items-center gap-3 flex-wrap">
+          <ImportWizard 
+            onComplete={() => queryClient.invalidateQueries({ queryKey: ["assets"] })} 
+            triggerClassName="rounded-xl border-white/10 bg-slate-900/40 hover:bg-white/5 text-slate-200 font-bold transition-all gap-2 h-10"
+          />
           <Button 
             onClick={handleAutoGenerate}
             disabled={isGenerating || assets.length === 0}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 gap-2 border border-indigo-500/20 transition-all"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 gap-2 border border-indigo-500/20 transition-all h-10"
           >
             {isGenerating ? (
               <>
@@ -248,6 +298,14 @@ export default function AssetsPage() {
                 <span>Gerar Roadmap Automático</span>
               </>
             )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsChatOpen(true)}
+            className="rounded-xl border-white/10 hover:bg-white/5 text-slate-300 font-bold transition-all gap-2 h-10"
+          >
+            <Sparkles className="h-4 w-4 text-cyan-400" />
+            <span>Complementar com IA</span>
           </Button>
         </div>
       </div>
@@ -325,14 +383,22 @@ export default function AssetsPage() {
         )}
       </div>
 
-      {/* Main Table */}
-      <div className="rounded-2xl border border-white/5 overflow-hidden bg-slate-950/20">
-        <DataTable 
-          columns={columns} 
-          data={filteredAssets} 
-          searchKey="hostname" 
+      {/* Main Table or Empty State */}
+      {assets.length === 0 ? (
+        <EmptyState 
+          icon={Monitor}
+          title="Nenhum ativo importado"
+          description="Importe seu inventário para começar. Depois disso, a IA poderá gerar roadmaps automaticamente."
         />
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-white/5 overflow-hidden bg-slate-950/20">
+          <DataTable 
+            columns={columns} 
+            data={filteredAssets} 
+            searchKey="hostname" 
+          />
+        </div>
+      )}
 
       {/* Auto Roadmap Review Dialog */}
       <Dialog open={showAutoReview} onOpenChange={(open) => {
@@ -354,6 +420,9 @@ export default function AssetsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AI Chat Generator Modal */}
+      <AIChatGenerator open={isChatOpen} onOpenChange={setIsChatOpen} />
     </div>
   );
 }
