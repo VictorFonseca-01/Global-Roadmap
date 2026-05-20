@@ -371,7 +371,7 @@ export const geminiService = {
         raw_response: responseData,
         last_verified_at: new Date().toISOString(),
         organization_id: organizationId
-      }, { onConflict: 'vendor,product_name,version,organization_id' });
+      }, { onConflict: 'vendor,product_name,version' });
 
       return responseData;
 
@@ -404,7 +404,7 @@ export const geminiService = {
           raw_response: fallbackData as any,
           last_verified_at: new Date().toISOString(),
           organization_id: organizationId
-        }, { onConflict: 'vendor,product_name,version,organization_id' });
+        }, { onConflict: 'vendor,product_name,version' });
       } catch (cacheError) {
         if (import.meta.env.DEV) {
           console.error("[Gemini Enrich] Erro ao gravar cache do fallback local:", cacheError);

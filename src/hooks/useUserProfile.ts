@@ -41,7 +41,7 @@ export function useUserProfile() {
     initials: profile?.email === 'suporteti@globalp.com.br' ? 'ST' : getUserInitials(profile?.full_name),
     displayName: profile?.full_name || "Usuário",
     displayEmail: profile?.email || "Sem email",
-    avatarUrl: profile?.avatar_url || "https://rickandmortyapi.com/api/character/avatar/2.jpeg",
+    avatarUrl: profile?.avatar_url || undefined,
     badge: profile?.role || "Membro",
   };
 }
