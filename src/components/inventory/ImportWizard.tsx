@@ -122,13 +122,15 @@ export function ImportWizard({ onComplete }: { onComplete: () => void }) {
         )}
 
         {step === 2 && (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full min-w-0">
             <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
               <Check className="h-4 w-4" /> Arquivo carregado: {file?.name}
             </div>
             <p className="text-sm font-semibold">Preview dos dados (primeiras 10 linhas):</p>
-            <div className="max-h-[300px] overflow-auto border rounded-md">
-              <DataTable columns={previewColumns} data={previewData} />
+            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden border rounded-md">
+              <div className="w-full overflow-x-auto min-w-0">
+                <DataTable columns={previewColumns} data={previewData} />
+              </div>
             </div>
             <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 rounded-md text-xs">
               <AlertCircle className="h-4 w-4" />
