@@ -127,10 +127,27 @@ export const importService = {
         const cleanKey = rawKey.trim().toLowerCase();
         
         let matchedField: string | null = null;
+        
+        // Pass 1: Strict exact matching
         for (const [field, aliases] of Object.entries(mappings)) {
-          if (aliases.some(alias => cleanKey === alias || cleanKey.includes(alias))) {
+          if (aliases.some(alias => cleanKey === alias)) {
             matchedField = field;
             break;
+          }
+        }
+        
+        // Pass 2: Flexible partial matching (only for non-short, non-ambiguous aliases)
+        if (!matchedField) {
+          for (const [field, aliases] of Object.entries(mappings)) {
+            if (aliases.some(alias => {
+              if (['nome', 'name', 'so', 'os', 'tipo', 'type', 'host', 'ram', 'hd', 'cpu'].includes(alias)) {
+                return cleanKey === alias;
+              }
+              return cleanKey.includes(alias);
+            })) {
+              matchedField = field;
+              break;
+            }
           }
         }
 
@@ -191,6 +208,16 @@ export const importService = {
         normalized.business_criticality = 'medium';
       }
 
+      // Extrair fabricante do SO, nome do produto e versão a partir de normalized.os_name
+      if (normalized.os_name) {
+        const parsed = parseOsFromText(normalized.os_name);
+        normalized.os_vendor = parsed.vendor;
+        normalized.os_product = parsed.product;
+        if (!normalized.os_version) {
+          normalized.os_version = parsed.version;
+        }
+      }
+
       // Se não há vendor ou os_name ou os_version, extrair do hostname
       if (normalized.hostname && (!normalized.vendor || !normalized.os_name || normalized.os_name === 'Unknown' || normalized.vendor === 'Unknown')) {
         const parsed = parseOsFromText(normalized.hostname);
@@ -211,8 +238,8 @@ export const importService = {
 
     // 1. Otimização Máxima: Identificar Itens Únicos para Enriquecimento
     const uniqueItems = Array.from(new Set(normalizedData.map(row => {
-      const vendor = row.vendor || 'Unknown';
-      const product = row.os_name || row.product || 'Unknown';
+      const vendor = row.os_vendor || row.vendor || 'Unknown';
+      const product = row.os_product || row.os_name || row.product || 'Unknown';
       const version = row.os_version || row.version || '';
       return `${vendor}|${product}|${version}`;
     }))).map(key => {
@@ -237,8 +264,8 @@ export const importService = {
     // 4. Processar Ativos O(N)
     for (const row of normalizedData) {
       try {
-        const vendor = (row.vendor || '').toLowerCase();
-        const product = (row.os_name || row.product || '').toLowerCase();
+        const vendor = (row.os_vendor || row.vendor || '').toLowerCase();
+        const product = (row.os_product || row.os_name || row.product || '').toLowerCase();
         const version = (row.os_version || row.version || '').toLowerCase();
 
         const matchedCategory = categories.data?.find(c => 

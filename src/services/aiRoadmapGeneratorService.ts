@@ -21,8 +21,9 @@ export const aiRoadmapGeneratorService = {
 
       // 2 & 3. Validar permissão (can_generate_roadmaps) e resolver organization_id
       // Como organization_id foi padronizado para RLS/user_id, usamos o ID do usuário para owner
-      const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single();
-      const role = profile?.role?.toLowerCase() || '';
+      const { data: profile } = await supabase.from('user_profiles').select('role, organization_id').eq('id', user.id).single();
+      const role = profile?.role?.toLowerCase().replace(/\s+/g, '_') || '';
+      const organizationId = profile?.organization_id;
       
       const allowedRoles = ['admin', 'director', 'manager', 'super_admin'];
       const canGenerateRoadmaps = allowedRoles.includes(role);
@@ -42,7 +43,8 @@ export const aiRoadmapGeneratorService = {
         name: reviewData.project_name,
         category: reviewData.category,
         status: 'draft',
-        owner: user.id
+        owner: user.id,
+        organization_id: organizationId
       }).select().single();
 
       if (projError) throw projError;
@@ -65,6 +67,7 @@ export const aiRoadmapGeneratorService = {
           lifecycleId = existingLifecycle[0].id;
         } else if (categoryId) {
           const { data: newLifecycle, error: lcError } = await supabase.from('lifecycle_catalog').insert({
+            organization_id: organizationId,
             category_id: categoryId,
             vendor: item.vendor,
             product_name: item.product_name,
@@ -83,6 +86,7 @@ export const aiRoadmapGeneratorService = {
         let assetId = null;
         if (lifecycleId) {
            const { data: newAsset, error: assetError } = await supabase.from('assets').insert({
+             organization_id: organizationId,
              hostname: `${item.vendor} ${item.product_name} (${item.asset_type}) [Gerado IA]`,
              device_type: item.asset_type === 'client' ? 'workstation' : 'server',
              category_id: categoryId,
@@ -121,6 +125,7 @@ export const aiRoadmapGeneratorService = {
 
         if (!planExists) {
           const { error: planError } = await supabase.from('migration_plans').insert({
+            organization_id: organizationId,
             roadmap_project_id: project.id,
             asset_id: assetId, // Pode ser null se a criação do asset falhou, FK permite
             priority,
@@ -160,6 +165,7 @@ export const aiRoadmapGeneratorService = {
 
             if (!existingNotif || existingNotif.length === 0) {
               await supabase.from('notifications').insert({
+                organization_id: organizationId,
                 user_id: user.id,
                 type: 'lifecycle_warning',
                 priority,

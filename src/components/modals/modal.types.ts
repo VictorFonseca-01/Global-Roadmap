@@ -11,4 +11,5 @@ export interface ConfirmationModalProps {
   loading?: boolean;
   confirmationText?: string; // e.g. "RESETAR"
   preventCloseOnLoading?: boolean;
+  disablePortal?: boolean;
 }

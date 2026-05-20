@@ -6,12 +6,21 @@ export const auditService = {
     // Pegar usuário atual para enriquecer o log se necessário
     const { data: { user } } = await supabase.auth.getUser();
     
+    let organizationId = log.organization_id;
+    if (user && !organizationId) {
+      const { data: profile } = await supabase.from('user_profiles').select('organization_id').eq('id', user.id).single();
+      if (profile) {
+        organizationId = profile.organization_id;
+      }
+    }
+    
     const { error } = await supabase
       .from('audit_logs')
       .insert([{
         ...log,
         user_id: user?.id || log.user_id,
-        user_name: user?.user_metadata?.full_name || log.user_name
+        user_name: user?.user_metadata?.full_name || log.user_name,
+        organization_id: organizationId
       }]);
 
     if (error) console.error('Error writing audit log:', error);

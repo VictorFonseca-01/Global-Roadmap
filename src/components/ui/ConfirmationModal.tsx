@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
   confirmationText?: string;
   isLoading?: boolean;
   preventCloseOnLoading?: boolean;
+  disablePortal?: boolean;
 }
 
 export function ConfirmationModal({
@@ -28,6 +29,7 @@ export function ConfirmationModal({
   confirmationText,
   isLoading = false,
   preventCloseOnLoading = true,
+  disablePortal = false,
 }: ConfirmationModalProps) {
   // Map "danger" variant to "destructive" for the new modal
   const mappedVariant = variant === 'danger' ? 'destructive' : variant;
@@ -46,6 +48,7 @@ export function ConfirmationModal({
       confirmationText={confirmationText}
       loading={isLoading}
       preventCloseOnLoading={preventCloseOnLoading}
+      disablePortal={disablePortal}
     />
   );
 }

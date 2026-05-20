@@ -19,6 +19,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   loading = false,
   confirmationText,
   preventCloseOnLoading = true,
+  disablePortal = false,
 }) => {
   const [typedConfirmation, setTypedConfirmation] = useState('');
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -131,9 +132,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     }
   }, [open]);
 
-  if (typeof document === 'undefined') return null;
-
-  return createPortal(
+  const modalContent = (
     <AnimatePresence>
       {open && (
         <div
@@ -221,7 +220,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   );
+
+  if (disablePortal) {
+    return modalContent;
+  }
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(modalContent, document.body);
 };

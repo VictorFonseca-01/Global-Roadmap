@@ -284,39 +284,41 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
             )}
           </div>
         )}
+
+        <ConfirmationModal
+          isOpen={showDraftRestore}
+          onClose={() => {
+            sessionStorage.removeItem('ai_roadmap_draft');
+            setShowDraftRestore(false);
+          }}
+          onConfirm={() => {
+            setPrompt(draftPrompt);
+            setShowDraftRestore(false);
+          }}
+          title="Rascunho Encontrado"
+          description="Encontramos uma análise anterior não finalizada. Deseja restaurar o texto digitado?"
+          confirmLabel="Restaurar"
+          cancelLabel="Descartar"
+          variant="info"
+          disablePortal={true}
+        />
+
+        <ConfirmationModal
+          isOpen={showConfirmClose}
+          onClose={() => setShowConfirmClose(false)}
+          onConfirm={() => {
+            sessionStorage.removeItem('ai_roadmap_draft');
+            forceClose();
+          }}
+          title="Descartar Análise IA?"
+          description="Toda a análise atual e os itens revisados serão perdidos. Tem certeza que deseja fechar?"
+          confirmLabel="Sim, Descartar"
+          cancelLabel="Continuar Editando"
+          variant="danger"
+          disablePortal={true}
+        />
       </DialogContent>
     </Dialog>
-
-    <ConfirmationModal
-      isOpen={showDraftRestore}
-      onClose={() => {
-        sessionStorage.removeItem('ai_roadmap_draft');
-        setShowDraftRestore(false);
-      }}
-      onConfirm={() => {
-        setPrompt(draftPrompt);
-        setShowDraftRestore(false);
-      }}
-      title="Rascunho Encontrado"
-      description="Encontramos uma análise anterior não finalizada. Deseja restaurar o texto digitado?"
-      confirmLabel="Restaurar"
-      cancelLabel="Descartar"
-      variant="info"
-    />
-
-    <ConfirmationModal
-      isOpen={showConfirmClose}
-      onClose={() => setShowConfirmClose(false)}
-      onConfirm={() => {
-        sessionStorage.removeItem('ai_roadmap_draft');
-        forceClose();
-      }}
-      title="Descartar Análise IA?"
-      description="Toda a análise atual e os itens revisados serão perdidos. Tem certeza que deseja fechar?"
-      confirmLabel="Sim, Descartar"
-      cancelLabel="Continuar Editando"
-      variant="danger"
-    />
     </>
   );
 }

@@ -111,6 +111,7 @@ export interface AuditLog {
   description?: string;
   metadata?: any;
   created_at: string;
+  organization_id?: string;
 }
 
 export interface UserProfile {
