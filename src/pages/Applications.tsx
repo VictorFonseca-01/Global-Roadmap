@@ -10,7 +10,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger 
+  DialogTrigger,
+  DialogDescription 
 } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -192,6 +193,9 @@ export default function ApplicationsPage() {
               <DialogTitle>
                 {editingApp ? "Editar Aplicação" : "Cadastrar Aplicação"}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Formulário para preencher os dados de uma aplicação.
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

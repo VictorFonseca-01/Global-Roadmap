@@ -1,12 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-// CORS Headers para permitir requisições do frontend
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// Headers CORS dinâmicos serão definidos dentro da request
 
 // Estrutura para controle de Rate Limit em memória por usuário
 interface UserRateLimit {
@@ -243,9 +238,27 @@ async function fetchGeminiWithTimeoutAndRetry(prompt: string, apiKey: string): P
 }
 
 serve(async (req) => {
+  const allowedOrigins = [
+    'https://global-roadmap.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+  ];
+
+  const origin = req.headers.get('origin') ?? '';
+  const allowedOrigin = allowedOrigins.includes(origin)
+    ? origin
+    : 'https://global-roadmap.vercel.app';
+
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+  };
+
   // Tratar OPTIONS preflight requests para CORS
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";

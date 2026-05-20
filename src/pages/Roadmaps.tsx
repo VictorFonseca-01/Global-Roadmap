@@ -30,7 +30,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle
+  DialogTitle,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { 
   DropdownMenu, 
@@ -719,6 +720,8 @@ export default function RoadmapsPage() {
         }
       }}>
         <DialogContent className="max-w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden">
+          <DialogTitle className="sr-only">Revisão de Roadmap</DialogTitle>
+          <DialogDescription className="sr-only">Painel de revisão de roadmap gerado automaticamente.</DialogDescription>
           {autoReviewData && (
             <AIReviewPreview
               data={autoReviewData}
@@ -739,6 +742,9 @@ export default function RoadmapsPage() {
             <DialogTitle className="text-xl font-bold tracking-tight text-white">
               {editingProject ? "Editar Projeto" : "Criar Novo Roadmap"}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Formulário para criar ou editar as informações do projeto de roadmap.
+            </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">

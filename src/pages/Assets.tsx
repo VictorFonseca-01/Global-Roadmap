@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { ImportWizard } from "@/components/inventory/ImportWizard";
 import { AIReviewPreview } from "@/components/roadmap/AIReviewPreview";
 import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { 
@@ -408,6 +408,8 @@ export default function AssetsPage() {
         }
       }}>
         <DialogContent className="max-w-[95vw] h-[95vh] p-0 flex flex-col overflow-hidden">
+          <DialogTitle className="sr-only">Revisão de Roadmap</DialogTitle>
+          <DialogDescription className="sr-only">Painel de revisão de roadmap antes da geração oficial.</DialogDescription>
           {autoReviewData && (
             <AIReviewPreview
               data={autoReviewData}

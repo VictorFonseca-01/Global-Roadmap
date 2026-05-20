@@ -6,7 +6,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2 } from "lucide-react";
@@ -101,6 +102,7 @@ export function ImportWizard({ onComplete, triggerClassName }: { onComplete: () 
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Importar Inventário (CSV/Excel)</DialogTitle>
+          <DialogDescription className="sr-only">Selecione e envie a planilha de inventário para importar os dados para o sistema.</DialogDescription>
         </DialogHeader>
 
         {step === 1 && (
