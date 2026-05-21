@@ -222,16 +222,41 @@ export default function AssetsPage() {
       accessorKey: "device_type",
       header: "Tipo",
       cell: ({ row }) => {
-        const isServer = row.original.device_type === "server";
+        const type = String(row.original.device_type || "workstation").toLowerCase();
+        const isServer = type === "server";
+        const isVM = type === "virtual machine" || type === "virtual_machine";
+        const isNet = type === "network device" || type === "network";
+        const isSoft = type === "software";
+        
+        let label = "Workstation";
+        let colorClass = "bg-blue-950/40 text-blue-300 border-blue-800/30";
+        let Icon = Laptop;
+
+        if (isServer) {
+          label = "Servidor";
+          colorClass = "bg-purple-950/40 text-purple-300 border-purple-800/30";
+          Icon = Server;
+        } else if (isVM) {
+          label = "Virtual Machine";
+          colorClass = "bg-indigo-950/40 text-indigo-300 border-indigo-800/30";
+          Icon = Server; // VM usually runs servers in this context
+        } else if (isNet) {
+          label = "Network";
+          colorClass = "bg-orange-950/40 text-orange-300 border-orange-800/30";
+          Icon = Server;
+        } else if (isSoft) {
+          label = "Software";
+          colorClass = "bg-green-950/40 text-green-300 border-green-800/30";
+          Icon = Laptop;
+        } else if (type !== "workstation") {
+          label = type.charAt(0).toUpperCase() + type.slice(1);
+        }
+
         return (
           <div className="flex items-center gap-1.5">
-            {isServer ? (
-              <Server className="h-3.5 w-3.5 text-purple-400" />
-            ) : (
-              <Laptop className="h-3.5 w-3.5 text-blue-400" />
-            )}
-            <Badge variant="secondary" className={`capitalize text-xs font-semibold ${isServer ? "bg-purple-950/40 text-purple-300 border-purple-800/30" : "bg-blue-950/40 text-blue-300 border-blue-800/30"}`}>
-              {row.original.device_type === "server" ? "Servidor" : "Workstation"}
+            <Icon className={`h-3.5 w-3.5 ${colorClass.split(' ')[1]}`} />
+            <Badge variant="secondary" className={`capitalize text-xs font-semibold ${colorClass}`}>
+              {label}
             </Badge>
           </div>
         );
