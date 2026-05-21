@@ -4,7 +4,7 @@ import { deterministicEngineService } from './deterministicEngineService';
 import type { AIReviewData, AIReviewItem } from '@/types';
 import { differenceInDays, parseISO, format, addDays } from 'date-fns';
 import { telemetry } from '@/lib/telemetry';
-import { parseOsFromText } from './importService';
+import { normalizeOperatingSystemName } from './importService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isRetryableError(error: any): boolean {
@@ -173,15 +173,16 @@ export const aiOrchestratorService = {
         }
 
         if (parsedNotes && parsedNotes.os && parsedNotes.os !== 'Unknown') {
-          vendor = parsedNotes.vendor || 'Unknown';
-          product = parsedNotes.os || 'Unknown';
-          version = parsedNotes.os_version || '';
+          const normalized = normalizeOperatingSystemName(parsedNotes.os);
+          vendor = normalized.vendor;
+          product = normalized.product;
+          version = normalized.version || normalized.version_hint || '';
         } else {
-          // Fall back to parsing asset.hostname or other fields via parseOsFromText
-          const parsed = parseOsFromText(asset.hostname || '');
-          vendor = parsed.vendor || 'Unknown';
-          product = parsed.product || 'Unknown';
-          version = parsed.version || '';
+          // Fall back to parsing asset.hostname or other fields via normalizeOperatingSystemName
+          const parsed = normalizeOperatingSystemName(asset.hostname || '');
+          vendor = parsed.vendor;
+          product = parsed.product;
+          version = parsed.version || parsed.version_hint || '';
         }
       }
 

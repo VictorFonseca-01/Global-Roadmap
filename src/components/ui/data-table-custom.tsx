@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 
 interface DataTableProps<TData, TValue> {
@@ -36,6 +36,8 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [inputValue, setInputValue] = useState("")
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const table = useReactTable({
     data,
@@ -52,6 +54,18 @@ export function DataTable<TData, TValue>({
     },
   })
 
+  // Debounce: propaga o filtro para TanStack após 250ms de inatividade
+  useEffect(() => {
+    if (!searchKey) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      table.getColumn(searchKey)?.setFilterValue(inputValue || undefined)
+    }, 250)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [inputValue, searchKey, table])
+
   return (
     <div className="space-y-4">
       {searchKey && (
@@ -59,10 +73,8 @@ export function DataTable<TData, TValue>({
           <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={`Filtrar por ${searchKey}...`}
-            value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn(searchKey)?.setFilterValue(event.target.value)
-            }
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
             className="pl-9"
           />
         </div>

@@ -64,6 +64,13 @@ graph TD
 *   **Enriquecimento por Título sob Demanda:** Em [Roadmaps.tsx](file:///c:/Users/vfonseca/.gemini/antigravity/scratch/Global-Roadmap/src/pages/Roadmaps.tsx), inserimos o botão "Buscar Informações" com ícone de `Sparkles` no cadastro de roadmaps. A IA do Gemini é disparada somente sob clique explícito (evitando disparos acidentais no `onBlur` e reduzindo custos operacionais).
 *   **Cache Corporativo com TTL de 7 dias:** Desenvolvemos a infraestrutura de cache na tabela `roadmap_context_cache` gerenciada via `geminiService.ts` com expiração de 7 dias. O front-end consulta o cache antes de invocar a Edge Function da IA, economizando tokens e melhorando consideravelmente o tempo de resposta da interface para títulos repetidos.
 
+### F. Sprint 6: Strategic Domains & Dependency Intelligence Engine
+*   **Agrupamento por Domínios Estratégicos:** Organização das tecnologias em Swimlanes executivas colapsáveis (Operating Systems, Infrastructure, Security, Network, Workstations, Servers, Virtualization, Applications, Cloud, Compliance e "Other / Review").
+*   **Métricas de Domínio Executivas:** Saúde (Health Score) calculada localmente com penalidades baseadas em EoL expirado (-30), EoL próximo (-20), sem suporte (-15), dependências bloqueadas (-15) e alta criticidade (-10). Adição de Compliance Score (%), CAPEX agregado e Risco.
+*   **Dependency Engine & Conexões SVG Bézier:** Mapeamento de relações de dependência qualificadas por confiança (`high` | `medium` | `low`) com conexões visíveis estáticas ultra rápidas desenhadas em SVG Bézier com glow neon vermelho para indicar conflitos cronológicos de datas de migração.
+*   **Controle de Spam e Performance:** Limitação estrita de exibição de até 20 dependências ativas com toggle liga/desliga de exibição, renderização elástica lazy do Sheet e Toasts executivos em tempo real alertando sobre impactos financeiros e em cadeia decorrentes do arraste de datas (onDragStop/onResizeStop com debounce de 600ms).
+*   **Busca Contextual por Título no Wizard:** Integração completa no Wizard de Roadmaps do botão "Buscar Informações" para acionar a IA (Gemini) ou fallback local sem travar o fluxo em caso de falha de conexão, preenchendo automaticamente categoria, descrição executiva, melhores práticas e lifecycles.
+
 ---
 
 ## 2. O que foi Testado e Homologado

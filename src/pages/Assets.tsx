@@ -26,9 +26,9 @@ import {
 function getAssetOsInfo(asset: any): { osName: string; version: string; vendor: string; isAnalyzed: boolean } {
   if (asset.lifecycle_catalog) {
     return {
-      osName: asset.lifecycle_catalog.product_name || "Não informado",
+      osName: asset.lifecycle_catalog.product_name || "Não analisado",
       version: asset.lifecycle_catalog.version || "-",
-      vendor: asset.lifecycle_catalog.vendor || "Não informado",
+      vendor: asset.lifecycle_catalog.vendor || "Não analisado",
       isAnalyzed: true
     };
   }
@@ -38,18 +38,18 @@ function getAssetOsInfo(asset: any): { osName: string; version: string; vendor: 
       if (parsed && parsed.raw_inventory_data) {
         const raw = parsed.raw_inventory_data;
         return {
-          osName: raw.os && raw.os !== "Unknown" ? raw.os : "Não informado",
+          osName: raw.os && raw.os !== "Unknown" ? raw.os : "Não analisado",
           version: raw.os_version || "-",
-          vendor: raw.vendor || "Não informado",
+          vendor: raw.vendor && raw.vendor !== "Unknown" ? raw.vendor : "Não analisado",
           isAnalyzed: false
         };
       }
     } catch (e) {}
   }
   return {
-    osName: "Não informado",
+    osName: "Não analisado",
     version: "-",
-    vendor: "Não informado",
+    vendor: "Não analisado",
     isAnalyzed: false
   };
 }

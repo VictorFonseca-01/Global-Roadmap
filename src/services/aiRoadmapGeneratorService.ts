@@ -42,6 +42,7 @@ export const aiRoadmapGeneratorService = {
       const { data: project, error: projError } = await supabase.from('roadmap_projects').insert({
         name: reviewData.project_name,
         category: reviewData.category,
+        description: reviewData.description || null,
         status: 'draft',
         owner: user.id,
         organization_id: organizationId

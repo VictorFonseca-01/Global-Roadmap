@@ -138,4 +138,6 @@ export interface AIReviewData {
   assumptions: string[];
   missing_information: string[];
   warning_message?: string;
+  description?: string;
+  recommendations?: string;
 }

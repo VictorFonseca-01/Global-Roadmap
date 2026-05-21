@@ -19,11 +19,31 @@ function isValidValue(v: any): boolean {
   return true;
 }
 
-export function parseOsFromText(text: string): { vendor: string; product: string; version: string } {
-  const t = (text || '').trim();
+export function normalizeHeader(h: string): string {
+  if (!h) return '';
+  return h
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^a-z0-9]/g, "");     // remove TUDO que não é alfanumérico
+}
+
+export interface NormalizedOS {
+  vendor: string;
+  product: string;
+  version: string;
+  version_hint?: string;
+  edition?: string;
+  raw_os: string;
+}
+
+export function normalizeOperatingSystemName(rawOs: string): NormalizedOS {
+  const t = (rawOs || '').trim();
   let vendor = 'Unknown';
   let product = 'Unknown';
   let version = '';
+  let version_hint = '';
+  let edition = '';
 
   const lower = t.toLowerCase();
 
@@ -40,49 +60,104 @@ export function parseOsFromText(text: string): { vendor: string; product: string
     vendor = 'Debian';
   }
 
-  // 2. Detect Product
-  if (lower.includes('windows server') || lower.includes('win server') || lower.includes('winserver')) {
-    product = 'Windows Server';
-  } else if (lower.includes('windows 11') || lower.includes('win 11')) {
-    product = 'Windows 11';
-  } else if (lower.includes('windows 10') || lower.includes('win 10')) {
-    product = 'Windows 10';
-  } else if (lower.includes('windows 7') || lower.includes('win 7')) {
-    product = 'Windows 7';
-  } else if (lower.includes('windows 8') || lower.includes('win 8')) {
-    product = 'Windows 8';
-  } else if (lower.includes('ubuntu')) {
-    product = 'Ubuntu';
-  } else if (lower.includes('red hat') || lower.includes('redhat') || lower.includes('rhel')) {
-    product = 'Red Hat Enterprise Linux';
-  } else if (lower.includes('centos')) {
-    product = 'CentOS';
-  }
-
-  // 3. Detect Version
-  const yearMatch = t.match(/\b(2008|2012|2016|2019|2022|2025)\b/);
-  if (yearMatch) {
-    version = yearMatch[1];
-    if (lower.includes('r2')) {
-      version += ' R2';
-    }
-  } else {
-    const winVerMatch = t.match(/\b(24h2|23h2|22h2|21h2|20h2|1909|1809|1607)\b/i);
-    if (winVerMatch) {
-      version = winVerMatch[1].toUpperCase();
+  // Se for Windows
+  if (vendor === 'Microsoft') {
+    if (lower.includes('server')) {
+      product = 'Windows Server';
+      
+      // Encontrar a versão (ano: 2008, 2012, 2016, 2019, 2022, 2025)
+      const yearMatch = t.match(/\b(2008|2012|2016|2019|2022|2025)\b/);
+      if (yearMatch) {
+        version = yearMatch[1];
+        if (lower.includes('r2')) {
+          version += ' R2';
+        }
+      }
+      
+      // Edição
+      if (lower.includes('standard evaluation')) {
+        edition = 'Standard Evaluation';
+      } else if (lower.includes('datacenter evaluation')) {
+        edition = 'Datacenter Evaluation';
+      } else if (lower.includes('standard')) {
+        edition = 'Standard';
+      } else if (lower.includes('datacenter')) {
+        edition = 'Datacenter';
+      } else if (lower.includes('essentials')) {
+        edition = 'Essentials';
+      } else if (lower.includes('enterprise')) {
+        edition = 'Enterprise';
+      }
     } else {
-      const linuxVerMatch = t.match(/\b(\d+\.\d+)\b/);
-      if (linuxVerMatch) {
-        version = linuxVerMatch[1];
+      // Client Windows
+      if (lower.includes('windows 11') || lower.includes('win 11')) {
+        product = 'Windows 11';
+      } else if (lower.includes('windows 10') || lower.includes('win 10')) {
+        product = 'Windows 10';
+      } else if (lower.includes('windows 7') || lower.includes('win 7')) {
+        product = 'Windows 7';
+      } else if (lower.includes('windows 8.1') || lower.includes('win 8.1')) {
+        product = 'Windows 8.1';
+      } else if (lower.includes('windows 8') || lower.includes('win 8')) {
+        product = 'Windows 8';
+      } else {
+        product = 'Windows';
+      }
+
+      // Pro, Home, Enterprise, Education, etc.
+      if (lower.includes('pro') || lower.includes('professional')) {
+        version_hint = 'Pro';
+      } else if (lower.includes('home')) {
+        version_hint = 'Home';
+      } else if (lower.includes('enterprise') || lower.includes('ent')) {
+        version_hint = 'Enterprise';
+      } else if (lower.includes('education') || lower.includes('edu')) {
+        version_hint = 'Education';
+      }
+      
+      // Se tiver versão build de client Windows (ex: 22h2, 23h2)
+      const winVerMatch = t.match(/\b(24h2|23h2|22h2|21h2|20h2|1909|1809|1607)\b/i);
+      if (winVerMatch) {
+        version = winVerMatch[1].toUpperCase();
       }
     }
+  } else {
+    // Linux ou outro SO
+    if (lower.includes('ubuntu')) {
+      product = 'Ubuntu';
+    } else if (lower.includes('red hat') || lower.includes('redhat') || lower.includes('rhel')) {
+      product = 'Red Hat Enterprise Linux';
+    } else if (lower.includes('centos')) {
+      product = 'CentOS';
+    } else if (lower.includes('debian')) {
+      product = 'Debian';
+    } else {
+      product = t || 'Unknown';
+    }
+
+    const verMatch = t.match(/\b(\d+(\.\d+)*)\b/);
+    if (verMatch) {
+      version = verMatch[1];
+    }
   }
 
-  if (product === 'Unknown' && t) {
-    product = t;
-  }
+  return {
+    vendor,
+    product,
+    version,
+    version_hint: version_hint || undefined,
+    edition: edition || undefined,
+    raw_os: t
+  };
+}
 
-  return { vendor, product, version };
+export function parseOsFromText(text: string): { vendor: string; product: string; version: string } {
+  const normalized = normalizeOperatingSystemName(text);
+  return {
+    vendor: normalized.vendor,
+    product: normalized.product,
+    version: normalized.version || normalized.version_hint || ''
+  };
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────
@@ -172,47 +247,35 @@ export const importService = {
     const ignoredColumns = new Set<string>();
 
     const mappings = {
-      hostname: ['hostname', 'host', 'nome', 'name', 'computador', 'dispositivo', 'nome do host', 'nome do computador', 'computer name', 'device name', 'máquina', 'maquina', 'equipamento'],
-      os_name: ['os_name', 'sistema operacional - nome', 'sistema operacional', 'so', 'os', 'product', 'produto', 'nome do so', 'nome do produto', 'operating system', 'sistema', 'sistema instalado'],
-      os_version: ['os_version', 'versão', 'version', 'versao', 'versão do so', 'os version', 'build', 'release', 'edição', 'edicao'],
-      vendor: ['vendor', 'fabricante', 'manufacturer', 'brand', 'marca'],
-      device_type: ['device_type', 'tipo', 'type', 'tipo de dispositivo', 'categoria', 'device type'],
-      asset_tag: ['asset_tag', 'patrimônio', 'patrimonio', 'etiqueta', 'tag', 'número de inventário', 'numero de inventario', 'inventario', 'tombo', 'inventory number'],
-      serial_number: ['serial', 'serial number', 'número de série', 'numero de serie', 's/n', 'service tag'],
-      owner_department: ['owner_department', 'departamento', 'department', 'setor', 'localização', 'localizacao', 'area', 'unidade', 'site', 'filial'],
-      user: ['usuário', 'usuario', 'user', 'assigned to', 'owner', 'utilizador'],
-      business_criticality: ['business_criticality', 'criticidade', 'criticality', 'prioridade', 'priority', 'criticidade de negócio', 'criticidade do negocio'],
-      cpu: ['cpu', 'processador', 'processor', 'componentes - processador', 'componente - processador'],
-      ram_gb: ['ram_gb', 'ram', 'memória', 'memoria', 'memoria ram'],
-      storage_gb: ['storage_gb', 'disco', 'hd', 'ssd', 'armazenamento', 'storage'],
-      model: ['modelo', 'model', 'product name']
+      hostname: ['nome', 'hostname', 'nomedocomputador', 'computername', 'devicename'],
+      os_name: ['sistemaoperacionalnome', 'sistemaoperacional', 'operatingsystem', 'os', 'so', 'sistema', 'nomedosistemaoperacional'],
+      os_version: ['sistemaoperacionalversao', 'versao', 'versaodoso', 'osversion', 'version', 'release', 'build'],
+      device_type: ['tipo', 'type', 'categoria', 'devicetype'],
+      vendor: ['fabricante', 'manufacturer', 'vendor', 'marca'],
+      model: ['modelo', 'model'],
+      asset_tag: ['numerodeinventario', 'patrimonio', 'assettag', 'inventorynumber', 'tombo'],
+      location: ['localizacao', 'location', 'site', 'filial'],
+      last_update: ['ultimaatualizacao', 'lastupdate', 'updatedat'],
+      cpu: ['componentesprocessador', 'processador', 'cpu'],
+      owner_department: ['ownerdepartment', 'departamento', 'department', 'setor', 'area', 'unidade'],
+      serial_number: ['serial', 'serialnumber', 'numerodeserie', 'sn', 'servicetag'],
+      user: ['usuario', 'user', 'assignedto', 'owner', 'utilizador'],
+      business_criticality: ['businesscriticality', 'criticidade', 'criticality', 'prioridade', 'priority', 'criticidadedenegocio', 'criticidadedonegocio'],
+      ram_gb: ['ramgb', 'ram', 'memoria', 'memoriaram'],
+      storage_gb: ['storagegb', 'disco', 'hd', 'ssd', 'armazenamento', 'storage'],
     };
 
     const normalizedData = rawData.map(row => {
       const normalized: Record<string, any> = {};
       
       for (const rawKey of Object.keys(row)) {
-        const cleanKey = rawKey.trim().toLowerCase();
+        const cleanKey = normalizeHeader(rawKey);
         let matchedField: string | null = null;
         
         for (const [field, aliases] of Object.entries(mappings)) {
           if (aliases.some(alias => cleanKey === alias)) {
             matchedField = field;
             break;
-          }
-        }
-        
-        if (!matchedField) {
-          for (const [field, aliases] of Object.entries(mappings)) {
-            if (aliases.some(alias => {
-              if (['nome', 'name', 'so', 'os', 'tipo', 'type', 'host', 'ram', 'hd', 'cpu', 'site'].includes(alias)) {
-                return cleanKey === alias;
-              }
-              return cleanKey.includes(alias);
-            })) {
-              matchedField = field;
-              break;
-            }
           }
         }
 
@@ -379,9 +442,9 @@ export const importService = {
         // Armazenar os dados brutos de inventário de forma estruturada no campo notes
         const rawInventoryData = {
           source: "glpi",
-          os: product || 'Unknown',
-          os_version: version || '',
-          vendor: vendor || 'Unknown',
+          os: row.os_name || row.product || 'Unknown',
+          os_version: row.os_version || row.version || '',
+          vendor: row.vendor || row.os_vendor || 'Unknown',
           device_type: row.device_type || payload.device_type || 'workstation',
           manufacturer: row.vendor || row.os_vendor || 'Unknown',
           model: row.model || '',

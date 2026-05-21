@@ -107,9 +107,9 @@ export const pdfService = {
       ["Ativos de Infraestrutura Mapeados", `${data.stats.totalAssets} ativos`],
       ["Exposição GRC Crítica (Near EoL / Out of Support)", `${data.stats.outOfSupport + data.stats.next180Days} ativos`],
       ["Bloqueadores Ativos Identificados", `${totalBlockers} blockers`],
-      ["Investimento Requerido (CAPEX)", new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalCapex)],
-      ["Retorno Operacional Anualizado (OPEX Savings)", new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalOpexSavings)],
-      ["Risco Financeiro Total Evitado (GRC Risk Avoided)", new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalRiskCostAvoided)]
+      ["Investimento Requerido (CAPEX)", new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalCapex)],
+      ["Retorno Operacional Anualizado (OPEX Savings)", new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalOpexSavings)],
+      ["Risco Financeiro Total Evitado (GRC Risk Avoided)", new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalRiskCostAvoided)]
     ];
 
     autoTable(doc, {
@@ -206,23 +206,39 @@ export const pdfService = {
         timeline.recommended_start_date ? format(parseISO(timeline.recommended_start_date), 'dd/MM/yyyy') : 'N/A',
         timeline.recommended_cutover_date ? format(parseISO(timeline.recommended_cutover_date), 'dd/MM/yyyy') : 'N/A',
         timeline.rollback_deadline ? format(parseISO(timeline.rollback_deadline), 'dd/MM/yyyy') : 'N/A',
-        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(p.estimated_cost || 0),
-        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format((p.estimated_cost || 0) * 0.25)
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(p.estimated_cost || 0),
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format((p.estimated_cost || 0) * 0.25)
       ];
     });
+
+    // Mapa de criticidade por linha para color-coding
+    const rowCriticalities = data.plans.map(p => p.priority || p.assets?.business_criticality || 'low');
 
     // Auto-paginação otimizada com repetição de cabeçalho
     autoTable(doc, {
       startY: currentY,
       head: [['Hostname', 'Legado', 'Alvo', 'Início Ideal', 'Cutover', 'Rollback Limite', 'CAPEX', 'OPEX Anual']],
-      body: investmentTable, // TABELA COMPLETA SEM TRUNCAMENTO SILENCIOSO!
+      body: investmentTable,
       theme: 'striped',
       headStyles: { fillColor: [15, 23, 42], fontSize: 8 },
       bodyStyles: { fontSize: 7.5 },
       margin: { left: 20, right: 20, top: 25, bottom: 25 },
       pageBreak: 'auto',
       rowPageBreak: 'auto',
-      showHead: 'everyPage' // Repetir cabeçalho em cada nova página gerada pela quebra
+      showHead: 'everyPage',
+      didParseCell: (hookData: any) => {
+        if (hookData.section === 'body') {
+          const crit = rowCriticalities[hookData.row.index];
+          if (crit === 'critical') {
+            hookData.cell.styles.fillColor = [254, 226, 226]; // Rose 100
+            hookData.cell.styles.textColor = [153, 27, 27]; // Rose 800
+            hookData.cell.styles.fontStyle = 'bold';
+          } else if (crit === 'high') {
+            hookData.cell.styles.fillColor = [254, 243, 199]; // Amber 100
+            hookData.cell.styles.textColor = [146, 64, 14]; // Amber 800
+          }
+        }
+      }
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 12;
@@ -266,7 +282,7 @@ export const pdfService = {
 
     doc.setFontSize(9.5);
     doc.setFont("helvetica", "normal");
-    const deferredText = `• [SIMULAÇÃO DE ADIAMENTO (6 MESES)]: Adiar a decisão estratégica de migração por 6 meses aumentará o passivo de risco financeiro em ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(deferredRiskCost)} devido à maior probabilidade de incidentes de conformidade e indisponibilidade sem suporte, gerando perdas em OPEX de ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(deferredOpexLoss)}.\n• [ESTRATÉGIA DE CONTINGÊNCIA E ROLLBACK]: A homologação inclui ambientes sandbox espelhados e checkpoints de Rollback. Em caso de anomalia crítica detectada pós-virada, o plano de reversão deve ser acionado estritamente dentro da janela limite calculada (Rollback Limite) para restabelecer os serviços legados de forma segura.`;
+    const deferredText = `• [SIMULAÇÃO DE ADIAMENTO (6 MESES)]: Adiar a decisão estratégica de migração por 6 meses aumentará o passivo de risco financeiro em ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(deferredRiskCost)} devido à maior probabilidade de incidentes de conformidade e indisponibilidade sem suporte, gerando perdas em OPEX de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(deferredOpexLoss)}.\n• [ESTRATÉGIA DE CONTINGÊNCIA E ROLLBACK]: A homologação inclui ambientes sandbox espelhados e checkpoints de Rollback. Em caso de anomalia crítica detectada pós-virada, o plano de reversão deve ser acionado estritamente dentro da janela limite calculada (Rollback Limite) para restabelecer os serviços legados de forma segura.`;
     
     const splitDeferred = doc.splitTextToSize(deferredText, pageWidth - 40);
     doc.text(splitDeferred, 20, currentY + 6);
