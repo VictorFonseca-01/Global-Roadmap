@@ -56,7 +56,7 @@ export const RiskChart = memo(function RiskChart({ data }: { data: any[] }) {
         <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Distribuição por Criticidade</CardTitle>
       </CardHeader>
       <CardContent className="h-[280px] mt-4">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
               data={data}
@@ -90,7 +90,7 @@ export const MigrationStatusChart = memo(function MigrationStatusChart({ data }:
         <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Status das Migrações</CardTitle>
       </CardHeader>
       <CardContent className="h-[280px] mt-4">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <PieChart>
             <Pie
               data={data}
@@ -124,7 +124,7 @@ export const CategoryDistributionChart = memo(function CategoryDistributionChart
         <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Ativos por Categoria</CardTitle>
       </CardHeader>
       <CardContent className="h-[280px] mt-4">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -154,7 +154,7 @@ export const EolTimelineChart = memo(function EolTimelineChart({ data }: { data:
         <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-500">Timeline Principal (Projeção End of Support)</CardTitle>
       </CardHeader>
       <CardContent className="h-[280px] mt-4">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
