@@ -7,6 +7,7 @@ import { deterministicEngineService } from './deterministicEngineService';
 import { migrationPlanService } from './migrationPlanService';
 import { auditService } from './auditService';
 import { supabase } from '@/lib/supabase';
+import { geminiService } from './geminiService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -318,6 +319,72 @@ export const importService = {
       applicationService.getAll(),
     ]);
 
+    // ─── Auto-Enrich unique OSs in batch before import loop ───
+    const uniqueOSs = new Map<string, { vendor: string; product: string; version: string }>();
+    for (const row of normalizedData) {
+      let vendor = (row.os_vendor || row.vendor || '').trim();
+      let product = (row.os_product || row.os_name || row.product || '').trim();
+      let version = (row.os_version || row.version || '').trim();
+
+      if (!vendor || !product) {
+        const rawOs = row.os_name || row.product || '';
+        if (rawOs) {
+          const parsed = parseOsFromText(rawOs);
+          vendor = parsed.vendor;
+          product = parsed.product;
+          version = parsed.version || version;
+        }
+      }
+
+      if (vendor && product) {
+        const signature = `${vendor}|${product}|${version}`.toLowerCase();
+        if (!uniqueOSs.has(signature)) {
+          uniqueOSs.set(signature, { vendor, product, version });
+        }
+      }
+    }
+
+    // Obter organização ativa para enriquecimento multi-tenant
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    let organizationId = "d290f1ee-6c54-4b01-90e6-d701748f0851"; // Fallback default
+    if (userId) {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profile?.organization_id) {
+        organizationId = profile.organization_id;
+      }
+    }
+
+    const osMap = new Map<string, any>();
+    if (import.meta.env.DEV) {
+      console.log(`[Import-Enrich] Encontrados ${uniqueOSs.size} SOs únicos. Enriquecendo e inserindo no catálogo...`);
+    }
+    for (const [sig, parsed] of uniqueOSs.entries()) {
+      try {
+        await geminiService.enrichLifecycle(parsed.vendor, parsed.product, parsed.version);
+        // Buscar no banco para obter o id
+        const { data: catalogItem } = await supabase
+          .from('lifecycle_catalog')
+          .select('*')
+          .eq('vendor', parsed.vendor)
+          .eq('product_name', parsed.product)
+          .eq('version', parsed.version)
+          .eq('organization_id', organizationId)
+          .limit(1)
+          .maybeSingle();
+
+        if (catalogItem) {
+          osMap.set(sig, catalogItem);
+        }
+      } catch (err) {
+        console.error(`[Import-Enrich] Falha ao enriquecer OS "${sig}":`, err);
+      }
+    }
+
     for (const row of normalizedData) {
       if (!isValidValue(row.hostname)) history.missing_hostname_count++;
       if (!isValidValue(row.os_name) && !isValidValue(row.os_product)) history.missing_os_count++;
@@ -338,9 +405,22 @@ export const importService = {
       else if (host && byHost.has(host)) matchedExisting = byHost.get(host);
 
       try {
-        let vendor = (row.os_vendor || row.vendor || '').toLowerCase();
-        let product = (row.os_product || row.os_name || row.product || '').toLowerCase();
-        let version = (row.os_version || row.version || '').toLowerCase();
+        let vendor = (row.os_vendor || row.vendor || '').trim();
+        let product = (row.os_product || row.os_name || row.product || '').trim();
+        let version = (row.os_version || row.version || '').trim();
+
+        if (!vendor || !product) {
+          const rawOs = row.os_name || row.product || '';
+          if (rawOs) {
+            const parsed = parseOsFromText(rawOs);
+            vendor = parsed.vendor;
+            product = parsed.product;
+            version = parsed.version || version;
+          }
+        }
+
+        const signature = `${vendor}|${product}|${version}`.toLowerCase();
+        const enrichedLifecycle = osMap.get(signature);
 
         const matchedCategory = categories.data?.find(c => 
           c.name.toLowerCase() === (row.category || '').toLowerCase() ||
@@ -351,10 +431,10 @@ export const importService = {
           (row.device_type === 'network device' && c.name === 'Network Devices')
         );
 
-        const matchedLifecycle = catalog.find(l => 
-          l.vendor.toLowerCase() === vendor &&
-          l.product_name.toLowerCase() === product &&
-          (l.version || '').toLowerCase() === version
+        const matchedLifecycle = enrichedLifecycle || catalog.find(l => 
+          l.vendor.toLowerCase() === vendor.toLowerCase() &&
+          l.product_name.toLowerCase() === product.toLowerCase() &&
+          (l.version || '').toLowerCase() === version.toLowerCase()
         );
 
         const matchedApp = apps.find(a => 
