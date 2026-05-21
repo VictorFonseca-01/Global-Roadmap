@@ -79,6 +79,7 @@ export interface AIReviewItem extends AIRoadmapParsedItem {
   strategic_timeline?: StrategicTimelineResult;
   
   notes?: string;
+  asset_ids?: string[];
 }
 
 export interface StrategicPhase {

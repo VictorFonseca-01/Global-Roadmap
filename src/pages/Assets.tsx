@@ -23,6 +23,34 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+function getAssetOsInfo(asset: any): { osName: string; version: string; isAnalyzed: boolean } {
+  if (asset.lifecycle_catalog) {
+    return {
+      osName: asset.lifecycle_catalog.product_name || "Não informado",
+      version: asset.lifecycle_catalog.version || "-",
+      isAnalyzed: true
+    };
+  }
+  if (asset.notes) {
+    try {
+      const parsed = JSON.parse(asset.notes);
+      if (parsed && parsed.raw_inventory_data) {
+        const raw = parsed.raw_inventory_data;
+        return {
+          osName: raw.os && raw.os !== "Unknown" ? raw.os : "Não informado",
+          version: raw.os_version || "-",
+          isAnalyzed: false
+        };
+      }
+    } catch (e) {}
+  }
+  return {
+    osName: "Não informado",
+    version: "-",
+    isAnalyzed: false
+  };
+}
+
 export default function AssetsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -47,8 +75,9 @@ export default function AssetsPage() {
   const uniqueOSList = useMemo(() => {
     const list = new Set<string>();
     assets.forEach(asset => {
-      if (asset.lifecycle_catalog?.product_name) {
-        list.add(asset.lifecycle_catalog.product_name);
+      const info = getAssetOsInfo(asset);
+      if (info.osName && info.osName !== "Não informado") {
+        list.add(info.osName);
       }
     });
     return Array.from(list).sort();
@@ -57,8 +86,9 @@ export default function AssetsPage() {
   const uniqueVersionsList = useMemo(() => {
     const list = new Set<string>();
     assets.forEach(asset => {
-      if (asset.lifecycle_catalog?.version) {
-        list.add(asset.lifecycle_catalog.version);
+      const info = getAssetOsInfo(asset);
+      if (info.version && info.version !== "-") {
+        list.add(info.version);
       }
     });
     return Array.from(list).sort();
@@ -67,8 +97,9 @@ export default function AssetsPage() {
   // Apply filters
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
-      const matchOS = selectedOS === "all" || asset.lifecycle_catalog?.product_name === selectedOS;
-      const matchVersion = selectedVersion === "all" || asset.lifecycle_catalog?.version === selectedVersion;
+      const info = getAssetOsInfo(asset);
+      const matchOS = selectedOS === "all" || info.osName === selectedOS;
+      const matchVersion = selectedVersion === "all" || info.version === selectedVersion;
       return matchOS && matchVersion;
     });
   }, [assets, selectedOS, selectedVersion]);
@@ -180,18 +211,39 @@ export default function AssetsPage() {
       accessorKey: "lifecycle_catalog.product_name",
       header: "SO",
       cell: ({ row }) => {
-        const item = row.original.lifecycle_catalog;
-        if (!item) return <span className="text-slate-500 text-xs italic">Não identificado</span>;
-        return <span className="text-sm font-semibold text-slate-200">{item.product_name}</span>;
+        const info = getAssetOsInfo(row.original);
+        if (!info.isAnalyzed) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-200">
+                {info.osName === "Não informado" ? "Não analisado" : info.osName}
+              </span>
+              {info.osName !== "Não informado" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-[10px] bg-slate-950/40 text-amber-400 border-amber-800/30 font-medium cursor-help py-0 px-1.5">
+                        Não analisado
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-slate-900 border-white/10 text-white rounded-xl p-2 text-xs">
+                      Será analisado ao gerar roadmap
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          );
+        }
+        return <span className="text-sm font-semibold text-slate-200">{info.osName}</span>;
       },
     },
     {
       accessorKey: "lifecycle_catalog.version",
       header: "Versão",
       cell: ({ row }) => {
-        const item = row.original.lifecycle_catalog;
-        if (!item) return <span className="text-slate-500 text-xs">-</span>;
-        return <span className="text-xs font-mono text-slate-300">{item.version}</span>;
+        const info = getAssetOsInfo(row.original);
+        return <span className="text-xs font-mono text-slate-300">{info.version}</span>;
       },
     },
     {
@@ -199,6 +251,9 @@ export default function AssetsPage() {
       header: "Criticidade",
       cell: ({ row }) => {
         const criticality = row.original.business_criticality;
+        if (!row.original.lifecycle_id) {
+          return <span className="text-slate-500 text-xs italic">Lifecycle ainda não calculado</span>;
+        }
         if (!criticality) return <span className="text-slate-500 text-xs">Pendente (IA)</span>;
         
         const colors: Record<string, string> = {
@@ -226,6 +281,9 @@ export default function AssetsPage() {
       accessorKey: "updated_at",
       header: "Última Análise",
       cell: ({ row }) => {
+        if (!row.original.lifecycle_id) {
+          return <span className="text-slate-500 text-xs italic">Não analisado</span>;
+        }
         const dateStr = row.original.updated_at || row.original.created_at;
         if (!dateStr) return <span className="text-slate-500 text-xs">-</span>;
         try {

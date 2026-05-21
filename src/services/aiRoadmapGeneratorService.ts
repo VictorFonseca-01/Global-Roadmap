@@ -73,7 +73,7 @@ export const aiRoadmapGeneratorService = {
             product_name: item.product_name,
             version: item.version,
             asset_type: item.asset_type,
-            end_of_support: item.end_of_support,
+            end_of_support: item.end_of_support || null,
             successor_version: item.successor_version,
             verification_status: 'verified' // Como o usuário revisou, já entra como verificado
           }).select().single();
@@ -82,64 +82,78 @@ export const aiRoadmapGeneratorService = {
           }
         }
 
-        // Criar um "Asset" agrupador genérico para o plano (necessário para a integridade de FK e Timeline)
-        let assetId = null;
-        if (lifecycleId) {
-           const { data: newAsset, error: assetError } = await supabase.from('assets').insert({
-             organization_id: organizationId,
-             hostname: `${item.vendor} ${item.product_name} (${item.asset_type}) [Gerado IA]`,
-             device_type: item.asset_type === 'client' ? 'workstation' : 'server',
-             category_id: categoryId,
-             lifecycle_id: lifecycleId,
-             business_criticality: item.calculated_criticality || 'medium'
-           }).select().single();
-           if (!assetError && newAsset) assetId = newAsset.id;
+        // Late-Binding e geração de planos para ativos reais (se existirem) ou ativo genérico (caso contrário)
+        const activeAssetIds: string[] = [];
+
+        if (lifecycleId && item.asset_ids && item.asset_ids.length > 0) {
+          // 1. Vincular lifecycle_id aos ativos reais
+          const { error: updateAssetError } = await supabase
+            .from('assets')
+            .update({ lifecycle_id: lifecycleId })
+            .in('id', item.asset_ids);
+          
+          if (updateAssetError) {
+            console.error('[RoadmapGenerator] Erro ao vincular assets:', updateAssetError);
+          }
+          activeAssetIds.push(...item.asset_ids);
+        } else if (lifecycleId) {
+          // Criar um "Asset" agrupador genérico se não houver ativos físicos
+          const { data: newAsset, error: assetError } = await supabase.from('assets').insert({
+            organization_id: organizationId,
+            hostname: `${item.vendor} ${item.product_name} (${item.asset_type}) [Gerado IA]`,
+            device_type: item.asset_type === 'client' ? 'workstation' : 'server',
+            category_id: categoryId,
+            lifecycle_id: lifecycleId,
+            business_criticality: item.calculated_criticality || 'medium'
+          }).select().single();
+          if (!assetError && newAsset) {
+            activeAssetIds.push(newAsset.id);
+          }
         }
 
-        // 6. Criar migration_plans
-        // Usar a priority do reviewData. Se ausente, usa medium.
+        // 6. Criar/atualizar migration_plans para todos os activeAssetIds
         const priority = item.calculated_criticality || 'medium';
         const riskLevel = priority === 'critical' || item.compatibility_risk === 'high' ? 'high' : 'low';
-        
-        // Evitar duplicidades: Checar se já existe um plano para este asset neste projeto
-        let planExists = false;
-        if (assetId) {
+        const costPerAsset = activeAssetIds.length > 0 ? (item.estimated_cost / activeAssetIds.length) : item.estimated_cost;
+
+        for (const targetAssetId of activeAssetIds) {
+          let planExists = false;
+          
           const { data: existingPlan } = await supabase.from('migration_plans')
             .select('id')
             .eq('roadmap_project_id', project.id)
-            .eq('asset_id', assetId)
+            .eq('asset_id', targetAssetId)
             .limit(1);
             
           if (existingPlan && existingPlan.length > 0) {
             planExists = true;
-            // Atualizar plano duplicado
             await supabase.from('migration_plans').update({
               priority,
               risk_level: riskLevel,
-              estimated_cost: item.estimated_cost,
+              estimated_cost: costPerAsset,
               recommended_start_date: item.recommended_start_date || new Date().toISOString().split('T')[0]
             }).eq('id', existingPlan[0].id);
             results.updatedPlans++;
           }
-        }
 
-        if (!planExists) {
-          const { error: planError } = await supabase.from('migration_plans').insert({
-            organization_id: organizationId,
-            roadmap_project_id: project.id,
-            asset_id: assetId, // Pode ser null se a criação do asset falhou, FK permite
-            priority,
-            risk_level: riskLevel,
-            status: 'planned',
-            recommended_start_date: item.recommended_start_date || new Date().toISOString().split('T')[0],
-            estimated_cost: item.estimated_cost,
-            justification: `AI Generated via Review. Compatibilidade: ${item.compatibility_risk}.`
-          });
+          if (!planExists) {
+            const { error: planError } = await supabase.from('migration_plans').insert({
+              organization_id: organizationId,
+              roadmap_project_id: project.id,
+              asset_id: targetAssetId,
+              priority,
+              risk_level: riskLevel,
+              status: 'planned',
+              recommended_start_date: item.recommended_start_date || new Date().toISOString().split('T')[0],
+              estimated_cost: costPerAsset,
+              justification: `AI Generated via Review. Compatibilidade: ${item.compatibility_risk}.`
+            });
 
-          if (planError) {
-            results.errors.push(`Erro ao criar plano para ${item.product_name}: ${planError.message}`);
-          } else {
-            results.createdPlans++;
+            if (planError) {
+              results.errors.push(`Erro ao criar plano para asset ${targetAssetId}: ${planError.message}`);
+            } else {
+              results.createdPlans++;
+            }
           }
         }
 

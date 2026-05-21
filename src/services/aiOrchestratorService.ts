@@ -4,6 +4,7 @@ import { deterministicEngineService } from './deterministicEngineService';
 import type { AIReviewData, AIReviewItem } from '@/types';
 import { differenceInDays, parseISO, format, addDays } from 'date-fns';
 import { telemetry } from '@/lib/telemetry';
+import { parseOsFromText } from './importService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isRetryableError(error: any): boolean {
@@ -145,19 +146,46 @@ export const aiOrchestratorService = {
     return data || [];
   },
 
-  /**
-   * Group assets by vendor + product + version
-   */
   groupAssetsByTechnology(assets: any[]): InventoryGroup[] {
     const map = new Map<string, InventoryGroup>();
 
     for (const asset of assets) {
-      const lc = asset.lifecycle_catalog;
-      const vendor = lc?.vendor || 'Unknown';
-      const product = lc?.product_name || 'Unknown';
-      const version = lc?.version || '';
+      let vendor = 'Unknown';
+      let product = 'Unknown';
+      let version = '';
 
-      // Skip unknown/unidentified assets
+      if (asset.lifecycle_catalog) {
+        vendor = asset.lifecycle_catalog.vendor || 'Unknown';
+        product = asset.lifecycle_catalog.product_name || 'Unknown';
+        version = asset.lifecycle_catalog.version || '';
+      } else {
+        // Try parsing from asset.notes (raw_inventory_data)
+        let parsedNotes = null;
+        if (asset.notes) {
+          try {
+            const parsed = JSON.parse(asset.notes);
+            if (parsed && parsed.raw_inventory_data) {
+              parsedNotes = parsed.raw_inventory_data;
+            }
+          } catch (e) {
+            // ignore JSON parsing errors
+          }
+        }
+
+        if (parsedNotes && parsedNotes.os && parsedNotes.os !== 'Unknown') {
+          vendor = parsedNotes.vendor || 'Unknown';
+          product = parsedNotes.os || 'Unknown';
+          version = parsedNotes.os_version || '';
+        } else {
+          // Fall back to parsing asset.hostname or other fields via parseOsFromText
+          const parsed = parseOsFromText(asset.hostname || '');
+          vendor = parsed.vendor || 'Unknown';
+          product = parsed.product || 'Unknown';
+          version = parsed.version || '';
+        }
+      }
+
+      // Skip unknown/unidentified assets if they really are completely unknown
       if (vendor === 'Unknown' && product === 'Unknown') continue;
 
       const key = `${vendor}|${product}|${version}`.toLowerCase();
@@ -275,11 +303,26 @@ export const aiOrchestratorService = {
       const daysRemaining = eol ? differenceInDays(parseISO(eol), today) : null;
 
       let calculatedCriticality: 'low' | 'medium' | 'high' | 'critical' = 'medium'; // Default for no EoL
-      
-      if (daysRemaining !== null) {
-        if (daysRemaining <= 180) calculatedCriticality = 'critical';
-        else if (daysRemaining <= 365) calculatedCriticality = 'medium';
-        else calculatedCriticality = 'low';
+      let supportStatus: 'supported' | 'near_eol' | 'out_of_support' | 'extended_support' | 'unknown' = 'supported';
+
+      if (!eol) {
+        supportStatus = 'unknown';
+        confidenceSource = 'deterministic_fallback';
+        calculatedCriticality = 'medium';
+      } else if (daysRemaining !== null) {
+        if (daysRemaining <= 0) {
+          supportStatus = 'out_of_support';
+          calculatedCriticality = 'critical';
+        } else if (daysRemaining <= 180) {
+          supportStatus = 'near_eol';
+          calculatedCriticality = 'critical';
+        } else if (daysRemaining <= 365) {
+          supportStatus = 'supported';
+          calculatedCriticality = 'medium';
+        } else {
+          supportStatus = 'supported';
+          calculatedCriticality = 'low';
+        }
       }
 
       let compatibilityRisk: 'low' | 'medium' | 'high' = 'low';
@@ -292,13 +335,13 @@ export const aiOrchestratorService = {
       };
 
       // ── Step 4: Build notes ──
-      const notes = daysRemaining !== null
+      const notes = eol && daysRemaining !== null
         ? (daysRemaining <= 0
           ? `CRÍTICO: ${group.count} ativo(s) fora de suporte. Migração emergencial recomendada.`
           : daysRemaining <= 180
             ? `${group.count} ativo(s) perdem suporte em ${daysRemaining} dias. Planejamento urgente.`
             : `${group.count} ativo(s) com suporte ativo. Planejamento preventivo sugerido.`)
-        : `${group.count} ativo(s). Sem EoL definido no catálogo, revisão recomendada.`;
+        : `Revisar lifecycle — ${group.count} ativo(s). Sem EoL definido no catálogo, revisão recomendada.`;
 
       // Use provided adoption date if any
       const key = normalizeKey(group.vendor, group.product_name, group.version);
@@ -317,11 +360,13 @@ export const aiOrchestratorService = {
         estimated_cost: capex * group.count,
         confidence_score: confidenceScore,
         confidence_source: confidenceSource,
-        end_of_support: eol,
+        end_of_support: eol || null,
         successor_version: successor,
         recommended_start_date: window.start,
+        support_status: supportStatus,
         notes,
-        current_usage: `${group.count} ativo(s): ${group.hostnames.slice(0, 5).join(', ')}${group.hostnames.length > 5 ? ` +${group.hostnames.length - 5} mais` : ''}`
+        current_usage: `${group.count} ativo(s): ${group.hostnames.slice(0, 5).join(', ')}${group.hostnames.length > 5 ? ` +${group.hostnames.length - 5} mais` : ''}`,
+        asset_ids: group.asset_ids
       });
     }
 

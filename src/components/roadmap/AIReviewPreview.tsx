@@ -110,6 +110,8 @@ export function AIReviewPreview({ initialData, data: dataProp, onConfirm, onCanc
         return <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-medium flex items-center gap-1 border-none"><AlertCircle className="w-3 h-3" /> Out of Support</Badge>;
       case 'extended_support':
         return <Badge className="bg-violet-600 hover:bg-violet-700 text-white font-medium flex items-center gap-1 border-none"><Info className="w-3 h-3" /> Extended</Badge>;
+      case 'unknown':
+        return <Badge className="bg-amber-600 hover:bg-amber-700 text-white font-medium flex items-center gap-1 border-none"><AlertTriangle className="w-3 h-3" /> Revisar lifecycle</Badge>;
       default:
         return <Badge className="bg-slate-400 text-white font-medium flex items-center gap-1 border-none">Unknown</Badge>;
     }

@@ -1,13 +1,9 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { assetService } from './assetService';
-import { lifecycleService } from './lifecycleService';
 import { applicationService } from './applicationService';
-import { deterministicEngineService } from './deterministicEngineService';
-import { migrationPlanService } from './migrationPlanService';
 import { auditService } from './auditService';
 import { supabase } from '@/lib/supabase';
-import { geminiService } from './geminiService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -292,7 +288,7 @@ export const importService = {
     return { normalizedData, mappedColumns: Array.from(mappedColumns), ignoredColumns: Array.from(ignoredColumns) };
   },
 
-  async processImport(normalizedData: Record<string, any>[], roadmapProjectId?: string) {
+  async processImport(normalizedData: Record<string, any>[], _roadmapProjectId?: string) {
     const history = {
       file_name: 'Importação do GLPI',
       total_records: normalizedData.length,
@@ -313,77 +309,10 @@ export const importService = {
     const bySerial = new Map(existing.filter(a => a.serial_number).map(a => [cleanStr(a.serial_number), a]));
     const byHost = new Map(existing.filter(a => a.hostname).map(a => [cleanStr(a.hostname), a]));
 
-    const [categories, catalog, apps] = await Promise.all([
+    const [categories, apps] = await Promise.all([
       supabase.from('asset_categories').select('*'),
-      lifecycleService.getAll(),
       applicationService.getAll(),
     ]);
-
-    // ─── Auto-Enrich unique OSs in batch before import loop ───
-    const uniqueOSs = new Map<string, { vendor: string; product: string; version: string }>();
-    for (const row of normalizedData) {
-      let vendor = (row.os_vendor || row.vendor || '').trim();
-      let product = (row.os_product || row.os_name || row.product || '').trim();
-      let version = (row.os_version || row.version || '').trim();
-
-      if (!vendor || !product) {
-        const rawOs = row.os_name || row.product || '';
-        if (rawOs) {
-          const parsed = parseOsFromText(rawOs);
-          vendor = parsed.vendor;
-          product = parsed.product;
-          version = parsed.version || version;
-        }
-      }
-
-      if (vendor && product) {
-        const signature = `${vendor}|${product}|${version}`.toLowerCase();
-        if (!uniqueOSs.has(signature)) {
-          uniqueOSs.set(signature, { vendor, product, version });
-        }
-      }
-    }
-
-    // Obter organização ativa para enriquecimento multi-tenant
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-    let organizationId = "d290f1ee-6c54-4b01-90e6-d701748f0851"; // Fallback default
-    if (userId) {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('organization_id')
-        .eq('id', userId)
-        .maybeSingle();
-      if (profile?.organization_id) {
-        organizationId = profile.organization_id;
-      }
-    }
-
-    const osMap = new Map<string, any>();
-    if (import.meta.env.DEV) {
-      console.log(`[Import-Enrich] Encontrados ${uniqueOSs.size} SOs únicos. Enriquecendo e inserindo no catálogo...`);
-    }
-    for (const [sig, parsed] of uniqueOSs.entries()) {
-      try {
-        await geminiService.enrichLifecycle(parsed.vendor, parsed.product, parsed.version);
-        // Buscar no banco para obter o id
-        const { data: catalogItem } = await supabase
-          .from('lifecycle_catalog')
-          .select('*')
-          .eq('vendor', parsed.vendor)
-          .eq('product_name', parsed.product)
-          .eq('version', parsed.version)
-          .eq('organization_id', organizationId)
-          .limit(1)
-          .maybeSingle();
-
-        if (catalogItem) {
-          osMap.set(sig, catalogItem);
-        }
-      } catch (err) {
-        console.error(`[Import-Enrich] Falha ao enriquecer OS "${sig}":`, err);
-      }
-    }
 
     for (const row of normalizedData) {
       if (!isValidValue(row.hostname)) history.missing_hostname_count++;
@@ -419,9 +348,6 @@ export const importService = {
           }
         }
 
-        const signature = `${vendor}|${product}|${version}`.toLowerCase();
-        const enrichedLifecycle = osMap.get(signature);
-
         const matchedCategory = categories.data?.find(c => 
           c.name.toLowerCase() === (row.category || '').toLowerCase() ||
           c.name.toLowerCase() === (row.device_type || '').toLowerCase() ||
@@ -429,12 +355,6 @@ export const importService = {
           (row.device_type === 'workstation' && c.name === 'Computers') ||
           (row.device_type === 'virtual machine' && c.name === 'Virtual Machines') ||
           (row.device_type === 'network device' && c.name === 'Network Devices')
-        );
-
-        const matchedLifecycle = enrichedLifecycle || catalog.find(l => 
-          l.vendor.toLowerCase() === vendor.toLowerCase() &&
-          l.product_name.toLowerCase() === product.toLowerCase() &&
-          (l.version || '').toLowerCase() === version.toLowerCase()
         );
 
         const matchedApp = apps.find(a => 
@@ -448,7 +368,6 @@ export const importService = {
         if (isValidValue(row.serial_number)) payload.serial_number = row.serial_number;
         if (isValidValue(row.device_type)) payload.device_type = row.device_type;
         if (matchedCategory?.id) payload.category_id = matchedCategory.id;
-        if (matchedLifecycle?.id) payload.lifecycle_id = matchedLifecycle.id;
         if (matchedApp?.id) payload.application_id = matchedApp.id;
         if (isValidValue(row.owner_department)) payload.owner_department = row.owner_department;
         if (isValidValue(row.business_criticality)) payload.business_criticality = row.business_criticality;
@@ -457,7 +376,20 @@ export const importService = {
         if (isValidValue(row.storage_gb)) payload.storage_gb = parseFloat(String(row.storage_gb));
         if (isValidValue(row.purchase_date)) payload.purchase_date = row.purchase_date;
 
-        let createdOrUpdatedAssetId = '';
+        // Armazenar os dados brutos de inventário de forma estruturada no campo notes
+        const rawInventoryData = {
+          source: "glpi",
+          os: product || 'Unknown',
+          os_version: version || '',
+          vendor: vendor || 'Unknown',
+          device_type: row.device_type || payload.device_type || 'workstation',
+          manufacturer: row.vendor || row.os_vendor || 'Unknown',
+          model: row.model || '',
+          department: row.owner_department || '',
+          user: row.user || '',
+          imported_at: new Date().toISOString()
+        };
+        payload.notes = JSON.stringify({ raw_inventory_data: rawInventoryData });
 
         if (matchedExisting) {
           // Merge sem sobrescrever por vazio
@@ -468,7 +400,6 @@ export const importService = {
             }
           }
           await assetService.update(matchedExisting.id, finalPayload);
-          createdOrUpdatedAssetId = matchedExisting.id;
           history.updated_count++;
           history.duplicate_count++;
         } else {
@@ -476,33 +407,10 @@ export const importService = {
           payload.hostname = payload.hostname || 'Unknown Host';
           payload.device_type = payload.device_type || 'workstation';
           payload.business_criticality = payload.business_criticality || 'medium';
+          payload.lifecycle_id = null; // Garantir que novos ativos iniciam com lifecycle nulo
           
-          const created = await assetService.create(payload as any);
-          createdOrUpdatedAssetId = created.id;
+          await assetService.create(payload as any);
           history.inserted_count++;
-        }
-
-        if (matchedLifecycle && roadmapProjectId) {
-          const priority = deterministicEngineService.calculatePriority(matchedLifecycle.end_of_support, payload.business_criticality || 'medium');
-          const window = deterministicEngineService.calculateMigrationWindow(matchedLifecycle.end_of_support);
-          
-          await migrationPlanService.create({
-            roadmap_project_id: roadmapProjectId,
-            asset_id: createdOrUpdatedAssetId,
-            priority,
-            risk_level: 'low',
-            status: 'planned',
-            recommended_target_os: matchedLifecycle.successor_version,
-            recommended_start_date: window.start,
-            planned_start_date: window.start,
-            planned_end_date: window.end,
-            justification: deterministicEngineService.generateJustification(
-              priority, 
-              matchedLifecycle.product_name, 
-              matchedLifecycle.version || '', 
-              matchedLifecycle.end_of_support
-            )
-          });
         }
 
         history.successful_records++;

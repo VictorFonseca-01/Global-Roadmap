@@ -14,7 +14,10 @@ O foco central desta V1 é a **simplificação extrema**: eliminar formulários 
 
 ## 🛠️ 2. Funcionalidades Principais da Plataforma
 
-### 📥 Importação Inteligente do GLPI
+### 📥 Ingestão Desacoplada e Importação do GLPI (Arquitetura V1.1)
+*   **Importação Sem IA (Instantânea & Local):** O fluxo de upload de planilhas foi completamente isolado da inteligência artificial. A importação ocorre 100% offline no servidor local, sem chamadas externas a APIs ou Edge Functions, tornando a ingestão imediata e resiliente a falhas de rede.
+*   **Preservação Bruta de Dados (JSON estruturado):** Os dados técnicos originais de SO, Versão, Fabricante e Modelo são salvos diretamente em formato estruturado (`raw_inventory_data` no campo `notes`) sem distorções ou datas fakes. Os ativos iniciam com `lifecycle_id = null` por padrão.
+*   **Late Binding de Lifecycle:** O vínculo entre os ativos físicos e o catálogo homologado de ciclo de vida (`lifecycle_id`) ocorre de forma tardia e segura tão logo o usuário valide e confirme o Roadmap gerado estrategicamente.
 *   **Parser Universal:** Processa planilhas em formatos **CSV** e **XLSX** de maneira extremamente tolerante.
 *   **Mapeamento Inteligente de Colunas:** Traduz automaticamente mais de 60 variações de nomes de colunas (aliases) em português e inglês (ex: `Sistema operacional` / `Operating System` / `OS`).
 *   **Higiene & Normalização:** Remove espaços duplicados, limpa bordas e converte strings críticas para letras maiúsculas para eliminar duplicidades (ex: `Win 10` e `win 10` tornam-se o mesmo SO).

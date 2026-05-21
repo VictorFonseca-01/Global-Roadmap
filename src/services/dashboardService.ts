@@ -3,15 +3,10 @@ import { roadmapService } from './roadmapService';
 import { categoryService } from './categoryService';
 import { migrationPlanService } from './migrationPlanService';
 import { deterministicEngineService } from './deterministicEngineService';
-import { roadmapGeneratorService } from './roadmapGeneratorService';
 
 export const dashboardService = {
   async getDashboardData(projectId?: string) {
     try {
-      // 0. Auto-reparar ativos com categoria/lifecycle faltantes antes de carregar métricas
-      await roadmapGeneratorService.repairMissingAssetRelations()
-        .catch(err => console.error('[Dashboard-Repair] Falha no auto-reparo:', err));
-
       // 1. Carga principal dos dados em paralelo
       const [allAssets, roadmaps, categories, allMigrationPlans] = await Promise.all([
         assetService.getAll(),
