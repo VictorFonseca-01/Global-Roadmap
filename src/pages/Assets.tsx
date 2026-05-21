@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { assetService } from "@/services/assetService";
 import { aiOrchestratorService } from "@/services/aiOrchestratorService";
@@ -14,7 +14,7 @@ import { ImportWizard } from "@/components/inventory/ImportWizard";
 import { AIReviewPreview } from "@/components/roadmap/AIReviewPreview";
 import { AIChatGenerator } from "@/components/roadmap/AIChatGenerator";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { 
   Tooltip,
@@ -23,11 +23,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-function getAssetOsInfo(asset: any): { osName: string; version: string; isAnalyzed: boolean } {
+function getAssetOsInfo(asset: any): { osName: string; version: string; vendor: string; isAnalyzed: boolean } {
   if (asset.lifecycle_catalog) {
     return {
       osName: asset.lifecycle_catalog.product_name || "Não informado",
       version: asset.lifecycle_catalog.version || "-",
+      vendor: asset.lifecycle_catalog.vendor || "Não informado",
       isAnalyzed: true
     };
   }
@@ -39,6 +40,7 @@ function getAssetOsInfo(asset: any): { osName: string; version: string; isAnalyz
         return {
           osName: raw.os && raw.os !== "Unknown" ? raw.os : "Não informado",
           version: raw.os_version || "-",
+          vendor: raw.vendor || "Não informado",
           isAnalyzed: false
         };
       }
@@ -47,6 +49,7 @@ function getAssetOsInfo(asset: any): { osName: string; version: string; isAnalyz
   return {
     osName: "Não informado",
     version: "-",
+    vendor: "Não informado",
     isAnalyzed: false
   };
 }
@@ -54,10 +57,23 @@ function getAssetOsInfo(asset: any): { osName: string; version: string; isAnalyz
 export default function AssetsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Filters State
   const [selectedOS, setSelectedOS] = useState<string>("all");
   const [selectedVersion, setSelectedVersion] = useState<string>("all");
+  const [selectedVendor, setSelectedVendor] = useState<string>("all");
+
+  // Synchronize URL query params on load/change
+  useEffect(() => {
+    const os = searchParams.get("os");
+    const version = searchParams.get("version");
+    const vendor = searchParams.get("vendor");
+
+    if (os) setSelectedOS(os);
+    if (version) setSelectedVersion(version);
+    if (vendor) setSelectedVendor(vendor);
+  }, [searchParams]);
 
   // Auto Roadmap Generation State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -94,15 +110,27 @@ export default function AssetsPage() {
     return Array.from(list).sort();
   }, [assets]);
 
+  const uniqueVendorsList = useMemo(() => {
+    const list = new Set<string>();
+    assets.forEach(asset => {
+      const info = getAssetOsInfo(asset);
+      if (info.vendor && info.vendor !== "Não informado") {
+        list.add(info.vendor);
+      }
+    });
+    return Array.from(list).sort();
+  }, [assets]);
+
   // Apply filters
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
       const info = getAssetOsInfo(asset);
       const matchOS = selectedOS === "all" || info.osName === selectedOS;
       const matchVersion = selectedVersion === "all" || info.version === selectedVersion;
-      return matchOS && matchVersion;
+      const matchVendor = selectedVendor === "all" || info.vendor === selectedVendor;
+      return matchOS && matchVersion && matchVendor;
     });
-  }, [assets, selectedOS, selectedVersion]);
+  }, [assets, selectedOS, selectedVersion, selectedVendor]);
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -117,6 +145,8 @@ export default function AssetsPage() {
   const resetFilters = () => {
     setSelectedOS("all");
     setSelectedVersion("all");
+    setSelectedVendor("all");
+    setSearchParams({});
     toast.success("Filtros limpos com sucesso");
   };
 
@@ -428,10 +458,20 @@ export default function AssetsPage() {
             ))}
           </select>
 
-
+          {/* Vendor Filter */}
+          <select
+            value={selectedVendor}
+            onChange={(e) => setSelectedVendor(e.target.value)}
+            className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer hover:bg-slate-950/80 transition-colors"
+          >
+            <option value="all" className="bg-slate-950 text-slate-200">Todos os Fabricantes</option>
+            {uniqueVendorsList.map(vendor => (
+              <option key={vendor} value={vendor} className="bg-slate-950 text-slate-200">{vendor}</option>
+            ))}
+          </select>
         </div>
         
-        {(selectedOS !== "all" || selectedVersion !== "all") && (
+        {(selectedOS !== "all" || selectedVersion !== "all" || selectedVendor !== "all") && (
           <Button 
             variant="ghost" 
             onClick={resetFilters}

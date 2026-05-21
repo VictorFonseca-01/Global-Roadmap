@@ -8,6 +8,7 @@ import { pdfService } from "@/services/pdfService";
 import { deterministicEngineService } from "@/services/deterministicEngineService";
 import { aiOrchestratorService } from "@/services/aiOrchestratorService";
 import { aiRoadmapGeneratorService } from "@/services/aiRoadmapGeneratorService";
+import { geminiService } from "@/services/geminiService";
 
 import type { RoadmapProject, AIReviewData } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ export default function RoadmapsPage() {
   const [editingProject, setEditingProject] = useState<RoadmapProject | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"gantt" | "executive">("gantt");
+  const [isSearchingAI, setIsSearchingAI] = useState(false);
 
   // Auto AI Generation States
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
@@ -756,9 +758,59 @@ export default function RoadmapsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-slate-300 font-semibold">Nome do Projeto</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Migração Windows Server 2025" {...field} className="bg-slate-950/60 border-white/10 text-white" />
-                    </FormControl>
+                    <div className="flex gap-2">
+                      <FormControl className="flex-1">
+                        <Input placeholder="Ex: Migração Windows Server 2025" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          const title = form.getValues("name");
+                          if (!title || title.trim().length < 3) {
+                            toast.error("Insira um título com pelo menos 3 caracteres primeiro.");
+                            return;
+                          }
+                          setIsSearchingAI(true);
+                          try {
+                            const res = await geminiService.fetchRoadmapContextByTitle(title);
+                            
+                            const fullDesc = `${res.description}
+
+### Recomendações Estratégicas
+${res.recommendations}
+
+### Contexto de Ciclo de Vida
+${res.lifecycle_context}`;
+
+                            form.setValue("description", fullDesc);
+                            
+                            if (res.category) {
+                              const matched = categories.find(c => c.name.toLowerCase() === res.category.toLowerCase());
+                              if (matched) {
+                                form.setValue("category", matched.name);
+                              } else {
+                                form.setValue("category", "Geral");
+                              }
+                            }
+                            
+                            toast.success("Informações do projeto enriquecidas com sucesso!");
+                          } catch (err: any) {
+                            toast.error("Erro ao buscar informações: " + (err.message || err));
+                          } finally {
+                            setIsSearchingAI(false);
+                          }
+                        }}
+                        disabled={isSearchingAI}
+                        className="bg-blue-600/80 hover:bg-blue-600 text-white font-bold text-xs gap-1.5 shrink-0 px-4 h-10 rounded-xl"
+                      >
+                        {isSearchingAI ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                        )}
+                        <span>Buscar Informações</span>
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -858,6 +910,25 @@ export default function RoadmapsPage() {
                     <FormLabel className="text-slate-300 font-semibold">Responsável (Dono)</FormLabel>
                     <FormControl>
                       <Input placeholder="Nome do gestor ou equipe" {...field} className="bg-slate-950/60 border-white/10 text-white" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-300 font-semibold">Descrição e Recomendações (IA)</FormLabel>
+                    <FormControl>
+                      <textarea
+                        placeholder="Descreva o escopo, recomendações e ciclo de vida do projeto..."
+                        {...field}
+                        rows={4}
+                        className="w-full rounded-xl bg-slate-950/60 border border-white/10 text-white p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary hover:bg-slate-950/80 transition-colors"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

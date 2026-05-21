@@ -519,5 +519,126 @@ If information like 'implemented_at' is missing, set it to null and add a note i
     } finally {
       releaseToken();
     }
+  },
+
+  async fetchRoadmapContextByTitle(title: string): Promise<{
+    description: string;
+    category: string;
+    recommendations: string;
+    lifecycle_context: string;
+  }> {
+    if (!title || title.trim().length < 3) {
+      throw new Error("Título inválido para consulta.");
+    }
+    const cleanTitle = title.trim();
+    const titleHash = await generateHash(cleanTitle);
+
+    // 1. Check Cache
+    try {
+      const { data: cached, error: cacheErr } = await supabase
+        .from("roadmap_context_cache")
+        .select("*")
+        .eq("title_hash", titleHash)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (cached && !cacheErr) {
+        if (import.meta.env.DEV) {
+          console.log(`[Gemini Title Cache] Cache hit para título: "${cleanTitle}"`);
+        }
+        return {
+          description: cached.description || "",
+          category: cached.category || "Custom",
+          recommendations: cached.recommendations || "",
+          lifecycle_context: cached.lifecycle_context || ""
+        };
+      }
+    } catch (err) {
+      console.warn("Falha ao ler cache de contexto de título:", err);
+    }
+
+    // 2. IA Call with official source priorization
+    const systemInstruction = `Você é um analista estratégico de infraestrutura de TI e ciclo de vida de ativos.
+Analise o seguinte título de projeto de roadmap corporativo e forneça dados detalhados de planejamento em formato JSON.
+
+O JSON retornado deve seguir rigorosamente a seguinte estrutura:
+{
+  "description": "Uma descrição executiva detalhada e profissional sobre o que este projeto de migração/atualização representa, seu impacto e importância.",
+  "category": "A categoria sugerida para este projeto (deve ser um dos seguintes valores exatos ou correspondente lógico: Operating Systems, Software Licenses, Computers, Servers, Motherboards, Graphics Cards, CPUs, Memory, Storage, Network Equipment, Peripherals, ou Custom).",
+  "recommendations": "Recomendações técnicas e estratégicas para a execução bem-sucedida do projeto.",
+  "lifecycle_context": "Dados consolidados sobre o ciclo de vida deste produto/SO/tecnologia. Priorize fontes oficiais (como Microsoft Learn, VMware Docs, Cisco Docs, Fortinet Docs, Ubuntu Lifecycle, Red Hat Lifecycle). Não invente datas. Se o ciclo de vida ou datas de EoL não forem conhecidos com certeza, declare expressamente 'status = requires_review' e mencione o badge 'Revisar lifecycle'."
+}
+
+Título do Projeto: "${cleanTitle}"
+
+Retorne APENAS o JSON válido, sem markdown ou textos explicativos antes ou depois.`;
+
+    const sanitizedPrompt = sanitizePromptInput(systemInstruction);
+
+    await acquireToken();
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('ai-roadmap-parser', {
+        body: { prompt: sanitizedPrompt, action: "parse_roadmap_prompt" }
+      });
+
+      if (functionError || !data) {
+        throw new Error(functionError?.message || "Falha ao obter contexto de roadmap a partir do título.");
+      }
+
+      // Sometimes Gemini might return the JSON wrapped in ```json ... ``` blocks
+      let responseText = typeof data === 'string' ? data : JSON.stringify(data);
+      if (responseText.includes("```")) {
+        const match = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match && match[1]) {
+          responseText = match[1];
+        }
+      }
+      
+      const parsed = typeof data === 'object' ? data : JSON.parse(responseText);
+
+      const result = {
+        description: parsed.description || "",
+        category: parsed.category || "Custom",
+        recommendations: parsed.recommendations || "",
+        lifecycle_context: parsed.lifecycle_context || ""
+      };
+
+      // Save to Cache
+      try {
+        const ttlDays = 7; // 7 dias
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + ttlDays);
+
+        await supabase.from("roadmap_context_cache").upsert({
+          title_hash: titleHash,
+          title: cleanTitle,
+          description: result.description,
+          category: result.category,
+          recommendations: result.recommendations,
+          lifecycle_context: result.lifecycle_context,
+          expires_at: expiresAt.toISOString()
+        }, { onConflict: 'title_hash' });
+      } catch (cacheErr) {
+        console.warn("Erro ao salvar cache de contexto de título:", cacheErr);
+      }
+
+      return result;
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error("[Gemini Title Context Error] Fallback determinístico ativo...", error);
+      }
+      
+      // Deterministic local fallback if AI call fails
+      const fallbackResult = {
+        description: `Planejamento estratégico e controle de ciclo de vida operacional para o projeto: ${cleanTitle}.`,
+        category: "Custom",
+        recommendations: "Revisar inventário técnico associado a este título; Planejar janelas de teste de compatibilidade; Estabelecer cronograma de migração fora do horário comercial.",
+        lifecycle_context: "status = requires_review [Revisar lifecycle]"
+      };
+
+      return fallbackResult;
+    } finally {
+      releaseToken();
+    }
   }
 };
