@@ -3,6 +3,34 @@ import { geminiService, getLocalLifecycle } from './geminiService';
 import { deterministicEngineService } from './deterministicEngineService';
 import type { AIReviewData, AIReviewItem } from '@/types';
 import { differenceInDays, parseISO, format, addDays } from 'date-fns';
+import { telemetry } from '@/lib/telemetry';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function isRetryableError(error: any): boolean {
+  if (!error) return false;
+  const msg = String(error.message || error).toLowerCase();
+  
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || msg.includes('load failed') || msg.includes('connection')) {
+    return true;
+  }
+  
+  if (msg.includes('timeout') || msg.includes('aborted') || msg.includes('deadline')) {
+    return true;
+  }
+  
+  const status = error.status || (error.context && error.context.status);
+  if (status && [429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+  
+  if (/\b(429|500|502|503|504)\b/.test(msg)) {
+    return true;
+  }
+  
+  return false;
+}
+
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface InventoryGroup {
@@ -57,8 +85,13 @@ export const aiOrchestratorService = {
    * No prompt required. The AI reads the inventory and builds everything.
    * An optional prompt can refine/complement the analysis.
    */
-  async orchestrateFromInventory(optionalPrompt?: string): Promise<OrchestratorResult> {
+  async orchestrateFromInventory(
+    adoptionDatesByTechnology?: Record<string, string | null>, 
+    optionalPrompt?: string,
+    onStatusChange?: (status: string) => void
+  ): Promise<OrchestratorResult> {
     // 1. Fetch current tenant's inventory
+    onStatusChange?.("Analisando inventário...");
     const assets = await this.fetchInventory();
 
     if (!assets || assets.length === 0) {
@@ -66,10 +99,12 @@ export const aiOrchestratorService = {
     }
 
     // 2. Group assets by technology (vendor + product + version)
+    onStatusChange?.("Identificando tecnologias...");
     const groups = this.groupAssetsByTechnology(assets);
 
     // 3. Enrich each group with lifecycle data (AI first, fallback local)
-    const enrichedItems = await this.enrichGroups(groups);
+    onStatusChange?.("Conectando à IA...");
+    const enrichedItems = await this.enrichGroups(groups, adoptionDatesByTechnology, onStatusChange);
 
     // 4. Apply optional prompt context (user refinements)
     if (optionalPrompt && optionalPrompt.trim().length > 10) {
@@ -152,7 +187,11 @@ export const aiOrchestratorService = {
    * Enrich each technology group with lifecycle data.
    * Strategy: AI/Edge Function FIRST → Local fallback ONLY on failure.
    */
-  async enrichGroups(groups: InventoryGroup[]): Promise<AIReviewItem[]> {
+  async enrichGroups(
+    groups: InventoryGroup[], 
+    adoptionDatesByTechnology?: Record<string, string | null>,
+    onStatusChange?: (status: string) => void
+  ): Promise<AIReviewItem[]> {
     const today = new Date();
     const items: AIReviewItem[] = [];
 
@@ -163,26 +202,60 @@ export const aiOrchestratorService = {
       let confidenceSource: 'ai' | 'deterministic_fallback' = 'ai';
       let capex = group.asset_type === 'server' ? 5000 : 1200;
 
-      // ── Step 1: Try AI/Edge Function enrichment ──
-      try {
-        const aiResult = await geminiService.enrichLifecycle(group.vendor, group.product_name, group.version);
-        if (aiResult) {
-          eol = aiResult.end_of_support;
-          successor = aiResult.successor_version;
-          confidenceScore = aiResult.confidence_score || 85;
+      // ── Step 1: Try AI/Edge Function enrichment with auto-retry & resilience ──
+      let aiResult = null;
+      let retries = 0;
+      let edgeStatus: 'success' | 'failed_after_retry' | 'error_non_retryable' = 'success';
+      let lastError: any = null;
 
-          // If confidence is low (<60), it was likely a generic fallback
-          if (confidenceScore < 60) {
-            confidenceSource = 'deterministic_fallback';
+      try {
+        // Tentativa 1 — Request normal
+        aiResult = await geminiService.enrichLifecycle(group.vendor, group.product_name, group.version, 'General', true);
+      } catch (err: any) {
+        lastError = err;
+        
+        if (isRetryableError(err)) {
+          retries = 1;
+          onStatusChange?.("Tentando novamente...");
+          await delay(2000);
+          
+          try {
+            // Tentativa 2 — Retry automático
+            aiResult = await geminiService.enrichLifecycle(group.vendor, group.product_name, group.version, 'General', true);
+          } catch (retryErr: any) {
+            lastError = retryErr;
+            retries = 2;
+            edgeStatus = 'failed_after_retry';
           }
+        } else {
+          edgeStatus = 'error_non_retryable';
         }
-      } catch {
-        // AI failed — will use local catalog below
-        confidenceSource = 'deterministic_fallback';
       }
 
-      // ── Step 2: Local catalog fallback (only if AI didn't provide EoL) ──
-      if (!eol) {
+      // Se a IA respondeu com sucesso
+      if (aiResult) {
+        eol = aiResult.end_of_support;
+        successor = aiResult.successor_version;
+        confidenceScore = aiResult.confidence_score || 85;
+        if (confidenceScore < 60) {
+          confidenceSource = 'deterministic_fallback';
+        }
+      } else {
+        // Falha na IA — ativa fallback local determinístico
+        confidenceSource = 'deterministic_fallback';
+        onStatusChange?.("Usando análise local segura...");
+        
+        // Registrar telemetria
+        telemetry.log('api_error', 'warning', 'IA Edge Function falhou. Ativando fallback local determinístico.', {
+          retry_count: retries,
+          fallback_reason: lastError?.message || String(lastError || 'Desconhecido'),
+          edge_function_status: edgeStatus,
+          vendor: group.vendor,
+          product_name: group.product_name,
+          version: group.version
+        });
+
+        // Tenta obter do catálogo local ou fallback getLocalLifecycle
         const key = normalizeKey(group.vendor, group.product_name, group.version);
         const local = LIFECYCLE_CATALOG[key];
         if (local) {
@@ -190,36 +263,28 @@ export const aiOrchestratorService = {
           successor = local.successor;
           capex = local.capexPerUnit;
           confidenceScore = 90;
-          confidenceSource = 'deterministic_fallback';
         } else {
-          // Absolute fallback
           const localFallback = getLocalLifecycle(group.vendor, group.product_name, group.version);
           eol = localFallback.end_of_support;
           successor = localFallback.successor_version;
           confidenceScore = localFallback.confidence_score;
-          confidenceSource = 'deterministic_fallback';
         }
       }
 
       // ── Step 3: Calculate roadmap fields ──
-      const daysRemaining = eol ? differenceInDays(parseISO(eol), today) : 999;
+      const daysRemaining = eol ? differenceInDays(parseISO(eol), today) : null;
 
-      let calculatedCriticality: 'low' | 'medium' | 'high' | 'critical' = 'low';
-      if (daysRemaining <= 0) calculatedCriticality = 'critical';
-      else if (daysRemaining <= 90) calculatedCriticality = 'critical';
-      else if (daysRemaining <= 180) calculatedCriticality = 'high';
-      else if (daysRemaining <= 365) calculatedCriticality = 'medium';
-
-      // Server escalation
-      if (group.asset_type === 'server' && calculatedCriticality !== 'critical') {
-        const levels = ['low', 'medium', 'high', 'critical'] as const;
-        const idx = levels.indexOf(calculatedCriticality);
-        if (idx < 3) calculatedCriticality = levels[idx + 1];
+      let calculatedCriticality: 'low' | 'medium' | 'high' | 'critical' = 'medium'; // Default for no EoL
+      
+      if (daysRemaining !== null) {
+        if (daysRemaining <= 180) calculatedCriticality = 'critical';
+        else if (daysRemaining <= 365) calculatedCriticality = 'medium';
+        else calculatedCriticality = 'low';
       }
 
       let compatibilityRisk: 'low' | 'medium' | 'high' = 'low';
       if (group.asset_type === 'server') compatibilityRisk = 'medium';
-      if (daysRemaining <= 0) compatibilityRisk = 'high';
+      if (daysRemaining !== null && daysRemaining <= 0) compatibilityRisk = 'high';
 
       const window = eol ? deterministicEngineService.calculateMigrationWindow(eol) : {
         start: format(addDays(today, 30), 'yyyy-MM-dd'),
@@ -227,11 +292,17 @@ export const aiOrchestratorService = {
       };
 
       // ── Step 4: Build notes ──
-      const notes = daysRemaining <= 0
-        ? `CRÍTICO: ${group.count} ativo(s) fora de suporte. Migração emergencial recomendada.`
-        : daysRemaining <= 180
-          ? `${group.count} ativo(s) perdem suporte em ${daysRemaining} dias. Planejamento urgente.`
-          : `${group.count} ativo(s) com suporte ativo. Planejamento preventivo sugerido.`;
+      const notes = daysRemaining !== null
+        ? (daysRemaining <= 0
+          ? `CRÍTICO: ${group.count} ativo(s) fora de suporte. Migração emergencial recomendada.`
+          : daysRemaining <= 180
+            ? `${group.count} ativo(s) perdem suporte em ${daysRemaining} dias. Planejamento urgente.`
+            : `${group.count} ativo(s) com suporte ativo. Planejamento preventivo sugerido.`)
+        : `${group.count} ativo(s). Sem EoL definido no catálogo, revisão recomendada.`;
+
+      // Use provided adoption date if any
+      const key = normalizeKey(group.vendor, group.product_name, group.version);
+      const implementedAt = adoptionDatesByTechnology?.[key] || null;
 
       items.push({
         id: `inv-${Date.now()}-${items.length}`,
@@ -239,7 +310,7 @@ export const aiOrchestratorService = {
         product_name: group.product_name,
         version: group.version,
         asset_type: group.asset_type,
-        implemented_at: null,
+        implemented_at: implementedAt,
         business_criticality: calculatedCriticality,
         calculated_criticality: calculatedCriticality,
         compatibility_risk: compatibilityRisk,

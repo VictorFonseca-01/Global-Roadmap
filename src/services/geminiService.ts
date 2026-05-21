@@ -310,7 +310,7 @@ export function getLocalLifecycle(vendor: string, product: string, version: stri
 }
 
 export const geminiService = {
-  async enrichLifecycle(vendor: string, product: string, version: string, category: string = 'General'): Promise<LifecycleAIResponse> {
+  async enrichLifecycle(vendor: string, product: string, version: string, category: string = 'General', throwOnError: boolean = false): Promise<LifecycleAIResponse> {
     const prompt = `Return ONLY JSON: {vendor,product_name,version,end_of_support,extended_support_end,successor_version,source_url,confidence_score,notes}. Product: ${vendor} ${product} ${version}`.trim();
     const promptHash = await generateHash(prompt);
     
@@ -345,7 +345,11 @@ export const geminiService = {
       });
 
       if (functionError || !data) {
-        throw new Error(functionError?.message || "Falha ao enriquecer dados de ciclo de vida através da Edge Function.");
+        const err = new Error(functionError?.message || "Falha ao enriquecer dados de ciclo de vida através da Edge Function.");
+        if (functionError && 'status' in functionError) {
+          (err as any).status = (functionError as any).status;
+        }
+        throw err;
       }
 
       const responseData = data as LifecycleAIResponse;
@@ -376,6 +380,10 @@ export const geminiService = {
       return responseData;
 
     } catch (error: unknown) {
+      if (throwOnError) {
+        throw error;
+      }
+
       if (import.meta.env.DEV) {
         console.warn("[Gemini Enrich] Falha ao chamar a Edge Function. Ativando fallback determinístico local...", error);
       }

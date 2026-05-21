@@ -188,20 +188,20 @@ export function AIChatGenerator({ open, onOpenChange }: AIChatGeneratorProps) {
             <DialogHeader className="p-6 pb-2">
               <DialogTitle className="flex items-center gap-2 text-xl">
                 <Sparkles className="w-5 h-5 text-blue-600" />
-                Complementar Inventário com IA
+                Contexto Adicional & Restrições (Opcional)
               </DialogTitle>
               <DialogDescription>
-                Use este campo apenas para adicionar informações que não estão no inventário. O inventário importado já é a base principal do roadmap.
+                Use este chat apenas para informar restrições, datas corporativas e exceções. O inventário GLPI já é a fonte primária.
               </DialogDescription>
             </DialogHeader>
             <div className="p-6 flex-1 flex flex-col gap-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 p-3 rounded-lg text-sm text-blue-800 dark:text-blue-300">
-                <strong className="block mb-1">Exemplos de complemento:</strong>
+                <strong className="block mb-1">Exemplos do que informar:</strong>
                 <ul className="list-disc list-inside space-y-1 opacity-80 mt-1">
-                  <li>"Windows 10 foi implantado em 01/01/2024."</li>
-                  <li>"Priorizar servidores."</li>
-                  <li>"Usar margem de 10 dias para iniciar a migração."</li>
-                  <li>"Desconsiderar máquinas de laboratório."</li>
+                  <li>"Não podemos migrar servidores antes de dezembro."</li>
+                  <li>"Nossos notebooks precisam manter compatibilidade com VPN legada."</li>
+                  <li>"Priorizar máquinas do comercial."</li>
+                  <li>"Desconsiderar laboratório."</li>
                 </ul>
               </div>
 

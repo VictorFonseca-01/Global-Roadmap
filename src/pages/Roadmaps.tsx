@@ -265,7 +265,9 @@ export default function RoadmapsPage() {
       await new Promise(r => setTimeout(r, 500));
 
       setAutoGeneratingStep("Identificando tecnologias...");
-      const result = await aiOrchestratorService.orchestrateFromInventory();
+      const result = await aiOrchestratorService.orchestrateFromInventory(undefined, undefined, (status) => {
+        setAutoGeneratingStep(status);
+      });
 
       setAutoGeneratingStep("Preparando prévia...");
       await new Promise(r => setTimeout(r, 300));

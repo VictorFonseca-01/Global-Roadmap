@@ -1,6 +1,7 @@
 import { GanttView } from "@/components/roadmap/GanttView";
+import { TimelineExecutiveView } from "@/components/roadmap/TimelineExecutiveView";
 import { ExecutivePresentation } from "@/components/roadmap/ExecutivePresentation";
-import { Map, Download, LayoutGrid, List, ChevronLeft, Building2, ShieldAlert, Zap, CalendarDays, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { Map, Download, LayoutGrid, List, ChevronLeft, Building2, ShieldAlert, Zap, CalendarDays, ClipboardCheck, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +12,13 @@ import { migrationPlanService } from "@/services/migrationPlanService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { format, differenceInDays } from "date-fns";
+import { exportService } from "@/services/exportService";
+import { toast } from "sonner";
 
 export default function RoadmapTimelinePage() {
   const [view, setView] = useState<"gantt" | "presentation">("gantt");
+  const [useLegacyGantt, setUseLegacyGantt] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const projectId = searchParams.get("projectId");
@@ -112,6 +117,16 @@ export default function RoadmapTimelinePage() {
         </div>
         
         <div className="flex flex-wrap items-center gap-4">
+          {view === "gantt" && (
+            <Button 
+              variant="outline" 
+              className="rounded-full text-xs font-bold"
+              onClick={() => setUseLegacyGantt(!useLegacyGantt)}
+            >
+              {useLegacyGantt ? "Usar Smart Timeline" : "Usar Gantt Legado"}
+            </Button>
+          )}
+
           <Tabs value={view} onValueChange={(v) => setView(v as "gantt" | "presentation")} className="bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-full border dark:border-slate-700/50 shadow-inner">
             <TabsList className="bg-transparent h-10 gap-2">
               <TabsTrigger 
@@ -128,8 +143,23 @@ export default function RoadmapTimelinePage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button variant="default" className="rounded-full h-12 px-8 font-black shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all border-none">
-            <Download className="h-5 w-5 mr-2" /> Exportar PDF
+          <Button 
+            variant="default" 
+            className="rounded-full h-12 px-8 font-black shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all border-none"
+            disabled={exportingPdf}
+            onClick={async () => {
+              setExportingPdf(true);
+              toast.promise(
+                exportService.exportExecutivePdf(projectId || undefined),
+                {
+                  loading: "Gerando relatório executivo...",
+                  success: () => { setExportingPdf(false); return "Relatório PDF gerado com sucesso!"; },
+                  error: () => { setExportingPdf(false); return "Erro ao gerar PDF."; }
+                }
+              );
+            }}
+          >
+            {exportingPdf ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Download className="h-5 w-5 mr-2" />} Exportar PDF
           </Button>
         </div>
       </div>
@@ -162,7 +192,11 @@ export default function RoadmapTimelinePage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-2xl overflow-hidden min-h-[650px] relative">
-        {view === "gantt" ? <GanttView projectId={projectId} /> : <ExecutivePresentation projectId={projectId} />}
+        {view === "gantt" ? (
+          useLegacyGantt ? <GanttView projectId={projectId} /> : <TimelineExecutiveView projectId={projectId} />
+        ) : (
+          <ExecutivePresentation projectId={projectId} />
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

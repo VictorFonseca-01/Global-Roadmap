@@ -5,10 +5,22 @@ import { lifecycleService } from './lifecycleService';
 import { applicationService } from './applicationService';
 import { deterministicEngineService } from './deterministicEngineService';
 import { migrationPlanService } from './migrationPlanService';
-import { geminiService } from './geminiService';
 import { auditService } from './auditService';
 import { supabase } from '@/lib/supabase';
-import type { Criticality } from '@/types';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function cleanStr(s: any): string {
+  if (!s) return '';
+  return String(s).trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+function isValidValue(v: any): boolean {
+  if (v === null || v === undefined) return false;
+  const str = String(v).trim().toLowerCase();
+  if (str === '' || str === '-' || str === 'n/a' || str === 'não informado' || str === 'nao informado' || str === 'unknown') return false;
+  return true;
+}
 
 export function parseOsFromText(text: string): { vendor: string; product: string; version: string } {
   const t = (text || '').trim();
@@ -76,6 +88,8 @@ export function parseOsFromText(text: string): { vendor: string; product: string
   return { vendor, product, version };
 }
 
+// ─── Service ─────────────────────────────────────────────────────────────
+
 export const importService = {
   async parseCSV(file: File): Promise<Record<string, string>[]> {
     return new Promise((resolve, reject) => {
@@ -104,31 +118,86 @@ export const importService = {
     });
   },
 
-  async processImport(rawData: Record<string, any>[], roadmapProjectId?: string) {
-    // Normalizar cabeçalhos e valores de cada linha da planilha de entrada (aliases dinâmicos PT/EN)
+  /**
+   * Pre-processes the data to return a preview and metrics without saving.
+   */
+  async analyzeImport(rawData: Record<string, any>[]) {
+    // 1. Normalize
+    const { normalizedData, mappedColumns, ignoredColumns } = this.normalizeData(rawData);
+    
+    // 2. Load existing to preview duplicates
+    const { data: existingAssets } = await supabase.from('assets').select('id, hostname, asset_tag, serial_number');
+    const existing = existingAssets || [];
+    
+    const byTag = new Map(existing.filter(a => a.asset_tag).map(a => [cleanStr(a.asset_tag), a]));
+    const bySerial = new Map(existing.filter(a => a.serial_number).map(a => [cleanStr(a.serial_number), a]));
+    const byHost = new Map(existing.filter(a => a.hostname).map(a => [cleanStr(a.hostname), a]));
+
+    let newCount = 0;
+    let updateCount = 0;
+    let missingHostname = 0;
+    let missingOs = 0;
+
+    for (const row of normalizedData) {
+      if (!isValidValue(row.hostname)) missingHostname++;
+      if (!isValidValue(row.os_name) && !isValidValue(row.os_product)) missingOs++;
+
+      const tag = cleanStr(row.asset_tag);
+      const serial = cleanStr(row.serial_number);
+      const host = cleanStr(row.hostname);
+
+      let found = false;
+      if (tag && byTag.has(tag)) found = true;
+      else if (serial && bySerial.has(serial)) found = true;
+      else if (host && byHost.has(host)) found = true;
+
+      if (found) {
+        updateCount++;
+      } else {
+        newCount++;
+      }
+    }
+
+    return {
+      normalizedData,
+      mappedColumns,
+      ignoredColumns,
+      newCount,
+      updateCount,
+      missingHostname,
+      missingOs,
+      totalRows: rawData.length
+    };
+  },
+
+  normalizeData(rawData: Record<string, any>[]) {
+    const mappedColumns = new Set<string>();
+    const ignoredColumns = new Set<string>();
+
+    const mappings = {
+      hostname: ['hostname', 'host', 'nome', 'name', 'computador', 'dispositivo', 'nome do host', 'nome do computador', 'computer name', 'device name', 'máquina', 'maquina', 'equipamento'],
+      os_name: ['os_name', 'sistema operacional - nome', 'sistema operacional', 'so', 'os', 'product', 'produto', 'nome do so', 'nome do produto', 'operating system', 'sistema', 'sistema instalado'],
+      os_version: ['os_version', 'versão', 'version', 'versao', 'versão do so', 'os version', 'build', 'release', 'edição', 'edicao'],
+      vendor: ['vendor', 'fabricante', 'manufacturer', 'brand', 'marca'],
+      device_type: ['device_type', 'tipo', 'type', 'tipo de dispositivo', 'categoria', 'device type'],
+      asset_tag: ['asset_tag', 'patrimônio', 'patrimonio', 'etiqueta', 'tag', 'número de inventário', 'numero de inventario', 'inventario', 'tombo', 'inventory number'],
+      serial_number: ['serial', 'serial number', 'número de série', 'numero de serie', 's/n', 'service tag'],
+      owner_department: ['owner_department', 'departamento', 'department', 'setor', 'localização', 'localizacao', 'area', 'unidade', 'site', 'filial'],
+      user: ['usuário', 'usuario', 'user', 'assigned to', 'owner', 'utilizador'],
+      business_criticality: ['business_criticality', 'criticidade', 'criticality', 'prioridade', 'priority', 'criticidade de negócio', 'criticidade do negocio'],
+      cpu: ['cpu', 'processador', 'processor', 'componentes - processador', 'componente - processador'],
+      ram_gb: ['ram_gb', 'ram', 'memória', 'memoria', 'memoria ram'],
+      storage_gb: ['storage_gb', 'disco', 'hd', 'ssd', 'armazenamento', 'storage'],
+      model: ['modelo', 'model', 'product name']
+    };
+
     const normalizedData = rawData.map(row => {
       const normalized: Record<string, any> = {};
       
-      const mappings = {
-        hostname: ['hostname', 'host', 'nome', 'name', 'computador', 'dispositivo', 'nome do host'],
-        vendor: ['vendor', 'fabricante', 'manufacturer', 'brand', 'marca'],
-        os_name: ['os_name', 'sistema operacional - nome', 'sistema operacional', 'so', 'os', 'product', 'produto', 'nome do so', 'nome do produto'],
-        os_version: ['os_version', 'versão', 'version', 'versao', 'versão do so'],
-        device_type: ['device_type', 'tipo', 'type', 'tipo de dispositivo', 'categoria'],
-        asset_tag: ['asset_tag', 'patrimônio', 'patrimonio', 'etiqueta', 'tag', 'número de inventário', 'numero de inventario', 'inventario'],
-        owner_department: ['owner_department', 'departamento', 'department', 'setor', 'localização', 'localizacao', 'area'],
-        business_criticality: ['business_criticality', 'criticidade', 'criticality', 'prioridade', 'priority', 'criticidade de negócio', 'criticidade do negocio'],
-        cpu: ['cpu', 'processador', 'processor', 'componentes - processador', 'componente - processador'],
-        ram_gb: ['ram_gb', 'ram', 'memória', 'memoria', 'memoria ram'],
-        storage_gb: ['storage_gb', 'disco', 'hd', 'ssd', 'armazenamento', 'storage']
-      };
-
       for (const rawKey of Object.keys(row)) {
         const cleanKey = rawKey.trim().toLowerCase();
-        
         let matchedField: string | null = null;
         
-        // Pass 1: Strict exact matching
         for (const [field, aliases] of Object.entries(mappings)) {
           if (aliases.some(alias => cleanKey === alias)) {
             matchedField = field;
@@ -136,11 +205,10 @@ export const importService = {
           }
         }
         
-        // Pass 2: Flexible partial matching (only for non-short, non-ambiguous aliases)
         if (!matchedField) {
           for (const [field, aliases] of Object.entries(mappings)) {
             if (aliases.some(alias => {
-              if (['nome', 'name', 'so', 'os', 'tipo', 'type', 'host', 'ram', 'hd', 'cpu'].includes(alias)) {
+              if (['nome', 'name', 'so', 'os', 'tipo', 'type', 'host', 'ram', 'hd', 'cpu', 'site'].includes(alias)) {
                 return cleanKey === alias;
               }
               return cleanKey.includes(alias);
@@ -153,62 +221,54 @@ export const importService = {
 
         if (matchedField) {
           normalized[matchedField] = row[rawKey];
+          mappedColumns.add(rawKey);
         } else {
           normalized[rawKey] = row[rawKey];
+          ignoredColumns.add(rawKey);
         }
       }
 
-      // Fallbacks explícitos se a busca flexível falhar
+      // Hard fallbacks
       if (!normalized.hostname && row['Nome']) normalized.hostname = row['Nome'];
       if (!normalized.vendor && row['Fabricante']) normalized.vendor = row['Fabricante'];
       if (!normalized.os_name && row['Sistema operacional - Nome']) normalized.os_name = row['Sistema operacional - Nome'];
-      if (!normalized.asset_tag && row['Número de inventário']) normalized.asset_tag = row['Número de inventário'];
-      if (!normalized.cpu && row['Componentes - Processador']) normalized.cpu = row['Componentes - Processador'];
-      if (!normalized.owner_department && row['Localização']) normalized.owner_department = row['Localização'];
 
-      // Garantir integridade de hostname como string limpa obrigatória
-      if (normalized.hostname) {
-        normalized.hostname = String(normalized.hostname).trim();
-      }
+      if (normalized.hostname) normalized.hostname = String(normalized.hostname).trim();
 
-      // Detecção e normalização inteligente de device_type
-      if (normalized.device_type) {
-        const rawType = String(normalized.device_type).toLowerCase();
-        if (rawType.includes('desktop') || rawType.includes('workstation') || rawType.includes('notebook') || rawType.includes('client') || rawType.includes('pc') || rawType.includes('micro')) {
-          normalized.device_type = 'workstation';
-        } else if (rawType.includes('server') || rawType.includes('servidor') || rawType.includes('virtual') || rawType.includes('vmware') || rawType.includes('qemu')) {
-          normalized.device_type = 'server';
-        } else {
-          normalized.device_type = 'workstation';
-        }
+      // Advanced Classification
+      let devType = String(normalized.device_type || '').toLowerCase();
+      let osStr = String(normalized.os_name || '').toLowerCase();
+      let prodStr = String(normalized.model || '').toLowerCase();
+      let combinedStr = `${devType} ${osStr} ${prodStr}`;
+
+      const vmKeywords = ['vmware', 'virtualbox', 'hyper-v', 'kvm', 'qemu', 'xen', 'proxmox', 'nutanix', 'virtual machine', 'virtual platform'];
+      const netKeywords = ['switch', 'router', 'firewall', 'access point', 'fortinet', 'cisco', 'mikrotik', 'aruba', 'ubiquiti', 'juniper'];
+      const softKeywords = ['microsoft office', 'sql server', 'oracle java', 'vmware tools', 'anydesk', 'antivirus'];
+
+      if (vmKeywords.some(k => combinedStr.includes(k))) {
+        normalized.device_type = 'virtual machine';
+      } else if (netKeywords.some(k => combinedStr.includes(k))) {
+        normalized.device_type = 'network device';
+      } else if (softKeywords.some(k => combinedStr.includes(k)) && !combinedStr.includes('windows 10') && !combinedStr.includes('windows 11') && !combinedStr.includes('server') && !combinedStr.includes('desktop') && !combinedStr.includes('notebook') && !combinedStr.includes('workstation')) {
+        normalized.device_type = 'software';
+      } else if (devType.includes('server') || osStr.includes('server') || osStr.includes('servidor')) {
+        normalized.device_type = 'server';
       } else {
-        const osStr = String(normalized.os_name || '').toLowerCase();
-        if (osStr.includes('server') || osStr.includes('servidor')) {
-          normalized.device_type = 'server';
-        } else {
-          normalized.device_type = 'workstation';
-        }
+        normalized.device_type = 'workstation';
       }
 
-      // Normalizar prioridade/criticidade de negócio para PostgreSQL enum
+      // Criticality
       if (normalized.business_criticality) {
         const rawCrit = String(normalized.business_criticality).toLowerCase();
-        if (rawCrit.includes('critica') || rawCrit.includes('critical')) {
-          normalized.business_criticality = 'critical';
-        } else if (rawCrit.includes('alta') || rawCrit.includes('high')) {
-          normalized.business_criticality = 'high';
-        } else if (rawCrit.includes('media') || rawCrit.includes('medium') || rawCrit.includes('média')) {
-          normalized.business_criticality = 'medium';
-        } else if (rawCrit.includes('baixa') || rawCrit.includes('low')) {
-          normalized.business_criticality = 'low';
-        } else {
-          normalized.business_criticality = 'medium';
-        }
+        if (rawCrit.includes('critica') || rawCrit.includes('critical')) normalized.business_criticality = 'critical';
+        else if (rawCrit.includes('alta') || rawCrit.includes('high')) normalized.business_criticality = 'high';
+        else if (rawCrit.includes('media') || rawCrit.includes('medium') || rawCrit.includes('média')) normalized.business_criticality = 'medium';
+        else if (rawCrit.includes('baixa') || rawCrit.includes('low')) normalized.business_criticality = 'low';
+        else normalized.business_criticality = 'medium';
       } else {
         normalized.business_criticality = 'medium';
       }
 
-      // Extrair fabricante do SO, nome do produto e versão a partir de normalized.os_name
       if (normalized.os_name) {
         const parsed = parseOsFromText(normalized.os_name);
         normalized.os_vendor = parsed.vendor;
@@ -218,7 +278,6 @@ export const importService = {
         }
       }
 
-      // Se não há vendor ou os_name ou os_version, extrair do hostname
       if (normalized.hostname && (!normalized.vendor || !normalized.os_name || normalized.os_name === 'Unknown' || normalized.vendor === 'Unknown')) {
         const parsed = parseOsFromText(normalized.hostname);
         if (!normalized.vendor || normalized.vendor === 'Unknown') normalized.vendor = parsed.vendor;
@@ -229,71 +288,67 @@ export const importService = {
       return normalized;
     });
 
+    return { normalizedData, mappedColumns: Array.from(mappedColumns), ignoredColumns: Array.from(ignoredColumns) };
+  },
+
+  async processImport(normalizedData: Record<string, any>[], roadmapProjectId?: string) {
     const history = {
-      file_name: 'Importação manual',
+      file_name: 'Importação do GLPI',
       total_records: normalizedData.length,
       successful_records: 0,
       failed_records: 0,
+      inserted_count: 0,
+      updated_count: 0,
+      skipped_count: 0,
+      duplicate_count: 0,
+      missing_os_count: 0,
+      missing_hostname_count: 0
     };
 
-    // 1. Otimização Máxima: Identificar Itens Únicos para Enriquecimento
-    const uniqueItems = Array.from(new Set(normalizedData.map(row => {
-      const vendor = row.os_vendor || row.vendor || 'Unknown';
-      const product = row.os_product || row.os_name || row.product || 'Unknown';
-      const version = row.os_version || row.version || '';
-      return `${vendor}|${product}|${version}`;
-    }))).map(key => {
-      const [vendor, product, version] = key.split('|');
-      return { vendor, product, version };
-    });
-
-    // 2. Enriquecimento em Lote (GeminiService gerencia cache e tokens)
-    console.log(`[Import] Enriquecendo ${uniqueItems.length} itens únicos via IA/Cache...`);
-    const enrichmentMap = new Map<string, { vendor: string; product: string; version: string }>();
+    const { data: existingAssets } = await supabase.from('assets').select('*');
+    const existing = existingAssets || [];
     
-    await Promise.all(uniqueItems.map(async item => {
-      try {
-        const enriched = await geminiService.enrichLifecycle(item.vendor, item.product, item.version);
-        if (enriched) {
-          const key = `${item.vendor}|${item.product}|${item.version}`.toLowerCase();
-          enrichmentMap.set(key, {
-            vendor: enriched.vendor,
-            product: enriched.product_name,
-            version: enriched.version
-          });
-        }
-      } catch (err) {
-        console.warn(`[Import] Falha no enriquecimento: ${item.product}`, err);
-      }
-    }));
+    const byTag = new Map(existing.filter(a => a.asset_tag).map(a => [cleanStr(a.asset_tag), a]));
+    const bySerial = new Map(existing.filter(a => a.serial_number).map(a => [cleanStr(a.serial_number), a]));
+    const byHost = new Map(existing.filter(a => a.hostname).map(a => [cleanStr(a.hostname), a]));
 
-    // 3. Carregar dados para matching
     const [categories, catalog, apps] = await Promise.all([
       supabase.from('asset_categories').select('*'),
       lifecycleService.getAll(),
       applicationService.getAll(),
     ]);
-    
-    // 4. Processar Ativos O(N)
+
     for (const row of normalizedData) {
+      if (!isValidValue(row.hostname)) history.missing_hostname_count++;
+      if (!isValidValue(row.os_name) && !isValidValue(row.os_product)) history.missing_os_count++;
+      
+      // se não houver hostname válido e não foi reconhecido nenhum outro ID, pular
+      if (!isValidValue(row.hostname) && !isValidValue(row.asset_tag) && !isValidValue(row.serial_number)) {
+        history.skipped_count++;
+        continue;
+      }
+
+      const tag = cleanStr(row.asset_tag);
+      const serial = cleanStr(row.serial_number);
+      const host = cleanStr(row.hostname);
+
+      let matchedExisting = null;
+      if (tag && byTag.has(tag)) matchedExisting = byTag.get(tag);
+      else if (serial && bySerial.has(serial)) matchedExisting = bySerial.get(serial);
+      else if (host && byHost.has(host)) matchedExisting = byHost.get(host);
+
       try {
         let vendor = (row.os_vendor || row.vendor || '').toLowerCase();
         let product = (row.os_product || row.os_name || row.product || '').toLowerCase();
         let version = (row.os_version || row.version || '').toLowerCase();
-        
-        const originalKey = `${vendor}|${product}|${version}`;
-        const enriched = enrichmentMap.get(originalKey);
-        if (enriched) {
-          vendor = (enriched.vendor || '').toLowerCase();
-          product = (enriched.product || '').toLowerCase();
-          version = (enriched.version || '').toLowerCase();
-        }
 
         const matchedCategory = categories.data?.find(c => 
           c.name.toLowerCase() === (row.category || '').toLowerCase() ||
           c.name.toLowerCase() === (row.device_type || '').toLowerCase() ||
           (row.device_type === 'server' && c.name === 'Servers') ||
-          (row.device_type === 'workstation' && c.name === 'Computers')
+          (row.device_type === 'workstation' && c.name === 'Computers') ||
+          (row.device_type === 'virtual machine' && c.name === 'Virtual Machines') ||
+          (row.device_type === 'network device' && c.name === 'Network Devices')
         );
 
         const matchedLifecycle = catalog.find(l => 
@@ -306,31 +361,54 @@ export const importService = {
           a.name.toLowerCase() === (row.application_name || '').toLowerCase()
         );
 
-        const assetData = {
-          hostname: row.hostname as string,
-          asset_tag: row.asset_tag as string,
-          device_type: (row.device_type as string) || 'workstation',
-          category_id: matchedCategory?.id,
-          lifecycle_id: matchedLifecycle?.id,
-          application_id: matchedApp?.id,
-          owner_department: row.owner_department as string,
-          business_criticality: (String(row.business_criticality || 'medium').toLowerCase()) as Criticality,
-          cpu: row.cpu as string,
-          ram_gb: parseFloat(String(row.ram_gb)) || undefined,
-          storage_gb: parseFloat(String(row.storage_gb)) || undefined,
-          purchase_date: row.purchase_date as string,
-        };
+        // Prepara payload de atualização, apenas substituindo se o novo valor for válido
+        const payload: Record<string, any> = {};
+        if (isValidValue(row.hostname)) payload.hostname = row.hostname;
+        if (isValidValue(row.asset_tag)) payload.asset_tag = row.asset_tag;
+        if (isValidValue(row.serial_number)) payload.serial_number = row.serial_number;
+        if (isValidValue(row.device_type)) payload.device_type = row.device_type;
+        if (matchedCategory?.id) payload.category_id = matchedCategory.id;
+        if (matchedLifecycle?.id) payload.lifecycle_id = matchedLifecycle.id;
+        if (matchedApp?.id) payload.application_id = matchedApp.id;
+        if (isValidValue(row.owner_department)) payload.owner_department = row.owner_department;
+        if (isValidValue(row.business_criticality)) payload.business_criticality = row.business_criticality;
+        if (isValidValue(row.cpu)) payload.cpu = row.cpu;
+        if (isValidValue(row.ram_gb)) payload.ram_gb = parseFloat(String(row.ram_gb));
+        if (isValidValue(row.storage_gb)) payload.storage_gb = parseFloat(String(row.storage_gb));
+        if (isValidValue(row.purchase_date)) payload.purchase_date = row.purchase_date;
 
+        let createdOrUpdatedAssetId = '';
 
-        const createdAsset = await assetService.create(assetData);
-        
+        if (matchedExisting) {
+          // Merge sem sobrescrever por vazio
+          const finalPayload = { ...payload };
+          for (const k of Object.keys(finalPayload)) {
+            if (!isValidValue(finalPayload[k]) && isValidValue(matchedExisting[k])) {
+              delete finalPayload[k];
+            }
+          }
+          await assetService.update(matchedExisting.id, finalPayload);
+          createdOrUpdatedAssetId = matchedExisting.id;
+          history.updated_count++;
+          history.duplicate_count++;
+        } else {
+          // Fallback para campos obrigatórios
+          payload.hostname = payload.hostname || 'Unknown Host';
+          payload.device_type = payload.device_type || 'workstation';
+          payload.business_criticality = payload.business_criticality || 'medium';
+          
+          const created = await assetService.create(payload as any);
+          createdOrUpdatedAssetId = created.id;
+          history.inserted_count++;
+        }
+
         if (matchedLifecycle && roadmapProjectId) {
-          const priority = deterministicEngineService.calculatePriority(matchedLifecycle.end_of_support, assetData.business_criticality);
+          const priority = deterministicEngineService.calculatePriority(matchedLifecycle.end_of_support, payload.business_criticality || 'medium');
           const window = deterministicEngineService.calculateMigrationWindow(matchedLifecycle.end_of_support);
           
           await migrationPlanService.create({
             roadmap_project_id: roadmapProjectId,
-            asset_id: createdAsset.id,
+            asset_id: createdOrUpdatedAssetId,
             priority,
             risk_level: 'low',
             status: 'planned',
@@ -349,21 +427,26 @@ export const importService = {
 
         history.successful_records++;
       } catch (err) {
-        console.error('Falha ao importar linha:', row, err);
+        console.error('Falha ao importar/atualizar linha:', row, err);
         history.failed_records++;
       }
     }
 
-    await supabase.from('import_history').insert([history]);
+    await supabase.from('import_history').insert([{
+      file_name: history.file_name,
+      total_records: history.total_records,
+      successful_records: history.successful_records,
+      failed_records: history.failed_records,
+      // Passando tudo para o Supabase ou apenas o que tem no schema
+    }]);
     
     await auditService.log({
-      action: 'IMPORT_ASSETS',
+      action: 'IMPORT_ASSETS_GLPI',
       entity_type: 'import_history',
-      description: `Importação concluída: ${history.successful_records} sucessos, ${history.failed_records} falhas.`,
+      description: `GLPI Import: ${history.inserted_count} inseridos, ${history.updated_count} atualizados, ${history.failed_records} falhas.`,
       metadata: history
     });
 
     return history;
   }
 };
-

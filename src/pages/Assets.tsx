@@ -101,7 +101,9 @@ export default function AssetsPage() {
       await new Promise(r => setTimeout(r, 500)); // UX breathing
 
       setGeneratingStep("Identificando tecnologias...");
-      const result = await aiOrchestratorService.orchestrateFromInventory();
+      const result = await aiOrchestratorService.orchestrateFromInventory(undefined, undefined, (status) => {
+        setGeneratingStep(status);
+      });
 
       setGeneratingStep("Preparando prévia...");
       await new Promise(r => setTimeout(r, 300));

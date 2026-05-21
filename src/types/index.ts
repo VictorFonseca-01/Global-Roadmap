@@ -155,6 +155,7 @@ export interface Asset {
   id: string;
   hostname: string;
   asset_tag?: string;
+  serial_number?: string;
   device_type: string;
   category_id?: string;
   lifecycle_id?: string;
