@@ -38,17 +38,38 @@ export const aiRoadmapGeneratorService = {
       const { data: categories } = await supabase.from('asset_categories').select('*').eq('name', reviewData.category).limit(1);
       const categoryId = categories && categories.length > 0 ? categories[0].id : null;
       
-      // 4. Criar roadmap_project
-      const { data: project, error: projError } = await supabase.from('roadmap_projects').insert({
-        name: reviewData.project_name,
-        category: reviewData.category,
-        description: reviewData.description || null,
-        status: 'draft',
-        owner: user.id,
-        organization_id: organizationId
-      }).select().single();
+      // 4. Buscar ou Criar roadmap_project Global/Específico
+      let project;
+      const isGlobal = reviewData.project_name === "Global Strategic Timeline";
+      
+      if (isGlobal) {
+        const { data: existingProject } = await supabase
+          .from('roadmap_projects')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .eq('name', 'Global Strategic Timeline')
+          .limit(1)
+          .single();
+          
+        if (existingProject) {
+          project = existingProject;
+        }
+      }
 
-      if (projError) throw projError;
+      if (!project) {
+        const { data: newProject, error: projError } = await supabase.from('roadmap_projects').insert({
+          name: reviewData.project_name,
+          category: reviewData.category || 'Global',
+          description: reviewData.description || 'Timeline consolidada estratégica',
+          status: 'active',
+          owner: user.id,
+          organization_id: organizationId
+        }).select().single();
+
+        if (projError) throw projError;
+        project = newProject;
+      }
+      
       results.roadmapProjectId = project.id;
 
       // Iterar os dados revisados que são a FONTE DE VERDADE agora

@@ -29,7 +29,7 @@ import { migrationPlanService } from "@/services/migrationPlanService";
 import { strategicDomainService } from "@/services/strategicDomainService";
 import { dependencyAnalysisService } from "@/services/dependencyAnalysisService";
 
-export function TimelineExecutiveView({ projectId }: { projectId?: string }) {
+export function TimelineExecutiveView({ projectId, view = "executive" }: { projectId?: string, view?: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [selectedGroup, setSelectedGroup] = useState<ConsolidatedTechnologyGroup | null>(null);
@@ -60,8 +60,29 @@ export function TimelineExecutiveView({ projectId }: { projectId?: string }) {
 
   // Consolidate groups from plans (uses local copy for snappy dragging)
   const consolidatedGroups = useMemo(() => {
-    return timelineAggregationService.consolidate(localPlans);
-  }, [localPlans]);
+    let groups = timelineAggregationService.consolidate(localPlans);
+
+    // Apply View Filters
+    if (view === "security") {
+      groups = groups.filter(g => {
+        const domain = strategicDomainService.classifyDomain(g).toLowerCase();
+        return domain.includes("security") || domain.includes("compliance") || g.criticality === "high" || g.criticality === "critical";
+      });
+    } else if (view === "infrastructure") {
+      groups = groups.filter(g => {
+        const domain = strategicDomainService.classifyDomain(g).toLowerCase();
+        return ["servers", "network", "infrastructure", "virtualization", "storage"].some(d => domain.includes(d));
+      });
+    } else if (view === "compliance") {
+      groups = groups.filter(g => {
+        const hasExpiredEol = g.eolDate && new Date(g.eolDate) < new Date();
+        return hasExpiredEol || g.criticality === "high" || g.criticality === "critical";
+      });
+    }
+    // "executive" and "operations" show all
+    
+    return groups;
+  }, [localPlans, view]);
 
   // Analyze dependencies
   const dependencies = useMemo(() => {

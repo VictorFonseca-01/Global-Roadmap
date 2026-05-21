@@ -2,8 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { ThemeProvider } from "@/components/theme-provider"
 import { MainLayout } from "@/components/layout/MainLayout"
 import Dashboard from "@/pages/Dashboard"
-import Roadmaps from "@/pages/Roadmaps"
-import RoadmapTimeline from "@/pages/RoadmapTimeline"
+import RoadmapsLegacy from "@/pages/Roadmaps"
+import RoadmapTimelineLegacy from "@/pages/RoadmapTimeline"
+import StrategicTimelineWorkspace from "@/pages/StrategicTimelineWorkspace"
 import SettingsAI from "@/pages/SettingsAI"
 import Categories from "@/pages/Categories"
 import Lifecycle from "@/pages/Lifecycle"
@@ -52,16 +53,18 @@ function App() {
                     {/* ── Rotas Principais (visíveis na Sidebar) ── */}
                     <Route index element={<Dashboard />} />
                     <Route path="assets" element={<Assets />} />
-                    <Route path="roadmaps" element={<Roadmaps />} />
+                    <Route path="roadmaps" element={<StrategicTimelineWorkspace />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="profile" element={<Profile />} />
 
                     {/* ── Rotas Internas (ocultas da sidebar, mantidas para compatibilidade) ── */}
+                    <Route path="legacy-roadmaps" element={<RoadmapsLegacy />} />
+                    <Route path="legacy-roadmap-timeline" element={<RoadmapTimelineLegacy />} />
                     <Route path="categories" element={<Categories />} />
                     <Route path="lifecycle" element={<Lifecycle />} />
                     <Route path="applications" element={<Applications />} />
                     <Route path="migration-plans" element={<MigrationPlans />} />
-                    <Route path="roadmap-timeline" element={<RoadmapTimeline />} />
+                    <Route path="roadmap-timeline" element={<Navigate to="/roadmaps" replace />} />
                     <Route path="notifications" element={<Notifications />} />
                     <Route path="settings/ai" element={<SettingsAI />} />
                   </Route>
