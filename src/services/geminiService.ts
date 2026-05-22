@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { AIRoadmapParseResponseSchema, type AIRoadmapParseResponse } from "@/types";
 import { userService } from "./userService";
 import { sanitizePromptInput } from "@/lib/promptSanitizer";
+import { telemetry } from '@/lib/telemetry';
 
 const MODEL_NAME = "gemini-1.5-flash-latest";
 
