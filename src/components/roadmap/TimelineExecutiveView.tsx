@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO, differenceInMonths, addMonths, startOfMonth, addDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Rnd } from "react-rnd";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { 
   Monitor, 
@@ -254,9 +255,16 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     let currentY = 0;
     const techYCoords: Record<string, number> = {};
     const visibleTechsList: { tech: ConsolidatedTechnologyGroup; domainName: string }[] = [];
+    const virtualRows: any[] = [];
 
     domains.forEach(domain => {
       // Domain header Y-offset
+      virtualRows.push({
+        type: 'domain',
+        domain,
+        y: currentY,
+        height: 48
+      });
       currentY += 48; // Domain Header height
       
       const isCollapsed = collapsedDomains[domain.name];
@@ -265,6 +273,15 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
           const techKey = `${tech.vendor}|${tech.product}|${tech.version}`.toLowerCase();
           techYCoords[techKey] = currentY;
           visibleTechsList.push({ tech, domainName: domain.name });
+          
+          virtualRows.push({
+            type: 'tech',
+            tech,
+            domainName: domain.name,
+            techKey,
+            y: currentY,
+            height: 64
+          });
           currentY += 64; // Technology Row height
         });
       }
@@ -273,11 +290,21 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     return {
       techYCoords,
       visibleTechsList,
+      virtualRows,
       totalHeight: currentY
     };
   }, [domains, collapsedDomains]);
 
-  const { techYCoords, visibleTechsList, totalHeight } = layout;
+  const { techYCoords, visibleTechsList, virtualRows, totalHeight } = layout;
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => virtualRows[i].height,
+    overscan: 5,
+  });
 
   // Filter and map dependencies to draw SVG Bézier curves
   const visibleDependencies = useMemo(() => {
@@ -518,26 +545,26 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
         </div>
 
         {/* Scrollable Container mapping left & right perfectly */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative" ref={parentRef}>
           
           <div className="flex relative" style={{ height: totalHeight }}>
             
             {/* 1. LEFT PANEL: Technologies categorized by Domain */}
             <div className="w-[380px] flex-shrink-0 border-r border-white/10 bg-[#060e1c]/40 z-10 relative select-none">
               
-              {domains.map(domain => {
-                const isCollapsed = collapsedDomains[domain.name];
+              {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                const item = virtualRows[virtualRow.index];
                 
-                return (
-                  <div key={domain.name} className="contents">
-                    {/* Domain Swimlane Header (Sticky Left Part) */}
+                if (item.type === 'domain') {
+                  const domain = item.domain;
+                  const isCollapsed = collapsedDomains[domain.name];
+                  
+                  return (
                     <div 
+                      key={`domain-${domain.name}`}
                       onClick={() => toggleDomain(domain.name)}
                       className="absolute left-0 w-[380px] h-12 flex items-center justify-between px-4 bg-[#0d1f3d]/90 hover:bg-[#122b54] border-b border-white/10 cursor-pointer transition-all z-20 group"
-                      style={{ top: layout.visibleTechsList.findIndex(x => x.domainName === domain.name) === -1 
-                        ? domains.indexOf(domain) * 48 // fallback static Y
-                        : visibleTechsList.filter((_, idx) => idx < visibleTechsList.findIndex(t => t.domainName === domain.name)).length * 64 + domains.indexOf(domain) * 48 
-                      }}
+                      style={{ top: item.y }}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         {isCollapsed ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
@@ -549,10 +576,8 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                         </span>
                       </div>
 
-                      {/* Domain KPIs block with Formula tooltip */}
                       <div className="flex items-center gap-2 shrink-0">
                         <div 
-                          title="Saúde do Domínio corporativo. Base 100 com penalidades de EoL, suporte e dependências."
                           className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
                             domain.healthScore >= 80 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
                             domain.healthScore >= 50 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
@@ -562,60 +587,57 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                           H: {domain.healthScore}%
                         </div>
                         {domain.nextCriticalEol && (
-                          <div 
-                            title={`Próximo EoL Crítico: ${domain.nextCriticalEol.techName}`}
-                            className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0"
-                          />
+                          <div className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
                         )}
                       </div>
                     </div>
+                  );
+                }
 
-                    {/* Technologies under this Domain */}
-                    {!isCollapsed && domain.technologies.map(group => {
-                      const statusInfo = getStatusAndColor(group);
-                      const techKey = `${group.vendor}|${group.product}|${group.version}`.toLowerCase();
-                      const rowTop = techYCoords[techKey];
-
-                      return (
-                        <div
-                          key={techKey}
-                          onClick={() => handleGroupClick(group)}
-                          className="absolute left-0 w-[380px] h-16 flex flex-col justify-center px-4 hover:bg-white/5 cursor-pointer border-b border-white/5 group transition-all duration-200 z-10"
-                          style={{ top: rowTop }}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex-1 min-w-0 pr-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusInfo.color}`} />
-                                <span className="font-extrabold text-white text-xs truncate group-hover:text-blue-400 transition-colors">
-                                  {group.vendor} {group.product}
-                                </span>
-                              </div>
-                              <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
-                                <span className="font-bold bg-white/5 px-1.5 py-0.5 rounded text-white/70">
-                                  v{group.version || "N/A"}
-                                </span>
-                                <span>•</span>
-                                <span className="font-semibold text-slate-400">{group.assetCount} ativos</span>
-                                {group.criticality === 'critical' && (
-                                  <span className="text-[9px] font-black text-red-400 bg-red-500/10 px-1 rounded border border-red-500/20 uppercase">CRÍTICO</span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="text-[10px] font-bold text-rose-400 uppercase">
-                                EoL: {group.eolDate ? format(parseISO(group.eolDate), "MMM/yy", { locale: ptBR }) : "N/D"}
-                              </div>
-                              <div className="text-[9px] text-slate-400 font-semibold mt-1 truncate max-w-[120px]">
-                                {group.recommendedUpgrade ? `→ ${group.recommendedUpgrade}` : "Sem recomendação"}
-                              </div>
-                            </div>
+                if (item.type === 'tech') {
+                  const group = item.tech;
+                  const statusInfo = getStatusAndColor(group);
+                  
+                  return (
+                    <div
+                      key={`tech-${item.techKey}`}
+                      onClick={() => handleGroupClick(group)}
+                      className="absolute left-0 w-[380px] h-16 flex flex-col justify-center px-4 hover:bg-white/5 cursor-pointer border-b border-white/5 group transition-all duration-200 z-10"
+                      style={{ top: item.y }}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex-1 min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusInfo.color}`} />
+                            <span className="font-extrabold text-white text-xs truncate group-hover:text-blue-400 transition-colors">
+                              {group.vendor} {group.product}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+                            <span className="font-bold bg-white/5 px-1.5 py-0.5 rounded text-white/70">
+                              v{group.version || "N/A"}
+                            </span>
+                            <span>•</span>
+                            <span className="font-semibold text-slate-400">{group.assetCount} ativos</span>
+                            {group.criticality === 'critical' && (
+                              <span className="text-[9px] font-black text-red-400 bg-red-500/10 px-1 rounded border border-red-500/20 uppercase">CRÍTICO</span>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                );
+                        <div className="text-right shrink-0">
+                          <div className="text-[10px] font-bold text-rose-400 uppercase">
+                            EoL: {group.eolDate ? format(parseISO(group.eolDate), "MMM/yy", { locale: ptBR }) : "N/D"}
+                          </div>
+                          <div className="text-[9px] text-slate-400 font-semibold mt-1 truncate max-w-[120px]">
+                            {group.recommendedUpgrade ? `→ ${group.recommendedUpgrade}` : "Sem recomendação"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return null;
               })}
             </div>
 
@@ -726,91 +748,78 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                 />
 
                 {/* Sticky Right Part for Domain Swimlanes Headers */}
-                {domains.map(domain => {
-                  const isCollapsed = collapsedDomains[domain.name];
+                {rowVirtualizer.getVirtualItems().map(virtualRow => {
+                  const item = virtualRows[virtualRow.index];
                   
-                  return (
-                    <div key={domain.name} className="contents">
+                  if (item.type === 'domain') {
+                    return (
                       <div
+                        key={`right-domain-${item.domain.name}`}
                         className="absolute left-0 h-12 bg-[#0d1f3d]/90 border-b border-white/10 pointer-events-none z-10"
-                        style={{ 
-                          width: timelineWidth,
-                          top: layout.visibleTechsList.findIndex(x => x.domainName === domain.name) === -1 
-                            ? domains.indexOf(domain) * 48 
-                            : visibleTechsList.filter((_, idx) => idx < visibleTechsList.findIndex(t => t.domainName === domain.name)).length * 64 + domains.indexOf(domain) * 48 
-                        }}
+                        style={{ width: timelineWidth, top: item.y }}
                       />
+                    );
+                  }
 
-                      {/* Technology Row and Rnd Draggable/Resizable Bar */}
-                      {!isCollapsed && domain.technologies.map(group => {
-                        const statusInfo = getStatusAndColor(group);
-                        const techKey = `${group.vendor}|${group.product}|${group.version}`.toLowerCase();
-                        const rowTop = techYCoords[techKey];
+                  if (item.type === 'tech') {
+                    const group = item.tech;
+                    const statusInfo = getStatusAndColor(group);
+                    
+                    const startDateStr = group.plannedStartDate || group.eolDate || today.toISOString().split('T')[0];
+                    const endDateStr = group.plannedEndDate || addDays(parseISO(startDateStr), 90).toISOString().split('T')[0];
 
-                        const startDateStr = group.plannedStartDate || group.eolDate || today.toISOString().split('T')[0];
-                        const endDateStr = group.plannedEndDate || addDays(parseISO(startDateStr), 90).toISOString().split('T')[0];
+                    const startX = dateToX(startDateStr);
+                    const endX = dateToX(endDateStr);
+                    const width = Math.max(endX - startX, 48);
 
-                        const startX = dateToX(startDateStr);
-                        const endX = dateToX(endDateStr);
-                        const width = Math.max(endX - startX, 48);
-
-                        return (
-                          <div
-                            key={techKey}
-                            className="absolute border-b border-white/5 bg-transparent"
-                            style={{ top: rowTop, height: 64, width: timelineWidth }}
-                          >
-                            <Rnd
-                              size={{ width, height: 36 }}
-                              position={{ x: startX, y: 14 }}
-                              bounds="parent"
-                              enableResizing={{ 
-                                left: true, 
-                                right: true, 
-                                top: false, 
-                                bottom: false, 
-                                topRight: false, 
-                                bottomRight: false, 
-                                bottomLeft: false, 
-                                topLeft: false 
-                              }}
-                              dragAxis="x"
-                              onDragStop={(_e, d) => {
-                                const newStart = xToDate(d.x);
-                                const newEnd = xToDate(d.x + width);
-                                handleBarMoveOrResize(group, newStart, newEnd);
-                              }}
-                              onResizeStop={(_e, _direction, ref, _delta, position) => {
-                                const newStart = xToDate(position.x);
-                                const newEnd = xToDate(position.x + ref.offsetWidth);
-                                handleBarMoveOrResize(group, newStart, newEnd);
-                              }}
-                              className={`rounded-xl shadow-lg flex items-center px-4 cursor-ew-resize group/bar transition-all select-none hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] ${statusInfo.gradientColor}`}
-                            >
-                              <div className="w-full flex items-center justify-between overflow-hidden">
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                  <span className="text-[10px] text-white font-extrabold truncate drop-shadow">
-                                    {group.vendor} {group.product} {group.version}
+                    return (
+                      <div
+                        key={`right-tech-${item.techKey}`}
+                        className="absolute border-b border-white/5 bg-transparent"
+                        style={{ top: item.y, height: 64, width: timelineWidth }}
+                      >
+                        <Rnd
+                          defaultPosition={{ x: startX, y: 14 }}
+                          size={{ width, height: 36 }}
+                          bounds="parent"
+                          enableResizing={{ left: true, right: true, top: false, bottom: false, topRight: false, bottomRight: false, bottomLeft: false, topLeft: false }}
+                          dragAxis="x"
+                          onDragStop={(_e, d) => {
+                            const newStart = xToDate(d.x);
+                            const newEnd = xToDate(d.x + width);
+                            handleBarMoveOrResize(group, newStart, newEnd);
+                          }}
+                          onResizeStop={(_e, _direction, ref, _delta, position) => {
+                            const newStart = xToDate(position.x);
+                            const newEnd = xToDate(position.x + ref.offsetWidth);
+                            handleBarMoveOrResize(group, newStart, newEnd);
+                          }}
+                          className={`rounded-xl shadow-lg flex items-center px-4 cursor-ew-resize group/bar transition-all select-none hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] ${statusInfo.gradientColor}`}
+                        >
+                          <div className="w-full flex items-center justify-between overflow-hidden">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <span className="text-[10px] text-white font-extrabold truncate drop-shadow">
+                                {group.vendor} {group.product} {group.version}
+                              </span>
+                              {(() => {
+                                const metrics = operationalIntelligenceEngine.calculateMetrics(group);
+                                return metrics.priorityScore > 75 ? (
+                                  <span className="shrink-0 text-[8px] bg-red-500/20 text-red-100 border border-red-500/30 px-1.5 py-0.5 rounded font-black hidden xl:inline">
+                                    P{metrics.priorityScore}
                                   </span>
-                                  {(() => {
-                                    const metrics = operationalIntelligenceEngine.calculateMetrics(group);
-                                    return metrics.priorityScore > 75 ? (
-                                      <span className="shrink-0 text-[8px] bg-red-500/20 text-red-100 border border-red-500/30 px-1.5 py-0.5 rounded font-black hidden xl:inline">
-                                        P{metrics.priorityScore}
-                                      </span>
-                                    ) : null;
-                                  })()}
-                                </div>
-                                <span className="text-[9px] text-white/70 font-bold truncate ml-2 hidden xl:inline">
-                                  {format(parseISO(startDateStr), "dd/MMM", { locale: ptBR })} - {format(parseISO(endDateStr), "dd/MMM", { locale: ptBR })}
-                                </span>
-                              </div>
-                            </Rnd>
+                                ) : null;
+                              })()}
+                            </div>
+                            <span className="text-[9px] text-white/70 font-bold truncate ml-2 hidden xl:inline">
+                              {format(parseISO(startDateStr), "dd/MMM", { locale: ptBR })} - {format(parseISO(endDateStr), "dd/MMM", { locale: ptBR })}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  );
+                        </Rnd>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
                 })}
               </div>
             </div>
