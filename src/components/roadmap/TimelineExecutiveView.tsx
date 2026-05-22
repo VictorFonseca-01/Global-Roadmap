@@ -197,15 +197,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
         group.recommendedUpgrade.toLowerCase().includes("sem sucessor")
       )
     ) {
-      if (isSimulating && simInfo) {
-        if (simInfo.status === 'in_progress' || simInfo.status === 'completed') {
-          return { 
-            label: "Migração Simulada", 
-            color: "bg-emerald-500",
-            gradientColor: `bg-gradient-to-r from-emerald-500/90 via-teal-500/90 to-emerald-600/90 border border-emerald-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
-          };
-        }
-      }
+
 
       return { 
         label: "Nova Geração", 
