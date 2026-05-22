@@ -314,9 +314,13 @@ export const geminiService = {
     const prompt = `Return ONLY JSON: {vendor,product_name,version,end_of_support,extended_support_end,successor_version,source_url,confidence_score,notes}. Product: ${vendor} ${product} ${version}`.trim();
     const promptHash = await generateHash(prompt);
     
-    // Obter perfil do usuário autenticado para cache multi-tenant isolado
     const profile = await userService.getProfile();
-    const organizationId = profile?.organization_id || "d290f1ee-6c54-4b01-90e6-d701748f0851";
+    const organizationId = profile?.organization_id;
+
+    if (!organizationId) {
+      telemetry.log("security_event", "error", "Bloqueio de acesso IA: organization_id ausente.", { action: "enrich_lifecycle" });
+      throw new Error("Unauthorized: O acesso à inteligência artificial requer que o usuário pertença a uma organização válida.");
+    }
 
     // 1. Check Cache
     const { data: cached } = await supabase

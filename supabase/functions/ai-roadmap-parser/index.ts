@@ -41,9 +41,29 @@ function checkRateLimit(userId: string): { allowed: boolean; reason?: string } {
   return { allowed: true };
 }
 
-// Sanitização de prompt robusta baseada em regex
+const INJECTION_PATTERNS = [
+  /ignore\s+(?:the\s+)?(?:previous\s+)?instructions?/i,
+  /system\s+prompt\s+bypass/i,
+  /reveal\s+(?:your\s+)?(?:system\s+)?prompt/i,
+  /secrets?/i,
+  /export\s+token/i,
+  /you\s+are\s+now\s+an\s+unrestricted/i,
+  /dan\s+mode/i,
+  /jailbreak/i,
+  /bypass\s+restrictions/i,
+  /forget\s+everything/i,
+  /do\s+anything\s+now/i
+];
+
 function sanitizePrompt(text: string): string {
   if (!text) return text;
+  
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(text)) {
+      throw new Error('Security Exception: Padrão suspeito de Prompt Injection detectado.');
+    }
+  }
+
   let sanitized = text;
 
   // 1. Mascarar e-mails
@@ -57,6 +77,13 @@ function sanitizePrompt(text: string): string {
   
   // 4. Mascarar URLs de rede interna (.local, .internal, .lan)
   sanitized = sanitized.replace(/https?:\/\/[a-zA-Z0-9_\-\.]+\.(local|internal|lan)\b[^\s]*/gi, "[INTERNAL_URL_MASKED]");
+
+  // 5. Caracteres de controle e escape
+  sanitized = sanitized
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/'/g, "\\'");
 
   return sanitized;
 }

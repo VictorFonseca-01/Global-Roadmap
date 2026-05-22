@@ -5,10 +5,9 @@ type EventType = 'react_crash' | 'performance_warning' | 'api_error' | 'workflow
 type Severity = 'info' | 'warning' | 'error' | 'critical';
 
 // ─── Cached Organization ID ──────────────────────────────────────────────────
-const DEFAULT_ORG_ID = 'd290f1ee-6c54-4b01-90e6-d701748f0851';
 let _cachedOrgId: string | null = null;
 
-async function getOrgId(): Promise<string> {
+async function getOrgId(): Promise<string | null> {
   if (_cachedOrgId) return _cachedOrgId;
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -24,10 +23,9 @@ async function getOrgId(): Promise<string> {
       }
     }
   } catch {
-    // Silencioso — fallback para org padrão
+    // Silencioso
   }
-  _cachedOrgId = DEFAULT_ORG_ID;
-  return _cachedOrgId;
+  return null;
 }
 
 // ─── Sliding Window IA Flood Monitor ─────────────────────────────────────────
@@ -48,14 +46,30 @@ function recordIaCall(): boolean {
 export const telemetry = {
   async log(eventType: EventType, severity: Severity, message: string, metadata: any = {}, durationMs?: number) {
     try {
-      // 1. Sanitização Básica
-      const safeMetadata = { ...metadata };
-      if (safeMetadata.prompt) {
-        safeMetadata.prompt = `[REDACTED_PROMPT_LENGTH_${String(safeMetadata.prompt).length}]`;
+      // 1. Sanitização e Mascaramento
+      let rawMetadata = '';
+      try {
+        rawMetadata = JSON.stringify(metadata || {});
+      } catch {
+        rawMetadata = '{}';
       }
-      if (safeMetadata.error && safeMetadata.error instanceof Error) {
-        safeMetadata.errorStack = safeMetadata.error.stack;
-        safeMetadata.errorMessage = safeMetadata.error.message;
+
+      const redactedMetadataStr = rawMetadata
+        .replace(/(AKIA[0-9A-Z]{16})/g, '[REDACTED_AWS_KEY]')
+        .replace(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/g, '[REDACTED_IP]')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')
+        .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '[REDACTED_CPF]')
+        .replace(/(?:"password"|"senha"|"token"|"secret"|"key"|"bearer")\s*:\s*"[^"]+"/gi, '"***":"[REDACTED]"');
+
+      const safeMetadata = JSON.parse(redactedMetadataStr);
+
+      if (safeMetadata.prompt) {
+        safeMetadata.prompt = `[REDACTED]`;
+      }
+      
+      if (metadata && metadata.error instanceof Error) {
+        safeMetadata.errorStack = metadata.error.stack;
+        safeMetadata.errorMessage = metadata.error.message;
         delete safeMetadata.error;
       }
 

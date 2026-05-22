@@ -5,7 +5,20 @@ import { dashboardService } from "./dashboardService";
 import { pdfService } from "./pdfService";
 import { geminiService } from "./geminiService";
 
+const sanitizeCell = (val: any) => {
+  if (typeof val === "string" && /^[=+\-@]/.test(val)) {
+    return `'${val}`;
+  }
+  return val;
+};
 
+const sanitizeRow = (row: Record<string, any>) => {
+  const sanitized: Record<string, any> = {};
+  for (const key in row) {
+    sanitized[key] = sanitizeCell(row[key]);
+  }
+  return sanitized;
+};
 export const exportService = {
   async exportToExcel(projectId?: string) {
     const [allPlans, allAssets] = await Promise.all([
@@ -21,7 +34,7 @@ export const exportService = {
     const wb = XLSX.utils.book_new();
     
     // Aba Planos
-    const plansData = plans.map(p => ({
+    const plansData = plans.map(p => sanitizeRow({
       ID: p.id,
       Hostname: p.assets?.hostname,
       Prioridade: p.priority,
@@ -33,7 +46,7 @@ export const exportService = {
     XLSX.utils.book_append_sheet(wb, wsPlans, "Migration Plans");
 
     // Aba Assets
-    const assetsData = assets.map(a => ({
+    const assetsData = assets.map(a => sanitizeRow({
       Hostname: a.hostname,
       Fabricante: a.lifecycle_catalog?.vendor || "N/A",
       Modelo: a.lifecycle_catalog?.model || "N/A",

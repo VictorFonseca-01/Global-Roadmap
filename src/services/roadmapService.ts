@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { RoadmapProject } from '@/types';
+import { userService } from './userService';
 
 export const roadmapService = {
   async getAll() {
@@ -38,6 +39,10 @@ export const roadmapService = {
   },
 
   async update(id: string, project: Partial<RoadmapProject>) {
+    const profile = await userService.getProfile();
+    const orgId = profile?.organization_id;
+    if (!orgId) throw new Error("Unauthorized: Organização não identificada.");
+
     const { name, category, scope, status, description, owner, start_date, end_date } = project;
     const payload = Object.fromEntries(
       Object.entries({ name, category, scope, status, description, owner, start_date, end_date }).filter(([_, v]) => v !== undefined)
@@ -46,6 +51,7 @@ export const roadmapService = {
       .from('roadmap_projects')
       .update(payload)
       .eq('id', id)
+      .eq('organization_id', orgId)
       .select()
       .single();
     if (error) throw error;
@@ -53,13 +59,22 @@ export const roadmapService = {
   },
 
   async delete(id: string) {
+    const profile = await userService.getProfile();
+    const orgId = profile?.organization_id;
+    if (!orgId) throw new Error("Unauthorized: Organização não identificada.");
+
+    // Verifica propriedade antes de deletar filhos
+    const { data: proj, error: projError } = await supabase.from('roadmap_projects').select('id').eq('id', id).eq('organization_id', orgId).single();
+    if (projError || !proj) throw new Error("Unauthorized or project not found");
+
     // Apaga dependências para evitar erro de Foreign Key
     await supabase.from('migration_plans').delete().eq('roadmap_project_id', id);
 
     const { error } = await supabase
       .from('roadmap_projects')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('organization_id', orgId);
     if (error) throw error;
   }
 };
