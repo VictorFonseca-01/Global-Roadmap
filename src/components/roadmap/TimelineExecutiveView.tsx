@@ -5,6 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { Rnd } from "react-rnd";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
+import { TimelineCanvasLinks } from "./TimelineCanvasLinks";
 import { 
   Monitor, 
   Server, 
@@ -196,9 +197,19 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
         group.recommendedUpgrade.toLowerCase().includes("sem sucessor")
       )
     ) {
+      if (isSimulating && simInfo) {
+        if (simInfo.status === 'in_progress' || simInfo.status === 'completed') {
+          return { 
+            label: "Migração Simulada", 
+            color: "bg-emerald-500",
+            gradientColor: `bg-gradient-to-r from-emerald-500/90 via-teal-500/90 to-emerald-600/90 border border-emerald-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
+          };
+        }
+      }
+
       return { 
         label: "Nova Geração", 
-        color: "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] animate-pulse",
+        color: "bg-emerald-500",
         gradientColor: `bg-gradient-to-r from-emerald-500/90 via-teal-500/90 to-emerald-600/90 border border-emerald-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
@@ -206,7 +217,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     if (!group.eolDate) {
       return { 
         label: "Suportado", 
-        color: "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] animate-pulse",
+        color: "bg-blue-500",
         gradientColor: `bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
@@ -217,7 +228,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     if (eol < now) {
       return { 
         label: "EoL Expirado", 
-        color: "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse",
+        color: "bg-red-500",
         gradientColor: `bg-gradient-to-r from-red-500/90 via-rose-500/90 to-red-600/90 border border-red-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
@@ -226,14 +237,14 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     if (diffDays <= 180) {
       return { 
         label: "Próximo EoL", 
-        color: "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-pulse",
+        color: "bg-amber-500",
         gradientColor: `bg-gradient-to-r from-amber-500/90 via-orange-500/90 to-amber-600/90 border border-amber-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
 
     return { 
       label: "Suportado", 
-      color: "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] animate-pulse",
+      color: "bg-blue-500",
       gradientColor: `bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
     };
   };
@@ -295,7 +306,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     };
   }, [domains, collapsedDomains]);
 
-  const { techYCoords, visibleTechsList, virtualRows, totalHeight } = layout;
+  const { techYCoords, virtualRows, totalHeight } = layout;
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -645,39 +656,12 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
             <div className="flex-1 overflow-x-auto relative bg-[#040811]/40">
               <div style={{ width: timelineWidth, height: totalHeight }} className="relative">
                 
-                {/* SVG Connections Layer (Bezier curves & neon glows) */}
+                {/* HTML Canvas Connections Layer (Quiet Enterprise UI) */}
                 {showDependencies && renderedDeps.length > 0 && (
-                  <svg 
-                    className="absolute inset-0 pointer-events-none z-20"
-                    style={{ width: timelineWidth, height: totalHeight }}
-                  >
-                    <defs>
-                      {/* Glow Filters for Neon effect */}
-                      <filter id="glow-neon-red" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feMerge>
-                          <feMergeNode in="blur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
-                      <filter id="glow-neon-blue" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="1.5" result="blur" />
-                        <feMerge>
-                          <feMergeNode in="blur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
-
-                      {/* Premium Arrow Markers */}
-                      <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#3b82f6" />
-                      </marker>
-                      <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
-                      </marker>
-                    </defs>
-
-                    {renderedDeps.map(dep => {
+                  <TimelineCanvasLinks 
+                    width={timelineWidth} 
+                    height={totalHeight} 
+                    links={renderedDeps.map(dep => {
                       const sourceY = techYCoords[dep.sourceTechKey] + 32;
                       const targetY = techYCoords[dep.targetTechKey] + 32;
 
@@ -690,50 +674,20 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                       const sourceX = dateToX(sourceStartStr);
                       const targetX = dateToX(targetEndStr);
 
-                      // Chronological conflict validation
                       const isConflict = new Date(sourceStartStr) < new Date(targetEndStr);
 
-                      const color = isConflict ? "#ef4444" : "#3b82f6";
-                      const marker = isConflict ? "url(#arrow-red)" : "url(#arrow-blue)";
-                      const filter = isConflict ? "url(#glow-neon-red)" : "url(#glow-neon-blue)";
-                      const strokeWidth = isConflict ? 2.5 : 1.5;
-
-                      // Cubic Bezier calculation
-                      const controlPointOffset = Math.abs(sourceX - targetX) / 2 || 50;
-                      const pathData = `M ${targetX} ${targetY} C ${targetX + controlPointOffset} ${targetY}, ${sourceX - controlPointOffset} ${sourceY}, ${sourceX} ${sourceY}`;
-
-                      return (
-                        <g key={dep.id}>
-                          {/* Invisible hover-activator path for easy native tooltips */}
-                          <path
-                            d={pathData}
-                            fill="none"
-                            stroke="transparent"
-                            strokeWidth={10}
-                            className="cursor-pointer pointer-events-auto"
-                          >
-                            <title>
-                              {isConflict 
-                                ? `🚨 DEP. ESTRATÉGICA INVÁLIDA: "${dep.sourceLabel}" deve iniciar somente APÓS a conclusão de "${dep.targetLabel}".`
-                                : `Dependência estratégica: "${dep.sourceLabel}" depende de "${dep.targetLabel}".`
-                              }
-                            </title>
-                          </path>
-
-                          {/* Rendered path */}
-                          <path
-                            d={pathData}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth={strokeWidth}
-                            markerEnd={marker}
-                            filter={filter}
-                            className={`transition-all duration-300 ${isConflict ? "animate-pulse" : "opacity-80"}`}
-                          />
-                        </g>
-                      );
+                      return {
+                        id: dep.id,
+                        sourceX,
+                        sourceY,
+                        targetX,
+                        targetY,
+                        isConflict,
+                        sourceLabel: dep.sourceLabel,
+                        targetLabel: dep.targetLabel
+                      };
                     })}
-                  </svg>
+                  />
                 )}
 
                 {/* Vertical grid line markers */}
@@ -794,7 +748,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                             const newEnd = xToDate(position.x + ref.offsetWidth);
                             handleBarMoveOrResize(group, newStart, newEnd);
                           }}
-                          className={`rounded-xl shadow-lg flex items-center px-4 cursor-ew-resize group/bar transition-all select-none hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] ${statusInfo.gradientColor}`}
+                          className={`rounded-md shadow flex items-center px-4 cursor-ew-resize group/bar transition-all select-none hover:shadow-md ${statusInfo.gradientColor}`}
                         >
                           <div className="w-full flex items-center justify-between overflow-hidden">
                             <div className="flex items-center gap-2 overflow-hidden">
