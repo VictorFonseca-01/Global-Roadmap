@@ -7,10 +7,9 @@ import { toast } from "sonner";
 import { 
   Monitor, 
   Server, 
-  Sparkles, 
   Loader2, 
-  ChevronDown, 
-  ChevronUp, 
+  ChevronDown,
+  ChevronUp,
   Activity, 
   ShieldCheck, 
   Coins, 
@@ -28,6 +27,9 @@ import { timelineAggregationService, type ConsolidatedTechnologyGroup } from "@/
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { strategicDomainService } from "@/services/strategicDomainService";
 import { dependencyAnalysisService } from "@/services/dependencyAnalysisService";
+import { operationalIntelligenceEngine } from "@/services/operationalIntelligenceEngine";
+import { ExecutiveAIInsights } from "./ExecutiveAIInsights";
+import { MiniDependencyGraph } from "./MiniDependencyGraph";
 
 export function TimelineExecutiveView({ projectId, view = "executive" }: { projectId?: string, view?: string }) {
   const queryClient = useQueryClient();
@@ -51,12 +53,17 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
       : allPlans;
   }, [allPlans, projectId]);
 
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationDeltas, setSimulationDeltas] = useState<{ capex: number; risk: number; compliance: number; opex: number } | null>(null);
+
   // Keep a local copy of plans to support optimistic updates (instant render during drag/resize)
   const [localPlans, setLocalPlans] = useState<any[]>([]);
 
   useEffect(() => {
-    setLocalPlans(plans);
-  }, [plans]);
+    if (!isSimulating) {
+      setLocalPlans(plans);
+    }
+  }, [plans, isSimulating]);
 
   // Consolidate groups from plans (uses local copy for snappy dragging)
   const consolidatedGroups = useMemo(() => {
@@ -123,6 +130,32 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     }
   });
 
+  const handleApplySimulation = () => {
+    // Collect all plans that differ from original 'plans'
+    const changedPlans = localPlans.filter(lp => {
+      const orig = plans.find(p => p.id === lp.id);
+      return orig && (orig.recommended_start_date !== lp.recommended_start_date || orig.planned_end_date !== lp.planned_end_date);
+    });
+
+    if (changedPlans.length > 0) {
+      changedPlans.forEach(p => {
+        bulkUpdateMutation.mutate({ planIds: [p.id], startDate: p.recommended_start_date, endDate: p.planned_end_date });
+      });
+      toast.success("Cenário de simulação aplicado com sucesso!");
+    } else {
+      toast.info("Nenhuma alteração detectada no cenário.");
+    }
+    setIsSimulating(false);
+    setSimulationDeltas(null);
+  };
+
+  const handleDiscardSimulation = () => {
+    setLocalPlans(plans);
+    setIsSimulating(false);
+    setSimulationDeltas(null);
+    toast.info("Cenário de simulação descartado.");
+  };
+
   const today = new Date();
   const timelineStart = startOfMonth(addMonths(today, -1));
   const colWidth = 72; 
@@ -159,7 +192,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
       return { 
         label: "Nova Geração", 
         color: "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] animate-pulse",
-        gradientColor: "bg-gradient-to-r from-emerald-500/90 via-teal-500/90 to-emerald-600/90 border border-emerald-400/30 text-white"
+        gradientColor: `bg-gradient-to-r from-emerald-500/90 via-teal-500/90 to-emerald-600/90 border border-emerald-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
 
@@ -167,18 +200,18 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
       return { 
         label: "Suportado", 
         color: "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] animate-pulse",
-        gradientColor: "bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white"
+        gradientColor: `bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
 
-    const eol = new Date(group.eolDate);
+    const eol = parseISO(group.eolDate);
     const now = new Date();
 
-    if (eol <= now) {
+    if (eol < now) {
       return { 
-        label: "Expirado", 
+        label: "EoL Expirado", 
         color: "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse",
-        gradientColor: "bg-gradient-to-r from-red-500/90 via-rose-500/90 to-red-600/90 border border-red-400/30 text-white"
+        gradientColor: `bg-gradient-to-r from-red-500/90 via-rose-500/90 to-red-600/90 border border-red-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
 
@@ -187,31 +220,15 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
       return { 
         label: "Próximo EoL", 
         color: "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-pulse",
-        gradientColor: "bg-gradient-to-r from-amber-500/90 via-orange-500/90 to-amber-600/90 border border-amber-400/30 text-white"
+        gradientColor: `bg-gradient-to-r from-amber-500/90 via-orange-500/90 to-amber-600/90 border border-amber-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
       };
     }
 
     return { 
       label: "Suportado", 
       color: "bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] animate-pulse",
-      gradientColor: "bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white"
+      gradientColor: `bg-gradient-to-r from-blue-500/90 via-indigo-500/90 to-blue-600/90 border border-blue-400/30 text-white ${isSimulating ? 'border-dashed border-2 opacity-80' : ''}`
     };
-  };
-
-  const getStrategicInsight = (group: ConsolidatedTechnologyGroup) => {
-    const isExpired = group.eolDate && new Date(group.eolDate) <= new Date();
-    const critical = group.criticality === 'critical' || group.criticality === 'high';
-    
-    if (isExpired && critical) {
-      return `🚨 ALERTA CRÍTICO: Esta tecnologia está operando fora do suporte oficial (EoL expirado) e possui criticidade elevada. A migração imediata para "${group.recommendedUpgrade}" é altamente recomendada para mitigar riscos de segurança, vulnerabilidades não corrigidas e multas de compliance. Janela de migração recomendada com caráter de urgência máxima.`;
-    }
-    if (isExpired) {
-      return `⚠️ ATENÇÃO: Tecnologia em fim de vida útil (EoL expirado). Embora a criticidade seja moderada, recomenda-se planejar a transição para "${group.recommendedUpgrade}" no próximo ciclo de manutenção para evitar obsolescência técnica.`;
-    }
-    if (critical) {
-      return `⚡ PLANEJAMENTO PRIORITÁRIO: Ativos altamente críticos detectados. O suporte expira em ${group.eolDate ? format(parseISO(group.eolDate), "dd/MM/yyyy") : "data não especificada"}. Recomenda-se iniciar a janela de homologação da versão "${group.recommendedUpgrade}" imediatamente para garantir uma transição suave antes do vencimento do suporte.`;
-    }
-    return `✅ STATUS SEGURO: Tecnologia operando em ciclo de vida estável. Monitorar as atualizações periódicas e manter o cronograma de migração planejado para a janela de suporte padrão.`;
   };
 
   const handleGroupClick = (group: ConsolidatedTechnologyGroup) => {
@@ -296,7 +313,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
   }, [dependencies]);
 
   // Performance optimized debounced drag-and-resize handler
-  const handleBarMoveOrResize = (
+  const handleBarMoveOrResize = useCallback((
     group: ConsolidatedTechnologyGroup, 
     newStart: string, 
     newEnd: string
@@ -323,11 +340,14 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      bulkUpdateMutation.mutate({ planIds, startDate: newStart, endDate: newEnd });
+      // Avoid mutating database if in simulation mode
+      if (!isSimulating) {
+        bulkUpdateMutation.mutate({ planIds, startDate: newStart, endDate: newEnd });
+      }
       
-      // Calculate impact & display Toast
+      // Calculate impact & display Toast (or update deltas if simulating)
       const nextGroups = timelineAggregationService.consolidate(
-        plans.map(p => {
+        localPlans.map(p => {
           if (planIds.includes(p.id)) {
             return {
               ...p,
@@ -338,6 +358,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
           return p;
         })
       );
+      
       const nextDeps = dependencyAnalysisService.analyzeDependencies(nextGroups);
       const impact = dependencyAnalysisService.calculateImpact(
         group,
@@ -347,23 +368,32 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
         nextDeps
       );
 
-      if (impact.hasImpact && impact.warnings.length > 0) {
-        toast.warning(`Impacto em Cadeia Detectado!`, {
-          description: `O adiamento estratégico de "${group.vendor} ${group.product}" impactou ${impact.affectedTechsCount} dependências indiretas. Risco financeiro: +${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(impact.addedRiskCost)}. CAPEX adicional: +${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(impact.capexChange)}.`,
-          duration: 8500,
-          action: {
-            label: "Ver Alertas",
-            onClick: () => handleGroupClick(group)
-          }
-        });
+      if (isSimulating) {
+        setSimulationDeltas(prev => ({
+          capex: (prev?.capex || 0) + impact.capexChange,
+          risk: (prev?.risk || 0) + impact.addedRiskCost,
+          compliance: 0,
+          opex: (prev?.opex || 0) + (impact.addedRiskCost * 0.1)
+        }));
       } else {
-        toast.success(`Timeline sincronizada.`, {
-          description: `Novo agendamento de "${group.vendor} ${group.product}" gravado com sucesso.`,
-          duration: 3000
-        });
+        if (impact.hasImpact && impact.warnings.length > 0) {
+          toast.warning(`Impacto em Cadeia Detectado!`, {
+            description: `O adiamento estratégico de "${group.vendor} ${group.product}" impactou ${impact.affectedTechsCount} dependências indiretas. Risco financeiro: +${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(impact.addedRiskCost)}. CAPEX adicional: +${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(impact.capexChange)}.`,
+            duration: 8500,
+            action: {
+              label: "Ver Alertas",
+              onClick: () => handleGroupClick(group)
+            }
+          });
+        } else {
+          toast.success(`Timeline sincronizada.`, {
+            description: `Novo agendamento de "${group.vendor} ${group.product}" gravado com sucesso.`,
+            duration: 3000
+          });
+        }
       }
     }, 600);
-  };
+  }, [isSimulating, localPlans, bulkUpdateMutation]);
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 bg-slate-900/10">
@@ -396,8 +426,35 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
             <Activity className="w-5 h-5 text-blue-400" />
             <span className="text-sm font-bold text-white tracking-tight">Timeline de Governança Estratégica</span>
           </div>
-          
-          {/* Dependency Toggle Button */}
+
+          {/* Simulation Mode Toggle / Controls */}
+          {isSimulating ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-[11px] font-bold text-amber-400 animate-pulse">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Modo Simulação: {simulationDeltas ? `Risco +${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(simulationDeltas.risk)}` : 'Alterações não salvas'}</span>
+              </div>
+              <Button size="sm" variant="default" onClick={handleApplySimulation} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500">
+                Aplicar Cenário
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleDiscardSimulation} className="h-8 text-xs border-white/10 text-slate-300">
+                Descartar
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsSimulating(true);
+                setSimulationDeltas({ capex: 0, risk: 0, compliance: 0, opex: 0 });
+                toast.info("Modo de simulação ativado. As alterações não afetarão a produção até serem aplicadas.");
+              }}
+              className="h-8 text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10 bg-transparent"
+            >
+              Ativar Simulação
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -725,9 +782,19 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                               className={`rounded-xl shadow-lg flex items-center px-4 cursor-ew-resize group/bar transition-all select-none hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] ${statusInfo.gradientColor}`}
                             >
                               <div className="w-full flex items-center justify-between overflow-hidden">
-                                <span className="text-[10px] text-white font-extrabold truncate drop-shadow">
-                                  {group.vendor} {group.product} {group.version}
-                                </span>
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <span className="text-[10px] text-white font-extrabold truncate drop-shadow">
+                                    {group.vendor} {group.product} {group.version}
+                                  </span>
+                                  {(() => {
+                                    const metrics = operationalIntelligenceEngine.calculateMetrics(group);
+                                    return metrics.priorityScore > 75 ? (
+                                      <span className="shrink-0 text-[8px] bg-red-500/20 text-red-100 border border-red-500/30 px-1.5 py-0.5 rounded font-black hidden xl:inline">
+                                        P{metrics.priorityScore}
+                                      </span>
+                                    ) : null;
+                                  })()}
+                                </div>
                                 <span className="text-[9px] text-white/70 font-bold truncate ml-2 hidden xl:inline">
                                   {format(parseISO(startDateStr), "dd/MMM", { locale: ptBR })} - {format(parseISO(endDateStr), "dd/MMM", { locale: ptBR })}
                                 </span>
@@ -832,15 +899,24 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                   </div>
                 </div>
 
-                {/* Strategic Advice */}
-                <div className="bg-blue-950/20 border border-blue-500/20 rounded-2xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-blue-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                    Observações Estratégicas da IA
+                {/* Strategic Advice (Executive AI Insights) */}
+                {(() => {
+                  const currentGroup = consolidatedGroups.find(g => `${g.vendor}|${g.product}|${g.version}`.toLowerCase() === `${selectedGroup.vendor}|${selectedGroup.product}|${selectedGroup.version}`.toLowerCase()) || selectedGroup;
+                  const metrics = operationalIntelligenceEngine.calculateMetrics(currentGroup);
+                  return <ExecutiveAIInsights group={currentGroup} metrics={metrics} />;
+                })()}
+
+                {/* Mini Dependency Graph */}
+                <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-200 border-b border-white/5 pb-2 flex items-center gap-1.5">
+                    <Link className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    Grafo de Dependência (Local)
                   </h4>
-                  <p className="text-xs leading-relaxed text-slate-300">
-                    {getStrategicInsight(selectedGroup)}
-                  </p>
+                  <MiniDependencyGraph 
+                    group={selectedGroup} 
+                    allGroups={consolidatedGroups} 
+                    allDependencies={dependencies} 
+                  />
                 </div>
 
                 {/* Active Dependencies Section */}
