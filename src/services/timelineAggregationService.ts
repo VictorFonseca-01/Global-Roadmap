@@ -127,15 +127,29 @@ export const timelineAggregationService = {
   async bulkUpdatePlansDates(planIds: string[], startDate: string, endDate: string) {
     if (planIds.length === 0) return;
     
-    const { error } = await supabase
-      .from('migration_plans')
-      .update({
-        planned_start_date: startDate,
-        planned_end_date: endDate,
-        recommended_start_date: startDate
-      })
-      .in('id', planIds);
+    const CHUNK_SIZE = 500;
+    const chunks: string[][] = [];
+    for (let i = 0; i < planIds.length; i += CHUNK_SIZE) {
+      chunks.push(planIds.slice(i, i + CHUNK_SIZE));
+    }
 
-    if (error) throw error;
+    const promises = chunks.map(chunk => 
+      supabase
+        .from('migration_plans')
+        .update({
+          planned_start_date: startDate,
+          planned_end_date: endDate,
+          recommended_start_date: startDate
+        })
+        .in('id', chunk)
+    );
+
+    const results = await Promise.allSettled(promises);
+    const errors = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error));
+    
+    if (errors.length > 0) {
+      console.error("Bulk update dates partially failed:", errors);
+      throw new Error("Alguns lotes de atualização falharam.");
+    }
   }
 };

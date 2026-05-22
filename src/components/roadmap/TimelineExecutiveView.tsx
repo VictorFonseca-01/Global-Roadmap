@@ -115,17 +115,23 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     return strategicDomainService.organizeByDomains(consolidatedGroups, activeConflictIds);
   }, [consolidatedGroups, activeConflictIds]);
 
-  // Bulk update mutation for database persistence
   const bulkUpdateMutation = useMutation({
     mutationFn: async ({ planIds, startDate, endDate }: { planIds: string[], startDate: string, endDate: string }) => {
       await timelineAggregationService.bulkUpdatePlansDates(planIds, startDate, endDate);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["migration-plans"] });
+    onSuccess: (_, variables) => {
+      queryClient.setQueryData(["migration-plans"], (old: any) => {
+        if (!old) return old;
+        return old.map((plan: any) => {
+          if (variables.planIds.includes(plan.id)) {
+            return { ...plan, planned_start_date: variables.startDate, planned_end_date: variables.endDate, recommended_start_date: variables.startDate };
+          }
+          return plan;
+        });
+      });
     },
     onError: (err: any) => {
       toast.error("Falha ao salvar no banco de dados: " + (err.message || err));
-      // Revert local copy to official database state
       setLocalPlans(plans);
     }
   });
