@@ -42,6 +42,11 @@ export default function NotificationsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] })
   });
 
+  const deleteAllMutation = useMutation({
+    mutationFn: () => notificationService.deleteAll(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] })
+  });
+
   const getIcon = (priority: string) => {
     switch (priority) {
       case 'critical': return <ShieldAlert className="h-5 w-5 text-red-500" />;
@@ -76,6 +81,14 @@ export default function NotificationsPage() {
             disabled={notifications.filter(n => !n.is_read).length === 0}
           >
             <CheckCheck className="h-4 w-4 mr-2" /> Marcar todas como lidas
+          </Button>
+          <Button 
+            variant="destructive" 
+            className="rounded-full px-6 font-bold bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white border-0 shadow-none transition-colors"
+            onClick={() => deleteAllMutation.mutate()}
+            disabled={notifications.length === 0}
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Limpar Todas
           </Button>
         </div>
       </div>

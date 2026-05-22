@@ -61,7 +61,7 @@ export const aiRoadmapGeneratorService = {
           name: reviewData.project_name,
           category: reviewData.category || 'Global',
           description: reviewData.description || 'Timeline consolidada estratégica',
-          status: 'active',
+          status: 'in_progress',
           owner: user.id,
           organization_id: organizationId
         }).select().single();
