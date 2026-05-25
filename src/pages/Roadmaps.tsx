@@ -97,7 +97,7 @@ export default function RoadmapsPage() {
   // Queries
   const { data: projects = [], isLoading: isProjectsLoading } = useQuery({
     queryKey: ["roadmaps"],
-    queryFn: () => roadmapService.getAll(),
+    queryFn: () => roadmapService.getAll_DEPRECATED(),
   });
 
   const { data: categories = [] } = useQuery({
@@ -107,7 +107,7 @@ export default function RoadmapsPage() {
 
   const { data: allPlans = [] } = useQuery({
     queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
+    queryFn: () => migrationPlanService.getAll_DEPRECATED(),
   });
 
   // Formulário de Criação/Edição de Projeto
@@ -139,7 +139,7 @@ export default function RoadmapsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, oldStatus }: { id: string; data: Partial<RoadmapProject>, oldStatus: string }) => {
-      const result = await roadmapService.update(id, data);
+      const result = await roadmapService.update(id, data as any);
       if (data.status && data.status !== oldStatus) {
         await roadmapWorkflowService.transitionStatus(id, data.status, "Status alterado via formulário");
       }

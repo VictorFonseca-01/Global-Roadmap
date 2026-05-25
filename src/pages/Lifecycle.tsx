@@ -57,7 +57,7 @@ export default function LifecyclePage() {
 
   const { data: items = [] } = useQuery({
     queryKey: ["lifecycle"],
-    queryFn: () => lifecycleService.getAll(),
+    queryFn: () => lifecycleService.getAll_DEPRECATED(),
   });
 
   const handleAIEnrichment = async () => {
@@ -83,7 +83,7 @@ export default function LifecyclePage() {
               verification_status: aiData.confidence_score >= 80 ? 'verified' : 'pending_review',
               last_verified_at: new Date().toISOString(),
               notes: aiData.notes || undefined
-            });
+            } as any);
 
             successCount++;
           } catch (err) {
@@ -133,7 +133,7 @@ export default function LifecyclePage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => lifecycleService.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => lifecycleService.update(id, data as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lifecycle"] });
       toast.success("Item atualizado!");

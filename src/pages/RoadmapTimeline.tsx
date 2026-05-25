@@ -9,6 +9,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { roadmapService } from "@/services/roadmapService";
 import { migrationPlanService } from "@/services/migrationPlanService";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { format, differenceInDays } from "date-fns";
@@ -23,15 +25,28 @@ export default function RoadmapTimelinePage() {
   const navigate = useNavigate();
   const projectId = searchParams.get("projectId");
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ["roadmaps"],
-    queryFn: () => roadmapService.getAll(),
+  const { data: projectsData } = useQuery({
+    queryKey: ["roadmaps", "page"],
+    queryFn: () => roadmapService.getPage({ limit: 100 }),
+  });
+  const projects = projectsData?.data || [];
+
+  const { data: plansData, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["migration-plans-infinite", projectId],
+    queryFn: ({ pageParam = 0 }) => migrationPlanService.getPage({ limit: 500, offset: pageParam, filters: projectId ? { roadmap_project_id: projectId } : undefined }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page * 500 : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
-  const { data: allPlans = [] } = useQuery({
-    queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
-  });
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allPlans = plansData?.pages.flatMap(p => p.data) || [];
 
   const selectedProject = projects.find(p => p.id === projectId);
 
@@ -192,6 +207,12 @@ export default function RoadmapTimelinePage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-2xl overflow-hidden min-h-[650px] relative">
+        {isFetchingNextPage && (
+          <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-4 py-2 rounded-full shadow-lg border border-primary/20 flex items-center gap-3 z-50 animate-pulse text-xs font-bold text-primary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando mais dados da timeline...
+          </div>
+        )}
         {view === "gantt" ? (
           useLegacyGantt ? <GanttView projectId={projectId} /> : <TimelineExecutiveView projectId={projectId} />
         ) : (

@@ -391,7 +391,7 @@ export const importService = {
       const serial = cleanStr(row.serial_number);
       const host = cleanStr(row.hostname);
 
-      let matchedExisting = null;
+      let matchedExisting: any = null;
       if (tag && byTag.has(tag)) matchedExisting = byTag.get(tag);
       else if (serial && bySerial.has(serial)) matchedExisting = bySerial.get(serial);
       else if (host && byHost.has(host)) matchedExisting = byHost.get(host);
@@ -456,13 +456,13 @@ export const importService = {
 
         if (matchedExisting) {
           // Merge sem sobrescrever por vazio
-          const finalPayload = { ...payload };
+          const finalPayload: any = { ...payload, revision_version: matchedExisting.revision_version || 1 };
           for (const k of Object.keys(finalPayload)) {
-            if (!isValidValue(finalPayload[k]) && isValidValue(matchedExisting[k])) {
+            if (k !== 'revision_version' && !isValidValue(finalPayload[k]) && isValidValue(matchedExisting[k])) {
               delete finalPayload[k];
             }
           }
-          await assetService.update(matchedExisting.id, finalPayload);
+          await assetService.update(matchedExisting.id, finalPayload as any);
           history.updated_count++;
           history.duplicate_count++;
         } else {
@@ -497,6 +497,18 @@ export const importService = {
       description: `GLPI Import: ${history.inserted_count} inseridos, ${history.updated_count} atualizados, ${history.failed_records} falhas.`,
       metadata: history
     });
+
+    const profile = await import('./userService').then(m => m.userService.getProfile());
+    if (profile?.organization_id) {
+      await supabase.from('timeline_change_log').insert([{
+        organization_id: profile.organization_id,
+        entity_type: 'import_job',
+        entity_id: '00000000-0000-0000-0000-000000000000', // A generic ID or import run ID
+        action: 'GLPI_IMPORT',
+        after_state: history,
+        changed_by: profile.id
+      }]);
+    }
 
     return history;
   }

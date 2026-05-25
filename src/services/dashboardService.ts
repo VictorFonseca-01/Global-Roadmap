@@ -9,10 +9,10 @@ export const dashboardService = {
     try {
       // 1. Carga principal dos dados em paralelo
       const [allAssets, roadmaps, categories, allMigrationPlans] = await Promise.all([
-        assetService.getAll(),
-        roadmapService.getAll(),
+        assetService.getAll_DEPRECATED(),
+        roadmapService.getAll_DEPRECATED(),
         categoryService.getAll(),
-        migrationPlanService.getAll(),
+        migrationPlanService.getAll_DEPRECATED(),
       ]);
 
       // Filtrar por projeto se necessário

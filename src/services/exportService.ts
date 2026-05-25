@@ -22,8 +22,8 @@ const sanitizeRow = (row: Record<string, any>) => {
 export const exportService = {
   async exportToExcel(projectId?: string) {
     const [allPlans, allAssets] = await Promise.all([
-      migrationPlanService.getAll(),
-      assetService.getAll()
+      migrationPlanService.getAll_DEPRECATED(),
+      assetService.getAll_DEPRECATED()
     ]);
 
     const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
@@ -64,7 +64,7 @@ export const exportService = {
     try {
       // 1. Buscar todos os dados necessários para o relatório
       const data = await dashboardService.getDashboardData(projectId);
-      const allPlans = await migrationPlanService.getAll();
+      const allPlans = await migrationPlanService.getAll_DEPRECATED();
       const plans = projectId ? allPlans.filter(p => p.roadmap_project_id === projectId) : allPlans;
 
       // 2. Gerar insights de IA sob demanda para o PDF

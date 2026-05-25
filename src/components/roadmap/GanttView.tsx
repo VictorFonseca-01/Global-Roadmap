@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { roadmapGeneratorService } from "@/services/roadmapGeneratorService";
 import { lifecycleIntelligenceEngine } from "@/services/lifecycleIntelligenceEngine";
@@ -195,10 +195,22 @@ export function GanttView({ projectId }: { projectId?: string }) {
     };
   }, []);
 
-  const { data: allPlans = [], isLoading } = useQuery({
-    queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
+  const { data: plansData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["migration-plans-infinite", projectId],
+    queryFn: ({ pageParam = 0 }) => migrationPlanService.getPage({ limit: 500, offset: pageParam, filters: projectId ? { roadmap_project_id: projectId } : undefined }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page * 500 : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allPlans = plansData?.pages.flatMap(p => p.data) || [];
 
   const plans = useMemo(() => {
     return projectId 

@@ -10,7 +10,7 @@ import { format, parseISO } from "date-fns";
 export default function MigrationPlansPage() {
   const { data: plans = [] } = useQuery({
     queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
+    queryFn: () => migrationPlanService.getAll_DEPRECATED(),
   });
 
   const getPriorityIcon = (priority: string) => {

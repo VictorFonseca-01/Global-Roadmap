@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { migrationPlanService } from "@/services/migrationPlanService";
 import { lifecycleIntelligenceEngine } from "@/services/lifecycleIntelligenceEngine";
 import { 
@@ -33,10 +33,22 @@ import {
 } from "@/components/ui/tooltip";
 
 export function ExecutivePresentation({ projectId }: { projectId?: string }) {
-  const { data: allPlans = [], isLoading } = useQuery({
-    queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
+  const { data: plansData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["migration-plans-infinite", projectId],
+    queryFn: ({ pageParam = 0 }) => migrationPlanService.getPage({ limit: 500, offset: pageParam, filters: projectId ? { roadmap_project_id: projectId } : undefined }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page * 500 : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allPlans = plansData?.pages.flatMap(p => p.data) || [];
 
   const plans = projectId 
     ? allPlans.filter(p => p.roadmap_project_id === projectId)
@@ -85,7 +97,7 @@ export function ExecutivePresentation({ projectId }: { projectId?: string }) {
       }, 0) / (plans.length || 1)
     );
 
-    const simCount = Object.values(simulatedDelays).filter(d => d > 0).length;
+    const simCount = Object.values(simulatedDelays).filter((d: any) => d > 0).length;
 
     // Calcular pilares determinísticos baseados nos itens
     let sec = 100;

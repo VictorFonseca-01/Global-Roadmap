@@ -13,11 +13,12 @@ export interface TimelineLink {
 
 interface TimelineCanvasLinksProps {
   width: number;
-  height: number;
+  viewportHeight: number;
+  scrollTop: number;
   links: TimelineLink[];
 }
 
-export function TimelineCanvasLinks({ width, height, links }: TimelineCanvasLinksProps) {
+export function TimelineCanvasLinks({ width, viewportHeight, scrollTop, links }: TimelineCanvasLinksProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -30,14 +31,22 @@ export function TimelineCanvasLinks({ width, height, links }: TimelineCanvasLink
     // Set real size for high-DPI displays
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    canvas.height = viewportHeight * dpr;
     ctx.scale(dpr, dpr);
 
     // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, viewportHeight);
 
     links.forEach(link => {
-      const { sourceX, sourceY, targetX, targetY, isConflict } = link;
+      const { sourceX, targetX, isConflict } = link;
+      const sourceY = link.sourceY - scrollTop;
+      const targetY = link.targetY - scrollTop;
+
+      // Skip rendering if both source and target are outside vertical viewport
+      if ((sourceY < 0 && targetY < 0) || (sourceY > viewportHeight && targetY > viewportHeight)) {
+        return;
+      }
+
       const color = isConflict ? "#ef4444" : "#3b82f6"; // Tailwind red-500 and blue-500
       const strokeWidth = isConflict ? 2.5 : 1.5;
 
@@ -61,7 +70,7 @@ export function TimelineCanvasLinks({ width, height, links }: TimelineCanvasLink
       // Draw arrow marker
       drawArrowhead(ctx, sourceX, sourceY, sourceX - controlPointOffset, sourceY, color);
     });
-  }, [width, height, links]);
+  }, [width, viewportHeight, scrollTop, links]);
 
   // Helper to draw an arrowhead at the end of the bezier curve
   const drawArrowhead = (ctx: CanvasRenderingContext2D, x: number, y: number, cx: number, cy: number, color: string) => {
@@ -80,8 +89,8 @@ export function TimelineCanvasLinks({ width, height, links }: TimelineCanvasLink
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none z-20"
-      style={{ width, height }}
+      className="absolute left-0 pointer-events-none z-20"
+      style={{ width, height: viewportHeight, top: scrollTop }}
     />
   );
 }

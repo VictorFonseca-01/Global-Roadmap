@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+
+import { assetService } from './assetService';
 import { geminiService, getLocalLifecycle } from './geminiService';
 import { deterministicEngineService } from './deterministicEngineService';
 import type { AIReviewData, AIReviewItem } from '@/types';
@@ -137,13 +138,22 @@ export const aiOrchestratorService = {
    * Fetch all assets from the current tenant's inventory
    */
   async fetchInventory() {
-    const { data, error } = await supabase
-      .from('assets')
-      .select('*, lifecycle_catalog(*)')
-      .order('hostname');
+    let allAssets: any[] = [];
+    let hasMore = true;
+    let offset = 0;
+    const limit = 500;
 
-    if (error) throw error;
-    return data || [];
+    while (hasMore) {
+      const page = await assetService.getPage({ limit, offset });
+      allAssets = [...allAssets, ...page.data];
+      hasMore = page.hasMore;
+      offset += limit;
+      
+      // Safety break to prevent infinite loops during massive tests
+      if (offset > 20000) break;
+    }
+
+    return allAssets;
   },
 
   groupAssetsByTechnology(assets: any[]): InventoryGroup[] {
@@ -160,7 +170,7 @@ export const aiOrchestratorService = {
         version = asset.lifecycle_catalog.version || '';
       } else {
         // Try parsing from asset.notes (raw_inventory_data)
-        let parsedNotes = null;
+        let parsedNotes: any = null;
         if (asset.notes) {
           try {
             const parsed = JSON.parse(asset.notes);
@@ -232,7 +242,7 @@ export const aiOrchestratorService = {
       let capex = group.asset_type === 'server' ? 5000 : 1200;
 
       // ── Step 1: Try AI/Edge Function enrichment with auto-retry & resilience ──
-      let aiResult = null;
+      let aiResult: any = null;
       let retries = 0;
       let edgeStatus: 'success' | 'failed_after_retry' | 'error_non_retryable' = 'success';
       let lastError: any = null;

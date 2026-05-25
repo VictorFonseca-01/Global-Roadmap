@@ -27,7 +27,7 @@ export default function DashboardPage() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ["roadmaps"],
-    queryFn: () => roadmapService.getAll(),
+    queryFn: () => roadmapService.getAll_DEPRECATED(),
   });
 
   const { data, isLoading, error } = useQuery({

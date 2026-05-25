@@ -82,10 +82,15 @@ export default function AssetsPage() {
   const [showAutoReview, setShowAutoReview] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const { data: assets = [], isLoading } = useQuery({
-    queryKey: ["assets"],
-    queryFn: () => assetService.getAll(),
+  const [pageIndex] = useState(0);
+  const limit = 100;
+
+  const { data: pageData, isLoading } = useQuery({
+    queryKey: ["assets", pageIndex],
+    queryFn: () => assetService.getPage({ offset: pageIndex * limit, limit }),
   });
+
+  const assets = pageData?.data || [];
 
   // Extract unique OS types and Versions dynamically from the assets data
   const uniqueOSList = useMemo(() => {

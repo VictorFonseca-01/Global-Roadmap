@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO, differenceInMonths, addMonths, startOfMonth, addDays, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Rnd } from "react-rnd";
@@ -33,6 +33,57 @@ import { operationalIntelligenceEngine } from "@/services/operationalIntelligenc
 import { ExecutiveAIInsights } from "./ExecutiveAIInsights";
 import { MiniDependencyGraph } from "./MiniDependencyGraph";
 
+function VirtualAssetsList({ assets }: { assets: any[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: assets.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 32,
+    overscan: 5,
+  });
+
+  return (
+    <div ref={parentRef} className="max-h-[160px] overflow-y-auto pr-1 border-t border-white/5 pt-2">
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const asset = assets[virtualRow.index];
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+              className="flex items-center justify-between text-xs py-1 hover:bg-white/5 px-2 rounded-lg transition-colors"
+            >
+              <span className="font-semibold text-slate-300 truncate max-w-[200px]">{asset.hostname}</span>
+              <span className="text-[9px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded capitalize shrink-0 flex items-center gap-1">
+                {asset.deviceType === 'server' ? (
+                  <Server className="w-2.5 h-2.5 text-purple-400" />
+                ) : (
+                  <Monitor className="w-2.5 h-2.5 text-blue-400" />
+                )}
+                {asset.deviceType === 'server' ? 'Servidor' : 'Estação'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function TimelineExecutiveView({ projectId, view = "executive" }: { projectId?: string, view?: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -43,11 +94,22 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch migration plans
-  const { data: allPlans = [], isLoading } = useQuery({
-    queryKey: ["migration-plans"],
-    queryFn: () => migrationPlanService.getAll(),
+  const { data: plansData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["migration-plans-infinite", projectId],
+    queryFn: ({ pageParam = 0 }) => migrationPlanService.getPage({ limit: 500, offset: pageParam, filters: projectId ? { roadmap_project_id: projectId } : undefined }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page * 500 : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allPlans = plansData?.pages.flatMap(p => p.data) || [];
 
   const plans = useMemo(() => {
     return projectId 
@@ -67,9 +129,54 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     }
   }, [plans, isSimulating]);
 
+  const [workerResult, setWorkerResult] = useState<{ groups: ConsolidatedTechnologyGroup[], deps: any[] } | null>(null);
+
+  useEffect(() => {
+    if (!localPlans || localPlans.length === 0) {
+      setWorkerResult({ groups: [], deps: [] });
+      return;
+    }
+
+    let isSubscribed = true;
+    const worker = new Worker(new URL('../../workers/timelineAggregation.worker.ts', import.meta.url), { type: 'module' });
+    
+    const timeoutId = setTimeout(() => {
+      console.warn('Worker timed out, falling back to sync calculation');
+      worker.terminate();
+      if (isSubscribed) {
+        const groups = timelineAggregationService.consolidate(localPlans);
+        const deps = dependencyAnalysisService.analyzeDependencies(groups);
+        setWorkerResult({ groups, deps });
+      }
+    }, 5000);
+
+    worker.onmessage = (e) => {
+      clearTimeout(timeoutId);
+      if (isSubscribed) {
+        if (e.data.status === 'success') {
+          setWorkerResult({ groups: e.data.consolidatedGroups, deps: e.data.dependencies });
+        } else {
+          console.error('Worker failed, falling back to sync', e.data.message);
+          const groups = timelineAggregationService.consolidate(localPlans);
+          const deps = dependencyAnalysisService.analyzeDependencies(groups);
+          setWorkerResult({ groups, deps });
+        }
+      }
+      worker.terminate();
+    };
+
+    worker.postMessage({ type: 'CONSOLIDATE_AND_ANALYZE', plans: localPlans });
+
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timeoutId);
+      worker.terminate();
+    };
+  }, [localPlans]);
+
   // Consolidate groups from plans (uses local copy for snappy dragging)
   const consolidatedGroups = useMemo(() => {
-    let groups = timelineAggregationService.consolidate(localPlans);
+    let groups = workerResult?.groups || [];
 
     // Apply View Filters
     if (view === "security") {
@@ -91,12 +198,12 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
     // "executive" and "operations" show all
     
     return groups;
-  }, [localPlans, view]);
+  }, [workerResult?.groups, view]);
 
   // Analyze dependencies
   const dependencies = useMemo(() => {
-    return dependencyAnalysisService.analyzeDependencies(consolidatedGroups);
-  }, [consolidatedGroups]);
+    return workerResult?.deps || [];
+  }, [workerResult?.deps]);
 
   // Slice to max 20 for SVG rendering performance
   const renderableDependencies = useMemo(() => {
@@ -652,7 +759,8 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                 {showDependencies && renderedDeps.length > 0 && (
                   <TimelineCanvasLinks 
                     width={timelineWidth} 
-                    height={totalHeight} 
+                    viewportHeight={parentRef.current?.clientHeight || window.innerHeight} 
+                    scrollTop={rowVirtualizer.scrollOffset || 0}
                     links={renderedDeps.map(dep => {
                       const sourceY = techYCoords[dep.sourceTechKey] + 32;
                       const targetY = techYCoords[dep.targetTechKey] + 32;
@@ -920,21 +1028,7 @@ export function TimelineExecutiveView({ projectId, view = "executive" }: { proje
                     </Button>
                   </div>
                   {isAssetsExpanded && (
-                    <div className="max-h-[160px] overflow-y-auto pr-1 space-y-1.5 border-t border-white/5 pt-2">
-                      {selectedGroup.assets.map(asset => (
-                        <div key={asset.id} className="flex items-center justify-between text-xs py-1 hover:bg-white/5 px-2 rounded-lg transition-colors">
-                          <span className="font-semibold text-slate-300 truncate max-w-[200px]">{asset.hostname}</span>
-                          <span className="text-[9px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded capitalize shrink-0 flex items-center gap-1">
-                            {asset.deviceType === 'server' ? (
-                              <Server className="w-2.5 h-2.5 text-purple-400" />
-                            ) : (
-                              <Monitor className="w-2.5 h-2.5 text-blue-400" />
-                            )}
-                            {asset.deviceType === 'server' ? 'Servidor' : 'Estação'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <VirtualAssetsList assets={selectedGroup.assets} />
                   )}
                 </div>
 

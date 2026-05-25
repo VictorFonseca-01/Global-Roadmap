@@ -255,7 +255,7 @@ export const roadmapGeneratorService = {
       }
 
       // 4. Preparar planos de migração
-      const plansToUpsert = [];
+      const plansToUpsert: any[] = [];
 
       for (const asset of filteredAssets) {
         const lifecycle = asset.lifecycle_catalog;
