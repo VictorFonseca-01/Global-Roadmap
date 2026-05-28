@@ -18,6 +18,14 @@ export function TimelineGrid({ onEditItem }: Props) {
   // Connection dragging state
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
+
+  const handleRemoveDependency = (itemId: string, depId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (item) {
+      updateItem(itemId, { dependsOn: item.dependsOn.filter(id => id !== depId) });
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -150,7 +158,43 @@ export function TimelineGrid({ onEditItem }: Props) {
           {containerWidth > 0 && (
             <>
               {/* Connections SVG Layer */}
-              <svg className="absolute inset-0 pointer-events-none z-0" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
+              <svg className="absolute inset-0 pointer-events-none z-0 overflow-visible" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
+                <defs>
+                  <marker
+                    id="arrow-red"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#ef4444" />
+                  </marker>
+                  <marker
+                    id="arrow-red-hover"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#dc2626" />
+                  </marker>
+                  <marker
+                    id="arrow-blue"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#3b82f6" />
+                  </marker>
+                </defs>
+
                 {/* Existing dependencies */}
                 {items.map(item => {
                   const toCoords = getItemCoords(item);
@@ -159,13 +203,68 @@ export function TimelineGrid({ onEditItem }: Props) {
                     if (!depItem) return null;
                     const fromCoords = getItemCoords(depItem);
                     
-                    // Draw cubic bezier curve
-                    const path = `M ${fromCoords.xEnd} ${fromCoords.y} C ${fromCoords.xEnd + 50} ${fromCoords.y}, ${toCoords.xStart - 50} ${toCoords.y}, ${toCoords.xStart} ${toCoords.y}`;
+                    const dx = toCoords.xStart - fromCoords.xEnd;
+                    const controlDist = Math.min(100, Math.abs(dx) / 2);
+                    // Dynamically point curve control points based on flow direction to prevent loops
+                    const p0x = fromCoords.xEnd;
+                    const p0y = fromCoords.y;
+                    const p1x = fromCoords.xEnd + (dx > 0 ? controlDist : -controlDist);
+                    const p1y = fromCoords.y;
+                    const p2x = toCoords.xStart + (dx > 0 ? -controlDist : controlDist);
+                    const p2y = toCoords.y;
+                    const p3x = toCoords.xStart;
+                    const p3y = toCoords.y;
+
+                    const path = `M ${p0x} ${p0y} C ${p1x} ${p1y}, ${p2x} ${p2y}, ${p3x} ${p3y}`;
                     
+                    // Midpoint for delete button
+                    const mx = 0.125 * p0x + 0.375 * p1x + 0.375 * p2x + 0.125 * p3x;
+                    const my = 0.125 * p0y + 0.375 * p1y + 0.375 * p2y + 0.125 * p3y;
+
+                    const connId = `${item.id}-${depId}`;
+                    const isHovered = hoveredConnection === connId;
+
                     return (
-                      <g key={`${item.id}-${depId}`}>
-                        <path d={path} fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" />
-                        <circle cx={toCoords.xStart} cy={toCoords.y} r="3" fill="#ef4444" />
+                      <g 
+                        key={connId} 
+                        className="pointer-events-auto group/conn"
+                        onMouseEnter={() => setHoveredConnection(connId)}
+                        onMouseLeave={() => setHoveredConnection(null)}
+                      >
+                        {/* Wide invisible path for easier hovering */}
+                        <path 
+                          d={path} 
+                          fill="none" 
+                          stroke="transparent" 
+                          strokeWidth="12" 
+                          className="cursor-pointer"
+                        />
+                        {/* Visual path */}
+                        <path 
+                          d={path} 
+                          fill="none" 
+                          stroke={isHovered ? "#dc2626" : "#ef4444"} 
+                          strokeWidth={isHovered ? "2.5" : "1.5"} 
+                          strokeDasharray={isHovered ? "none" : "4 4"}
+                          markerEnd={isHovered ? "url(#arrow-red-hover)" : "url(#arrow-red)"}
+                          className="transition-all"
+                        />
+                        {/* Dot at start */}
+                        <circle cx={fromCoords.xEnd} cy={fromCoords.y} r={isHovered ? "4" : "3"} fill={isHovered ? "#dc2626" : "#ef4444"} />
+
+                        {/* Interactive Delete Button at Midpoint */}
+                        {isHovered && (
+                          <g 
+                            className="cursor-pointer transition-transform duration-150 active:scale-95"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveDependency(item.id, depId);
+                            }}
+                          >
+                            <circle cx={mx} cy={my} r="10" fill="#dc2626" stroke="#ffffff" strokeWidth="2" className="shadow-md" />
+                            <path d={`M ${mx - 3.5} ${my - 3.5} L ${mx + 3.5} ${my + 3.5} M ${mx + 3.5} ${my - 3.5} L ${mx - 3.5} ${my + 3.5}`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                          </g>
+                        )}
                       </g>
                     );
                   });
@@ -177,8 +276,19 @@ export function TimelineGrid({ onEditItem }: Props) {
                     const source = items.find(i => i.id === connectingFrom);
                     if (!source) return null;
                     const coords = getItemCoords(source);
-                    const path = `M ${coords.xEnd} ${coords.y} C ${coords.xEnd + 50} ${coords.y}, ${mousePos.x - 50} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`;
-                    return <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 4" />;
+                    const dx = mousePos.x - coords.xEnd;
+                    const controlDist = Math.min(100, Math.abs(dx) / 2);
+                    const path = `M ${coords.xEnd} ${coords.y} C ${coords.xEnd + (dx > 0 ? controlDist : -controlDist)} ${coords.y}, ${mousePos.x + (dx > 0 ? -controlDist : controlDist)} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`;
+                    return (
+                      <path 
+                        d={path} 
+                        fill="none" 
+                        stroke="#3b82f6" 
+                        strokeWidth="2.5" 
+                        strokeDasharray="4 4" 
+                        markerEnd="url(#arrow-blue)" 
+                      />
+                    );
                   })()
                 )}
               </svg>
