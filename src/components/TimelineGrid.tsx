@@ -83,15 +83,15 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 m-4 rounded-xl shadow-sm">
+    <div className="flex-1 flex flex-col overflow-hidden bg-slate-900/40 backdrop-blur-lg border border-white/5 m-4 rounded-2xl shadow-2xl">
       {/* Header timeline */}
-      <div className="flex h-12 border-b border-slate-200 bg-slate-50">
-        <div className="w-48 shrink-0 border-r border-slate-200 bg-slate-100 flex items-center px-4 font-bold text-xs text-slate-500 uppercase">
+      <div className="flex h-12 border-b border-white/5 bg-slate-950/20">
+        <div className="w-48 shrink-0 border-r border-white/5 bg-slate-950/40 flex items-center px-4 font-bold text-xs text-slate-400 uppercase">
           Categorias
         </div>
         <div className="flex-1 flex relative">
           {MONTHS.map((m) => (
-            <div key={m} className="flex-1 border-r border-slate-200 flex items-center justify-center text-xs font-bold text-slate-400 uppercase">
+            <div key={m} className="flex-1 border-r border-white/5 flex items-center justify-center text-xs font-bold text-slate-500 uppercase">
               {m}
             </div>
           ))}
@@ -101,16 +101,16 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
       {/* Body */}
       <div className="flex-1 flex overflow-y-auto">
         {/* Left Sidebar (Swimlane Labels) */}
-        <div className="w-48 shrink-0 border-r border-slate-200 bg-slate-50 relative z-20 flex flex-col">
+        <div className="w-48 shrink-0 border-r border-white/5 bg-slate-950/20 backdrop-blur-md relative z-20 flex flex-col">
           {swimlanes.map((s) => (
             <div 
               key={s.id} 
-              className="px-4 flex items-center justify-between text-xs font-black text-slate-600 border-b border-slate-200 group/lane cursor-pointer hover:bg-slate-100 transition-colors"
+              className="px-4 flex items-center justify-between text-xs font-black text-slate-300 border-b border-white/5 group/lane cursor-pointer hover:bg-white/5 transition-colors"
               style={{ height: ROW_HEIGHT, borderLeftWidth: 4, borderLeftColor: s.color }}
               onClick={() => onEditCategory(s)}
             >
               <span className="truncate pr-1">{s.title}</span>
-              <span className="opacity-0 group-hover/lane:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 p-1">
+              <span className="opacity-0 group-hover/lane:opacity-100 transition-opacity text-slate-400 hover:text-slate-200 p-1">
                 <Settings className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -118,7 +118,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           
           <button
             onClick={() => onEditCategory(null)}
-            className="w-full hover:bg-indigo-50 hover:text-indigo-600 text-xs font-bold text-slate-500 transition-colors flex items-center gap-1.5 justify-center border-b border-slate-200"
+            className="w-full hover:bg-white/5 hover:text-indigo-400 text-xs font-bold text-slate-400 transition-colors flex items-center gap-1.5 justify-center border-b border-white/5"
             style={{ height: ROW_HEIGHT }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -129,7 +129,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
         {/* Timeline Canvas */}
         <div 
           ref={containerRef}
-          className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-50/50"
+          className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-950/10"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
         >
@@ -137,14 +137,14 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
             {/* Vertical grid lines */}
             <div className="absolute inset-0 flex pointer-events-none">
               {MONTHS.map((m) => (
-                <div key={m} className="flex-1 border-r border-slate-100 h-full" />
+                <div key={m} className="flex-1 border-r border-white/5 h-full" />
               ))}
             </div>
 
             {/* Horizontal swimlane lines */}
             <div className="absolute inset-0 pointer-events-none">
               {swimlanes.map((s) => (
-                <div key={s.id} className="border-b border-slate-200" style={{ height: ROW_HEIGHT }} />
+                <div key={s.id} className="border-b border-white/5" style={{ height: ROW_HEIGHT }} />
               ))}
             </div>
 

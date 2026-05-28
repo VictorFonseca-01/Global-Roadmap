@@ -34,10 +34,10 @@ function StrategicTimelineInner() {
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-100 flex overflow-hidden font-sans text-slate-800">
+    <div className="h-screen w-screen bg-transparent flex overflow-hidden font-sans text-slate-100">
       {/* Sidebar */}
-      <aside className="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-4 gap-6 shrink-0 z-20">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+      <aside className="w-16 bg-slate-950/40 backdrop-blur-lg border-r border-white/5 flex flex-col items-center py-4 gap-6 shrink-0 z-20">
+        <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">
           Z
         </div>
         <div className="flex-1" />
@@ -46,21 +46,23 @@ function StrategicTimelineInner() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex justify-between items-center shrink-0 z-10">
+        <header className="h-16 bg-slate-950/40 backdrop-blur-lg border-b border-white/5 px-6 flex justify-between items-center shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Strategic Roadmaps</h1>
+            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-200 via-slate-100 to-indigo-200 bg-clip-text text-transparent">
+              Strategic Roadmaps
+            </h1>
             
-            <div className="h-6 w-px bg-slate-300 mx-2" />
+            <div className="h-6 w-px bg-white/10 mx-2" />
             
-            <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-              <button onClick={() => setYear(year - 1)} className="p-1 hover:bg-white rounded text-slate-500 shadow-sm"><ChevronLeft className="w-4 h-4" /></button>
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-1 backdrop-blur-sm">
+              <button onClick={() => setYear(year - 1)} className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronLeft className="w-4 h-4" /></button>
               <input 
                 type="number" 
                 value={year} 
                 onChange={handleYearChange}
-                className="w-16 text-center font-bold text-slate-700 bg-transparent border-none focus:outline-none"
+                className="w-16 text-center font-bold text-slate-200 bg-transparent border-none focus:outline-none"
               />
-              <button onClick={() => setYear(year + 1)} className="p-1 hover:bg-white rounded text-slate-500 shadow-sm"><ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => setYear(year + 1)} className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
 
