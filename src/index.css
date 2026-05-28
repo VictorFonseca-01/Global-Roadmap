@@ -2,117 +2,87 @@
 @tailwind components;
 @tailwind utilities;
  
-@layer base {
-  :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
- 
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
- 
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
- 
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
- 
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
- 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
- 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
- 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
- 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 263.4 70% 50.4%;
- 
-    --radius: 1rem;
+:root {
+  /* LIGHT MODE (Default) */
+  --background: #f8fafc;
+  --bg-gradient: radial-gradient(circle at top right, #f1f5f9, #f8fafc 60%);
+  --foreground: #0f172a;
+  
+  --card-bg: #ffffff;
+  --border-color: #cbd5e1;
+  --text-muted: #64748b;
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+  --input-border: #cbd5e1;
+  --text-inverse: #ffffff;
+  
+  --accent: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.15);
+  --shadow-glow: 0 4px 20px rgba(79, 70, 229, 0.1);
 
-    /* --- PREMIUM DESIGN TOKENS --- */
-    --bg: #030305;
-    --bg-gradient: radial-gradient(circle at top right, #1a1a2e, #030305 60%);
-    --bg-card: rgba(17, 17, 24, 0.7);
-    --bg-input: rgba(24, 24, 31, 0.5);
-    --border-premium: rgba(255, 255, 255, 0.08);
-    --border-focus: #6c63ff;
-    --accent-premium: #6366f1;
-    --accent-light: #a5b4fc;
-    --accent-glow: rgba(99, 102, 241, 0.15);
-    
-    --grad-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    --grad-vibrant: linear-gradient(135deg, #f43f5e 0%, #d946ef 100%);
-    --grad-glass: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --text: #ffffff;
-    --text-muted: #d0d0f0;
-    --text-dim: #a5b4fc;
-
-    --radius-premium: 24px;
-    --radius-sm: 14px;
-    --glass: blur(16px) saturate(180%);
-    --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.2);
-  }
+  --radius-premium: 16px;
+  --radius-sm: 8px;
 }
- 
+
+.dark {
+  /* DARK MODE */
+  --background: #030305;
+  --bg-gradient: radial-gradient(circle at top right, #131326, #030305 60%);
+  --foreground: #f8fafc;
+  
+  --card-bg: rgba(15, 23, 42, 0.6);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-muted: #94a3b8;
+  --input-bg: rgba(15, 23, 42, 0.8);
+  --input-text: #f8fafc;
+  --input-border: rgba(255, 255, 255, 0.15);
+  --text-inverse: #0f172a;
+
+  --accent: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.15);
+  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.2);
+}
+
 @layer base {
-  * {
-    @apply border-border;
-  }
   body {
     background: var(--bg-gradient);
-    color: var(--text);
+    color: var(--foreground);
     font-family: 'Inter', sans-serif;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  
+  input, select, textarea {
+    background-color: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    border-color: var(--input-border) !important;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.6;
   }
 }
 
-/* --- MICRO-INTERAÇÕES & EFEITOS --- */
+/* PREMIUM UX UTILITIES */
 .hover-lift {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .hover-lift:hover {
-  transform: translateY(-4px) scale(1.02);
-  border-color: var(--accent-premium) !important;
+  transform: translateY(-2px) scale(1.01);
   box-shadow: var(--shadow-glow);
 }
 
 .gradient-text {
-  background: linear-gradient(270deg, var(--accent-premium), #ff6b6b, var(--success), var(--accent-premium));
+  background: linear-gradient(270deg, var(--accent), #f43f5e, #10b981, var(--accent));
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: gradientShift 6s ease infinite;
+  animation: gradientShift 8s ease infinite;
 }
 
 @keyframes gradientShift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
-}
-
-.shimmer-border {
-  position: relative;
-  overflow: hidden;
-}
-.shimmer-border::after {
-  content: '';
-  position: absolute;
-  top: -50%; left: -50%;
-  width: 200%; height: 200%;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(108, 99, 255, 0.15) 60deg, transparent 120deg);
-  animation: shimmerRotate 4s linear infinite;
-  z-index: -1;
-}
-@keyframes shimmerRotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
