@@ -296,10 +296,10 @@ export const importService = {
       if (normalized.hostname) normalized.hostname = String(normalized.hostname).trim();
 
       // Advanced Classification
-      let devType = String(normalized.device_type || '').toLowerCase();
-      let osStr = String(normalized.os_name || '').toLowerCase();
-      let prodStr = String(normalized.model || '').toLowerCase();
-      let combinedStr = `${devType} ${osStr} ${prodStr}`;
+      const devType = String(normalized.device_type || '').toLowerCase();
+      const osStr = String(normalized.os_name || '').toLowerCase();
+      const prodStr = String(normalized.model || '').toLowerCase();
+      const combinedStr = `${devType} ${osStr} ${prodStr}`;
 
       const vmKeywords = ['vmware', 'virtualbox', 'hyper-v', 'kvm', 'qemu', 'xen', 'proxmox', 'nutanix', 'virtual machine', 'virtual platform'];
       const netKeywords = ['switch', 'router', 'firewall', 'access point', 'fortinet', 'cisco', 'mikrotik', 'aruba', 'ubiquiti', 'juniper'];
