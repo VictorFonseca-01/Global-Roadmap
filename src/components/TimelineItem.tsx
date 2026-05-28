@@ -22,11 +22,14 @@ export function TimelineItem({
   onConnectionStart,
   onConnectionEnd
 }: Props) {
-  const { updateItem, swimlanes } = useRoadmap();
+  const { updateItem, swimlanes, items } = useRoadmap();
   
   const xPx = (item.startPercentage / 100) * containerWidth;
   const yPx = swimlaneIndex * rowHeight + (rowHeight - 32) / 2;
   const widthPx = (item.widthPercentage / 100) * containerWidth;
+
+  const incomingCount = item.dependsOn.length;
+  const outgoingCount = items.filter(i => i.dependsOn.includes(item.id)).length;
 
   return (
     <Rnd
@@ -58,20 +61,33 @@ export function TimelineItem({
       <div 
         onDoubleClick={(e) => { e.stopPropagation(); onEdit(item); }}
         onMouseUp={() => onConnectionEnd(item.id)}
-        className="w-full h-full rounded shadow-sm text-white text-xs font-bold px-2 flex items-center justify-between cursor-pointer border border-black/10 overflow-hidden"
+        className="w-full h-full rounded shadow-sm text-white text-xs font-bold px-2 flex items-center justify-between cursor-pointer border border-black/10 relative"
         style={{ backgroundColor: item.color }}
       >
+        {/* Incoming Badge on Left */}
+        {incomingCount > 0 && (
+          <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-rose-500 text-white border border-white rounded-full flex items-center justify-center text-[9px] font-black shadow-sm z-30 select-none">
+            {incomingCount}
+          </div>
+        )}
+
         <span className="truncate pr-2 select-none">{item.title}</span>
         
-        {/* Connection Port */}
+        {/* Outgoing Badge on Right / Connection Port */}
         <div 
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/20 rounded cursor-crosshair"
+          className="p-1 hover:bg-white/20 rounded cursor-crosshair flex items-center justify-center relative"
           onMouseDown={(e) => {
             e.stopPropagation();
             onConnectionStart(item.id, e);
           }}
         >
-          <CircleDot className="w-3 h-3 text-white" />
+          {outgoingCount > 0 ? (
+            <div className="absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-rose-500 text-white border border-white rounded-full flex items-center justify-center text-[9px] font-black shadow-sm z-30 select-none">
+              {outgoingCount}
+            </div>
+          ) : (
+            <CircleDot className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
         </div>
       </div>
     </Rnd>

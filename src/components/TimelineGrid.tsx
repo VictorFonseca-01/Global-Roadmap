@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useRoadmap } from '../context/RoadmapContext';
 import { TimelineItem } from './TimelineItem';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, X } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ROW_HEIGHT = 60;
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
-  const { swimlanes, items, updateItem, addItem } = useRoadmap();
+  const { swimlanes, items, updateItem } = useRoadmap();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   
@@ -72,28 +72,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     setConnectingFrom(null);
   };
 
-  const handleBackgroundDoubleClick = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top + containerRef.current.scrollTop;
-    
-    const swimlaneIndex = Math.max(0, Math.min(swimlanes.length - 1, Math.floor(y / ROW_HEIGHT)));
-    const startPercentage = (x / containerWidth) * 100;
-    
-    const newItem: RoadmapItem = {
-      id: Date.now().toString(),
-      title: 'New Item',
-      color: swimlanes[swimlaneIndex].color,
-      swimlaneId: swimlanes[swimlaneIndex].id,
-      startPercentage: Math.min(90, startPercentage),
-      widthPercentage: 10,
-      dependsOn: []
-    };
-    
-    addItem(newItem);
-    onEditItem(newItem);
-  };
 
   const getItemCoords = (item: RoadmapItem) => {
     const sIndex = swimlanes.findIndex(s => s.id === item.swimlaneId);
@@ -154,7 +132,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-50/50"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onDoubleClick={handleBackgroundDoubleClick}
         >
           <div className="relative w-full" style={{ height: swimlanes.length * ROW_HEIGHT }}>
             {/* Vertical grid lines */}
@@ -258,8 +235,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
 
                     // Professional straight lines as in the original user photo
                     const path = `M ${xFrom} ${yFrom} L ${xTo} ${yTo}`;
-                    const mx = (xFrom + xTo) / 2;
-                    const my = (yFrom + yTo) / 2;
 
                     const connId = `${item.id}-${depId}`;
                     const isHovered = hoveredConnection === connId;
@@ -292,20 +267,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                         />
                         {/* Dot at start */}
                         <circle cx={xFrom} cy={yFrom} r={isHovered ? "4" : "3"} fill={isHovered ? "#dc2626" : "#ef4444"} />
-
-                        {/* Interactive Delete Button at Midpoint */}
-                        {isHovered && (
-                          <g 
-                            className="cursor-pointer transition-transform duration-150 active:scale-95"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveDependency(item.id, depId);
-                            }}
-                          >
-                            <circle cx={mx} cy={my} r="10" fill="#dc2626" stroke="#ffffff" strokeWidth="2" className="shadow-md" />
-                            <path d={`M ${mx - 3.5} ${my - 3.5} L ${mx + 3.5} ${my + 3.5} M ${mx + 3.5} ${my - 3.5} L ${mx - 3.5} ${my + 3.5}`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
-                          </g>
-                        )}
                       </g>
                     );
                   });
@@ -331,6 +292,73 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                   })()
                 )}
               </svg>
+
+              {/* Floating HTML Delete Button at Midpoint */}
+              {hoveredConnection && (() => {
+                const [itemId, depId] = hoveredConnection.split('-');
+                const item = items.find(i => i.id === itemId);
+                const depItem = items.find(i => i.id === depId);
+                if (!item || !depItem) return null;
+                const toCoords = getItemCoords(item);
+                const fromCoords = getItemCoords(depItem);
+                
+                const overlapStart = Math.max(fromCoords.xStart, toCoords.xStart);
+                const overlapEnd = Math.min(fromCoords.xEnd, toCoords.xEnd);
+                const isOverlapping = fromCoords.y !== toCoords.y && overlapStart < overlapEnd;
+                
+                let xFrom, yFrom, xTo, yTo;
+
+                if (isOverlapping) {
+                  const overlapX = (overlapStart + overlapEnd) / 2;
+                  if (fromCoords.y < toCoords.y) {
+                    xFrom = overlapX;
+                    yFrom = fromCoords.y + 16;
+                    xTo = overlapX;
+                    yTo = toCoords.y - 16;
+                  } else {
+                    xFrom = overlapX;
+                    yFrom = fromCoords.y - 16;
+                    xTo = overlapX;
+                    yTo = toCoords.y + 16;
+                  }
+                } else if (fromCoords.xEnd <= toCoords.xStart) {
+                  xFrom = fromCoords.xEnd;
+                  yFrom = fromCoords.y;
+                  xTo = toCoords.xStart;
+                  yTo = toCoords.y;
+                } else {
+                  xFrom = fromCoords.xStart;
+                  yFrom = fromCoords.y;
+                  xTo = toCoords.xEnd;
+                  yTo = toCoords.y;
+                }
+
+                const mx = (xFrom + xTo) / 2;
+                const my = (yFrom + yTo) / 2;
+
+                return (
+                  <button
+                    style={{ 
+                      position: 'absolute', 
+                      left: mx - 10, 
+                      top: my - 10, 
+                      zIndex: 40,
+                      pointerEvents: 'auto'
+                    }}
+                    className="w-5 h-5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow-lg border border-white transition-transform active:scale-95 cursor-pointer animate-in fade-in zoom-in-75 duration-75"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      handleRemoveDependency(itemId, depId);
+                      setHoveredConnection(null);
+                    }}
+                    onMouseEnter={() => setHoveredConnection(hoveredConnection)}
+                    onMouseLeave={() => setHoveredConnection(null)}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                );
+              })()}
 
               {/* Draggable Items */}
               {items.map(item => {
