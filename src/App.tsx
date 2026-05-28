@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import SimpleRoadmap from './pages/SimpleRoadmap';
+import StrategicTimeline from './pages/StrategicTimeline';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<SimpleRoadmap />} />
-        <Route path="*" element={<SimpleRoadmap />} />
+        <Route path="/" element={<StrategicTimeline />} />
+        <Route path="*" element={<StrategicTimeline />} />
       </Routes>
     </Router>
   );
