@@ -3,13 +3,15 @@ import { Bot, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RoadmapProvider, useRoadmap } from '../context/RoadmapContext';
 import { TimelineGrid } from '../components/TimelineGrid';
 import { ItemModal } from '../components/ItemModal';
+import { CategoryModal } from '../components/CategoryModal';
 import { AIAssistant } from '../components/AIAssistant';
-import { RoadmapItem } from '../types/roadmap';
+import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 function StrategicTimelineInner() {
   const { year, setYear } = useRoadmap();
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Swimlane | null | undefined>(undefined);
 
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value);
@@ -57,7 +59,10 @@ function StrategicTimelineInner() {
         </header>
 
         {/* Timeline Area */}
-        <TimelineGrid onEditItem={setEditingItem} />
+        <TimelineGrid 
+          onEditItem={setEditingItem} 
+          onEditCategory={setEditingCategory}
+        />
       </main>
 
       {/* Modals & Overlays */}
@@ -66,6 +71,12 @@ function StrategicTimelineInner() {
         <ItemModal 
           item={editingItem} 
           onClose={() => setEditingItem(null)} 
+        />
+      )}
+      {editingCategory !== undefined && (
+        <CategoryModal 
+          swimlane={editingCategory}
+          onClose={() => setEditingCategory(undefined)}
         />
       )}
     </div>

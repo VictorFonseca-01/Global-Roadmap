@@ -1,16 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useRoadmap } from '../context/RoadmapContext';
 import { TimelineItem } from './TimelineItem';
-import { RoadmapItem } from '../types/roadmap';
+import { RoadmapItem, Swimlane } from '../types/roadmap';
+import { Plus, Settings } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ROW_HEIGHT = 60;
 
 interface Props {
   onEditItem: (item: RoadmapItem) => void;
+  onEditCategory: (swimlane: Swimlane | null) => void;
 }
 
-export function TimelineGrid({ onEditItem }: Props) {
+export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
   const { swimlanes, items, updateItem, addItem } = useRoadmap();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -121,16 +123,29 @@ export function TimelineGrid({ onEditItem }: Props) {
       {/* Body */}
       <div className="flex-1 flex overflow-y-auto">
         {/* Left Sidebar (Swimlane Labels) */}
-        <div className="w-48 shrink-0 border-r border-slate-200 bg-slate-50 relative z-20">
+        <div className="w-48 shrink-0 border-r border-slate-200 bg-slate-50 relative z-20 flex flex-col">
           {swimlanes.map((s) => (
             <div 
               key={s.id} 
-              className="px-4 flex items-center text-xs font-black text-slate-600 border-b border-slate-200"
+              className="px-4 flex items-center justify-between text-xs font-black text-slate-600 border-b border-slate-200 group/lane cursor-pointer hover:bg-slate-100 transition-colors"
               style={{ height: ROW_HEIGHT, borderLeftWidth: 4, borderLeftColor: s.color }}
+              onClick={() => onEditCategory(s)}
             >
-              {s.title}
+              <span className="truncate pr-1">{s.title}</span>
+              <span className="opacity-0 group-hover/lane:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 p-1">
+                <Settings className="w-3.5 h-3.5" />
+              </span>
             </div>
           ))}
+          
+          <button
+            onClick={() => onEditCategory(null)}
+            className="w-full hover:bg-indigo-50 hover:text-indigo-600 text-xs font-bold text-slate-500 transition-colors flex items-center gap-1.5 justify-center border-b border-slate-200"
+            style={{ height: ROW_HEIGHT }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Categoria
+          </button>
         </div>
 
         {/* Timeline Canvas */}
@@ -141,22 +156,23 @@ export function TimelineGrid({ onEditItem }: Props) {
           onMouseUp={handleMouseUp}
           onDoubleClick={handleBackgroundDoubleClick}
         >
-          {/* Vertical grid lines */}
-          <div className="absolute inset-0 flex pointer-events-none">
-            {MONTHS.map((m) => (
-              <div key={m} className="flex-1 border-r border-slate-100 h-full" />
-            ))}
-          </div>
+          <div className="relative w-full" style={{ height: swimlanes.length * ROW_HEIGHT }}>
+            {/* Vertical grid lines */}
+            <div className="absolute inset-0 flex pointer-events-none">
+              {MONTHS.map((m) => (
+                <div key={m} className="flex-1 border-r border-slate-100 h-full" />
+              ))}
+            </div>
 
-          {/* Horizontal swimlane lines */}
-          <div className="absolute inset-0 pointer-events-none">
-            {swimlanes.map((s) => (
-              <div key={s.id} className="border-b border-slate-200" style={{ height: ROW_HEIGHT }} />
-            ))}
-          </div>
+            {/* Horizontal swimlane lines */}
+            <div className="absolute inset-0 pointer-events-none">
+              {swimlanes.map((s) => (
+                <div key={s.id} className="border-b border-slate-200" style={{ height: ROW_HEIGHT }} />
+              ))}
+            </div>
 
-          {containerWidth > 0 && (
-            <>
+            {containerWidth > 0 && (
+              <>
               {/* Connections SVG Layer */}
               <svg className="absolute inset-0 pointer-events-none z-20 overflow-visible" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
                 <defs>
@@ -346,6 +362,7 @@ export function TimelineGrid({ onEditItem }: Props) {
               })}
             </>
           )}
+          </div>
         </div>
       </div>
     </div>

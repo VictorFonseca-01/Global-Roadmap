@@ -19,22 +19,33 @@ interface RoadmapContextData {
   year: number;
   setYear: (y: number) => void;
   swimlanes: Swimlane[];
+  setSwimlanes: React.Dispatch<React.SetStateAction<Swimlane[]>>;
   items: RoadmapItem[];
   setItems: React.Dispatch<React.SetStateAction<RoadmapItem[]>>;
   updateItem: (id: string, updates: Partial<RoadmapItem>) => void;
   addItem: (item: RoadmapItem) => void;
   deleteItem: (id: string) => void;
+  addSwimlane: (swimlane: Swimlane) => void;
+  updateSwimlane: (id: string, updates: Partial<Swimlane>) => void;
+  deleteSwimlane: (id: string) => void;
 }
 
 const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes] = useState<Swimlane[]>(DEFAULT_SWIMLANES);
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
   const [items, setItems] = useState<RoadmapItem[]>([]);
 
   // Load data when year changes
   useEffect(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+    if (savedSwimlanes) {
+      setSwimlanes(JSON.parse(savedSwimlanes));
+    } else {
+      setSwimlanes(DEFAULT_SWIMLANES);
+    }
+
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
       setItems(JSON.parse(saved));
@@ -48,6 +59,12 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(`roadmap_data_${year}`, JSON.stringify(items));
   }, [items, year]);
+
+  useEffect(() => {
+    if (swimlanes.length > 0) {
+      localStorage.setItem(`roadmap_swimlanes_${year}`, JSON.stringify(swimlanes));
+    }
+  }, [swimlanes, year]);
 
   const updateItem = (id: string, updates: Partial<RoadmapItem>) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
@@ -67,8 +84,41 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addSwimlane = (swimlane: Swimlane) => {
+    setSwimlanes(prev => [...prev, swimlane]);
+  };
+
+  const updateSwimlane = (id: string, updates: Partial<Swimlane>) => {
+    setSwimlanes(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const deleteSwimlane = (id: string) => {
+    setSwimlanes(prev => prev.filter(s => s.id !== id));
+    setItems(prev => {
+      const remainingItems = prev.filter(i => i.swimlaneId !== id);
+      const remainingIds = new Set(remainingItems.map(i => i.id));
+      return remainingItems.map(i => ({
+        ...i,
+        dependsOn: i.dependsOn.filter(depId => remainingIds.has(depId))
+      }));
+    });
+  };
+
   return (
-    <RoadmapContext.Provider value={{ year, setYear, swimlanes, items, setItems, updateItem, addItem, deleteItem }}>
+    <RoadmapContext.Provider value={{ 
+      year, 
+      setYear, 
+      swimlanes, 
+      setSwimlanes, 
+      items, 
+      setItems, 
+      updateItem, 
+      addItem, 
+      deleteItem,
+      addSwimlane,
+      updateSwimlane,
+      deleteSwimlane
+    }}>
       {children}
     </RoadmapContext.Provider>
   );
