@@ -169,25 +169,29 @@ export function TimelineItem({
               </span>
             </div>
 
-            {/* Conector Esquerdo / Entrada invisível com alça hover discreta */}
+            {/* Conector Esquerdo (Entrada de Predecessores) - Aparece no hover */}
             <div 
-              className="absolute left-0 top-0 bottom-0 w-2 hover:bg-blue-500/20 cursor-pointer z-20"
-              title="Conectar entrada"
+              className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-800 dark:bg-slate-200 rounded-full border border-slate-350 dark:border-slate-700 shadow-md flex items-center justify-center cursor-pointer z-30 opacity-0 group-hover:opacity-100 hover:scale-125 transition-all duration-150"
+              title="Soltar dependência aqui"
               onMouseUp={(e) => {
                 e.stopPropagation();
                 onConnectionEnd(item.id);
               }}
-            />
+            >
+              <div className="w-1 h-1 bg-blue-500 rounded-full" />
+            </div>
 
-            {/* Conector Direito / Saída invisível com alça hover discreta */}
+            {/* Conector Direito (Saída de Sucessores) - Aparece no hover */}
             <div 
-              className="absolute right-0 top-0 bottom-0 w-2 hover:bg-blue-500/20 cursor-crosshair z-20"
-              title="Arrastar saída"
+              className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full border border-white dark:border-slate-800 shadow-md flex items-center justify-center cursor-crosshair z-30 opacity-0 group-hover:opacity-100 hover:scale-125 transition-all duration-150 hover:bg-blue-500 hover:shadow-blue-500/50"
+              title="Arrastar dependência"
               onMouseDown={(e) => {
                 e.stopPropagation();
                 onConnectionStart(item.id, e);
               }}
-            />
+            >
+              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+            </div>
           </div>
         )}
       </Rnd>

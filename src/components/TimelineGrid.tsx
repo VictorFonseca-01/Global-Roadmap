@@ -66,9 +66,51 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
   const handleConnectionEnd = (targetId: string) => {
     if (connectingFrom && connectingFrom !== targetId) {
       const sourceItem = items.find(i => i.id === connectingFrom);
-      if (sourceItem && !sourceItem.dependsOn.includes(targetId)) {
-        updateItem(connectingFrom, { dependsOn: [...sourceItem.dependsOn, targetId] });
+      const targetItem = items.find(i => i.id === targetId);
+
+      if (!sourceItem || !targetItem) {
+        setConnectingFrom(null);
+        return;
       }
+
+      // Regra 1: Auto-dependência
+      if (connectingFrom === targetId) {
+        alert('Erro: Uma iniciativa não pode depender dela mesma.');
+        setConnectingFrom(null);
+        return;
+      }
+
+      // Regra 2: Conexão Duplicada
+      if (sourceItem.dependsOn.includes(targetId)) {
+        alert('Erro: Esta conexão de dependência já existe.');
+        setConnectingFrom(null);
+        return;
+      }
+
+      // Regra 3: Dependência Circular
+      // Função recursiva de DFS para checar se targetId já depende de connectingFrom direta ou indiretamente
+      const checkCircular = (currentId: string, visited: Set<string>): boolean => {
+        if (currentId === connectingFrom) return true;
+        if (visited.has(currentId)) return false;
+        visited.add(currentId);
+        
+        const currentItem = items.find(i => i.id === currentId);
+        if (!currentItem) return false;
+
+        for (const depId of currentItem.dependsOn) {
+          if (checkCircular(depId, visited)) return true;
+        }
+        return false;
+      };
+
+      if (checkCircular(targetId, new Set<string>())) {
+        alert('Erro de Dependência Circular detectado. O item destino já depende da origem (direta ou indiretamente).');
+        setConnectingFrom(null);
+        return;
+      }
+
+      // Válido: Atualiza
+      updateItem(connectingFrom, { dependsOn: [...sourceItem.dependsOn, targetId] });
     }
     setConnectingFrom(null);
   };
