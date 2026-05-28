@@ -140,7 +140,7 @@ export function ExecutivePresentation({ projectId }: { projectId?: string }) {
         gov -= 10;
       }
 
-      let isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
+      const isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
       if (isBlocked) {
         read -= 15;
       }

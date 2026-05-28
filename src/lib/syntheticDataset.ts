@@ -6,7 +6,7 @@ const PRODUCTS = ['Windows Server', 'Database Enterprise', 'RHEL', 'vSphere', 'C
 const DOMAINS = ['Infrastructure', 'Security', 'Business Apps', 'Database'];
 
 function deterministicRandom(seed: number) {
-  let x = Math.sin(seed++) * 10000;
+  const x = Math.sin(seed++) * 10000;
   return x - Math.floor(x);
 }
 

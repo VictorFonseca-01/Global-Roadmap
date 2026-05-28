@@ -35,15 +35,15 @@ export const lifecycleIntelligenceEngine = {
       homologationDays += 90;
     }
     
-    let pilotDays = 15;
-    let rolloutDays = 45;
+    const pilotDays = 15;
+    const rolloutDays = 45;
     
     let coexistenceDays = 0;
     if (item.calculated_criticality === 'critical' || item.calculated_criticality === 'high') {
       coexistenceDays = 30; 
     }
     
-    let deactivationDays = 15;
+    const deactivationDays = 15;
     
     const homStart = baseStart;
     const homEnd = addDays(homStart, homologationDays);
@@ -706,7 +706,7 @@ export const lifecycleIntelligenceEngine = {
       if (!hasSuccessor) score -= 10;
 
       // Blocked Readiness (-15)
-      let isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
+      const isBlocked = !hasSuccessor && !product.includes('11') && !product.includes('2016') && !product.includes('2022') && !product.includes('2019');
       if (isBlocked) score -= 15;
 
       // Rollout ultrapassa EoL (-20)
