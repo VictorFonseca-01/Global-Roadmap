@@ -158,7 +158,7 @@ export function TimelineGrid({ onEditItem }: Props) {
           {containerWidth > 0 && (
             <>
               {/* Connections SVG Layer */}
-              <svg className="absolute inset-0 pointer-events-none z-0 overflow-visible" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
+              <svg className="absolute inset-0 pointer-events-none z-20 overflow-visible" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
                 <defs>
                   <marker
                     id="arrow-red"
@@ -203,23 +203,56 @@ export function TimelineGrid({ onEditItem }: Props) {
                     if (!depItem) return null;
                     const fromCoords = getItemCoords(depItem);
                     
-                    const dx = toCoords.xStart - fromCoords.xEnd;
-                    const controlDist = Math.min(100, Math.abs(dx) / 2);
-                    // Dynamically point curve control points based on flow direction to prevent loops
-                    const p0x = fromCoords.xEnd;
-                    const p0y = fromCoords.y;
-                    const p1x = fromCoords.xEnd + (dx > 0 ? controlDist : -controlDist);
-                    const p1y = fromCoords.y;
-                    const p2x = toCoords.xStart + (dx > 0 ? -controlDist : controlDist);
-                    const p2y = toCoords.y;
-                    const p3x = toCoords.xStart;
-                    const p3y = toCoords.y;
-
-                    const path = `M ${p0x} ${p0y} C ${p1x} ${p1y}, ${p2x} ${p2y}, ${p3x} ${p3y}`;
+                    const overlapStart = Math.max(fromCoords.xStart, toCoords.xStart);
+                    const overlapEnd = Math.min(fromCoords.xEnd, toCoords.xEnd);
+                    const isOverlapping = fromCoords.y !== toCoords.y && overlapStart < overlapEnd;
                     
-                    // Midpoint for delete button
-                    const mx = 0.125 * p0x + 0.375 * p1x + 0.375 * p2x + 0.125 * p3x;
-                    const my = 0.125 * p0y + 0.375 * p1y + 0.375 * p2y + 0.125 * p3y;
+                    let xFrom, yFrom, xTo, yTo;
+                    let path = '';
+                    let mx = 0, my = 0;
+
+                    if (isOverlapping) {
+                      // Case 3: Overlapping items in different swimlanes (connect top/bottom boundary vertically)
+                      const overlapX = (overlapStart + overlapEnd) / 2;
+                      if (fromCoords.y < toCoords.y) {
+                        xFrom = overlapX;
+                        yFrom = fromCoords.y + 16;
+                        xTo = overlapX;
+                        yTo = toCoords.y - 16;
+                      } else {
+                        xFrom = overlapX;
+                        yFrom = fromCoords.y - 16;
+                        xTo = overlapX;
+                        yTo = toCoords.y + 16;
+                      }
+                      path = `M ${xFrom} ${yFrom} L ${xTo} ${yTo}`;
+                      mx = overlapX;
+                      my = (yFrom + yTo) / 2;
+                    } else if (fromCoords.xEnd <= toCoords.xStart) {
+                      // Case 1: Predecessor is completely to the left of Successor (Normal horizontal flow)
+                      xFrom = fromCoords.xEnd;
+                      yFrom = fromCoords.y;
+                      xTo = toCoords.xStart;
+                      yTo = toCoords.y;
+                      const dx = xTo - xFrom;
+                      const controlDist = Math.min(100, dx / 2);
+                      path = `M ${xFrom} ${yFrom} C ${xFrom + controlDist} ${yFrom}, ${xTo - controlDist} ${yTo}, ${xTo} ${yTo}`;
+                      
+                      mx = 0.125 * xFrom + 0.375 * (xFrom + controlDist) + 0.375 * (xTo - controlDist) + 0.125 * xTo;
+                      my = 0.125 * yFrom + 0.375 * yFrom + 0.375 * yTo + 0.125 * yTo;
+                    } else {
+                      // Case 2: Predecessor is completely to the right of Successor (Backward flow: connect left edge to right edge)
+                      xFrom = fromCoords.xStart;
+                      yFrom = fromCoords.y;
+                      xTo = toCoords.xEnd;
+                      yTo = toCoords.y;
+                      const dx = xFrom - xTo;
+                      const controlDist = Math.min(100, dx / 2);
+                      path = `M ${xFrom} ${yFrom} C ${xFrom - controlDist} ${yFrom}, ${xTo + controlDist} ${yTo}, ${xTo} ${yTo}`;
+                      
+                      mx = 0.125 * xFrom + 0.375 * (xFrom - controlDist) + 0.375 * (xTo + controlDist) + 0.125 * xTo;
+                      my = 0.125 * yFrom + 0.375 * yFrom + 0.375 * yTo + 0.125 * yTo;
+                    }
 
                     const connId = `${item.id}-${depId}`;
                     const isHovered = hoveredConnection === connId;
@@ -250,7 +283,7 @@ export function TimelineGrid({ onEditItem }: Props) {
                           className="transition-all"
                         />
                         {/* Dot at start */}
-                        <circle cx={fromCoords.xEnd} cy={fromCoords.y} r={isHovered ? "4" : "3"} fill={isHovered ? "#dc2626" : "#ef4444"} />
+                        <circle cx={xFrom} cy={yFrom} r={isHovered ? "4" : "3"} fill={isHovered ? "#dc2626" : "#ef4444"} />
 
                         {/* Interactive Delete Button at Midpoint */}
                         {isHovered && (
