@@ -1,87 +1,15 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
-import { ThemeProvider } from "@/components/theme-provider"
-import { MainLayout } from "@/components/layout/MainLayout"
-import Dashboard from "@/pages/Dashboard"
-import RoadmapsLegacy from "@/pages/Roadmaps"
-import RoadmapTimelineLegacy from "@/pages/RoadmapTimeline"
-import StrategicTimelineWorkspace from "@/pages/StrategicTimelineWorkspace"
-import SettingsAI from "@/pages/SettingsAI"
-import Categories from "@/pages/Categories"
-import Lifecycle from "@/pages/Lifecycle"
-import Assets from "@/pages/Assets"
-import Applications from "@/pages/Applications"
-import MigrationPlans from "@/pages/MigrationPlans"
-import Notifications from "@/pages/Notifications"
-import Profile from "@/pages/Profile"
-import Settings from "@/pages/Settings"
-import Login from "@/pages/Login"
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Toaster } from "sonner"
-import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
-import { AuthProvider } from "@/components/auth/AuthProvider"
-import { AuthGuard } from "@/components/auth/AuthGuard"
-import { TooltipProvider } from "@/components/ui/tooltip"
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 10 * 60 * 1000, // 10 minutes
-      gcTime: 30 * 60 * 1000,    // 30 minutes
-    },
-  },
-})
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import SimpleRoadmap from './pages/SimpleRoadmap';
 
 function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ThemeProvider defaultTheme="system" storageKey="global-parts-theme">
-            <Router>
-              <TooltipProvider>
-                <Routes>
-                  {/* Rota Pública */}
-                  <Route path="/login" element={<Login />} />
-
-                  {/* Rotas Protegidas */}
-                  <Route path="/" element={
-                    <AuthGuard>
-                      <MainLayout />
-                    </AuthGuard>
-                  }>
-                    {/* ── Rotas Principais (visíveis na Sidebar) ── */}
-                    <Route index element={<Dashboard />} />
-                    <Route path="assets" element={<Assets />} />
-                    <Route path="roadmaps" element={<StrategicTimelineWorkspace />} />
-                    <Route path="settings" element={<Settings />} />
-                    <Route path="profile" element={<Profile />} />
-
-                    {/* ── Rotas Internas (ocultas da sidebar, mantidas para compatibilidade) ── */}
-                    <Route path="legacy-roadmaps" element={<RoadmapsLegacy />} />
-                    <Route path="legacy-roadmap-timeline" element={<RoadmapTimelineLegacy />} />
-                    <Route path="categories" element={<Categories />} />
-                    <Route path="lifecycle" element={<Lifecycle />} />
-                    <Route path="applications" element={<Applications />} />
-                    <Route path="migration-plans" element={<MigrationPlans />} />
-                    <Route path="roadmap-timeline" element={<Navigate to="/roadmaps" replace />} />
-                    <Route path="notifications" element={<Notifications />} />
-                    <Route path="settings/ai" element={<SettingsAI />} />
-                  </Route>
-
-                  {/* Fallback */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </TooltipProvider>
-            </Router>
-            <Toaster position="top-right" richColors />
-          </ThemeProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  )
+    <Router>
+      <Routes>
+        <Route path="/" element={<SimpleRoadmap />} />
+        <Route path="*" element={<SimpleRoadmap />} />
+      </Routes>
+    </Router>
+  );
 }
 
-export default App
+export default App;
