@@ -9,8 +9,6 @@ interface Props {
   rowHeight: number;
   containerWidth: number;
   onEdit: (item: RoadmapItem) => void;
-  onConnectionStart: (itemId: string, e: React.MouseEvent) => void;
-  onConnectionEnd: (itemId: string) => void;
 }
 
 export function TimelineItem({ 
@@ -18,11 +16,9 @@ export function TimelineItem({
   swimlaneIndex, 
   rowHeight, 
   containerWidth, 
-  onEdit,
-  onConnectionStart,
-  onConnectionEnd
+  onEdit
 }: Props) {
-  const { updateItem, year, swimlanes } = useRoadmap();
+  const { updateItem, year } = useRoadmap();
   const [showTooltip, setShowTooltip] = useState(false);
   
   // Conversão de porcentagem para pixel e vice-versa
@@ -96,8 +92,8 @@ export function TimelineItem({
       position={{ x: xPx, y: yPx }}
       disableDragging={false}
       enableResizing={item.isMilestone ? false : { right: true, left: true, top: false, bottom: false, topRight: false, bottomRight: false, bottomLeft: false, topLeft: false }}
-      dragAxis="both"
-      className="z-10 group !overflow-visible"
+      dragAxis="x"
+      className="z-10 group"
       onDragStop={(_e, d) => {
         const totalDays = 365;
         const dayWidth = containerWidth / totalDays;
@@ -109,14 +105,10 @@ export function TimelineItem({
         const newStart = getDateFromPercentage(newStartPct);
         const newEnd = getDateFromPercentage(newEndPct);
 
-        const newLaneIndex = Math.max(0, Math.min(swimlanes.length - 1, Math.round(d.y / rowHeight)));
-        const newSwimlaneId = swimlanes[newLaneIndex].id;
-
         updateItem(item.id, { 
           startDate: newStart,
           endDate: newEnd,
-          startPercentage: newStartPct,
-          swimlaneId: newSwimlaneId
+          startPercentage: newStartPct
         });
       }}
       onResizeStop={(_e, _dir, ref, _delta, position) => {
@@ -142,7 +134,7 @@ export function TimelineItem({
       <div 
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className="w-full h-full relative !overflow-visible"
+        className="w-full h-full relative"
       >
         {item.isMilestone ? (
           /* Renderização de Milestone (Diamond Marker) */
@@ -155,8 +147,7 @@ export function TimelineItem({
           /* Renderização de Barra Normal */
           <div 
             onDoubleClick={(e) => { e.stopPropagation(); onEdit(item); }}
-            onMouseUp={() => onConnectionEnd(item.id)}
-            className={`w-full h-full rounded border bg-slate-100 dark:bg-slate-900/90 shadow-sm flex items-center justify-between px-2 cursor-grab active:cursor-grabbing relative !overflow-visible select-none transition-colors ${
+            className={`w-full h-full rounded border bg-slate-100 dark:bg-slate-900/90 shadow-sm flex items-center justify-between px-2 cursor-grab active:cursor-grabbing relative select-none transition-colors ${
               isOverdue 
                 ? 'border-rose-500 hover:border-rose-600' 
                 : 'border-slate-300/40 dark:border-white/10 hover:border-blue-500 dark:hover:border-blue-500'
@@ -164,7 +155,7 @@ export function TimelineItem({
           >
             {/* Barra de Progresso Interna como background sutil */}
             <div 
-              className="absolute left-0 top-0 bottom-0 bg-slate-200 dark:bg-slate-800/80 transition-all duration-300 pointer-events-none"
+              className="absolute left-0 top-0 bottom-0 bg-slate-200 dark:bg-slate-850 transition-all duration-300 pointer-events-none"
               style={{ width: `${item.progress || 0}%`, zIndex: 1 }}
             />
 
@@ -173,46 +164,17 @@ export function TimelineItem({
 
             {/* Conteúdo Textual com Alta Densidade */}
             <div className="flex items-center justify-between w-full z-10 pl-1">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 text-[10px] truncate leading-none">
+              <span className="font-semibold text-slate-850 dark:text-slate-200 text-[10px] truncate leading-none">
                 {item.title}
               </span>
               <span className="text-[8px] font-mono text-slate-500 dark:text-slate-400 font-bold shrink-0 ml-1.5">
                 {item.progress || 0}%
               </span>
             </div>
-
-            {/* Conector Esquerdo (Entrada de Predecessores) - Hitbox ampliada para 24px */}
-            <div 
-              className="absolute left-[-12px] top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center cursor-pointer z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-              title="Soltar dependência aqui"
-              onMouseUp={(e) => {
-                e.stopPropagation();
-                onConnectionEnd(item.id);
-              }}
-            >
-              {/* Círculo Visual elegante */}
-              <div className="w-2.5 h-2.5 bg-slate-800 dark:bg-slate-200 rounded-full border border-slate-400 dark:border-slate-700 shadow-md flex items-center justify-center hover:scale-125 transition-transform duration-150">
-                <div className="w-1 h-1 bg-blue-500 rounded-full" />
-              </div>
-            </div>
-
-            {/* Conector Direito (Saída de Sucessores) - Hitbox ampliada para 24px */}
-            <div 
-              className="absolute right-[-12px] top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center cursor-crosshair z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-              title="Arrastar dependência"
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                onConnectionStart(item.id, e);
-              }}
-            >
-              {/* Círculo Visual elegante */}
-              <div className="w-2.5 h-2.5 bg-blue-600 rounded-full border border-white dark:border-slate-800 shadow-md flex items-center justify-center hover:scale-125 hover:bg-blue-500 hover:shadow-blue-500/50 transition-all duration-150">
-                <div className="w-1 h-1 bg-white rounded-full" />
-              </div>
-            </div>
           </div>
         )}
       </div>
+
 
       {/* Tooltip Executiva de Governança */}
       {showTooltip && (

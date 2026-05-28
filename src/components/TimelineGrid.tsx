@@ -1,8 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useRoadmap } from '../context/RoadmapContext';
 import { TimelineItem } from './TimelineItem';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
-import { Plus, Settings, X, Search, ZoomIn } from 'lucide-react';
+import { Plus, Settings, Search, ZoomIn } from 'lucide-react';
 
 const ROW_HEIGHT = 30; // Linhas compactas para densidade extrema de informação (Project/Smartsheet style)
 
@@ -14,21 +14,17 @@ interface Props {
 type ZoomLevel = 'week' | 'month' | 'quarter' | 'year';
 
 export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
-  const { swimlanes, items, updateItem, year } = useRoadmap();
+  const { swimlanes, items, year } = useRoadmap();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('month');
   
-  // Connection dragging state
-  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
-
   // Filters State
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'executive' | 'detailed'>('detailed');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -38,110 +34,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!connectingFrom || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top + containerRef.current.scrollTop
-    });
-  };
-
-  const handleMouseUp = () => {
-    setConnectingFrom(null);
-  };
-
-  const handleConnectionStart = (itemId: string, e: React.MouseEvent) => {
-    setConnectingFrom(itemId);
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setMousePos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top + containerRef.current.scrollTop
-      });
-    }
-  };
-
-  const handleConnectionEnd = (targetId: string) => {
-    if (connectingFrom && connectingFrom !== targetId) {
-      const sourceItem = items.find(i => i.id === connectingFrom);
-      const targetItem = items.find(i => i.id === targetId);
-
-      if (!sourceItem || !targetItem) {
-        setConnectingFrom(null);
-        return;
-      }
-
-      // Regra 1: Auto-dependência
-      if (connectingFrom === targetId) {
-        alert('Erro: Uma iniciativa não pode depender dela mesma.');
-        setConnectingFrom(null);
-        return;
-      }
-
-      // Regra 2: Conexão Duplicada
-      if (sourceItem.dependsOn.includes(targetId)) {
-        alert('Erro: Esta conexão de dependência já existe.');
-        setConnectingFrom(null);
-        return;
-      }
-
-      // Regra 3: Dependência Circular
-      // Função recursiva de DFS para checar se targetId já depende de connectingFrom direta ou indiretamente
-      const checkCircular = (currentId: string, visited: Set<string>): boolean => {
-        if (currentId === connectingFrom) return true;
-        if (visited.has(currentId)) return false;
-        visited.add(currentId);
-        
-        const currentItem = items.find(i => i.id === currentId);
-        if (!currentItem) return false;
-
-        for (const depId of currentItem.dependsOn) {
-          if (checkCircular(depId, visited)) return true;
-        }
-        return false;
-      };
-
-      if (checkCircular(targetId, new Set<string>())) {
-        alert('Erro de Dependência Circular detectado. O item destino já depende da origem (direta ou indiretamente).');
-        setConnectingFrom(null);
-        return;
-      }
-
-      // Válido: Atualiza
-      updateItem(connectingFrom, { dependsOn: [...sourceItem.dependsOn, targetId] });
-    }
-    setConnectingFrom(null);
-  };
-
-  const handleRemoveDependency = (itemId: string, depId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (item) {
-      updateItem(itemId, { dependsOn: item.dependsOn.filter(id => id !== depId) });
-    }
-  };  // Controla o modo de visualização executivo vs detalhado
-  const [viewMode, setViewMode] = useState<'executive' | 'detailed'>('detailed');
-
-  // Adicionar manipulador de Ctrl + Scroll para Zoom no container
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const directions: ZoomLevel[] = ['year', 'quarter', 'month', 'week'];
-        const currentIndex = directions.indexOf(zoomLevel);
-        if (e.deltaY < 0 && currentIndex < directions.length - 1) {
-          setZoomLevel(directions[currentIndex + 1]);
-        } else if (e.deltaY > 0 && currentIndex > 0) {
-          setZoomLevel(directions[currentIndex - 1]);
-        }
-      }
-    };
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
-  }, [zoomLevel]);
 
   // Conversão de data real em percentual horizontal dentro do ano de visualização
   const getDatePercentage = (dateStr: string) => {
@@ -365,9 +257,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
         {/* Timeline Canvas */}
         <div 
           ref={containerRef}
-          className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-100/10 dark:bg-slate-950/5"
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+          className="flex-1 relative overflow-hidden bg-slate-100/10 dark:bg-slate-950/5"
         >
           <div className="relative w-full" style={{ height: swimlanes.length * ROW_HEIGHT }}>
             {/* Vertical grid lines */}
@@ -398,14 +288,14 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
 
             {containerWidth > 0 && (
               <>
-              {/* Connections SVG Layer */}
+              {/* Connections SVG Layer - Estático e Discreto */}
               <svg 
                 className="absolute inset-0 z-20 overflow-visible" 
                 style={{ pointerEvents: 'none', width: '100%', height: swimlanes.length * ROW_HEIGHT }}
               >
                 <defs>
                   <marker
-                    id="arrow-red"
+                    id="arrow-simple"
                     viewBox="0 0 10 10"
                     refX="6"
                     refY="5"
@@ -413,33 +303,11 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     markerHeight="4"
                     orient="auto-start-reverse"
                   >
-                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#ef4444" opacity="0.6" />
-                  </marker>
-                  <marker
-                    id="arrow-red-hover"
-                    viewBox="0 0 10 10"
-                    refX="6"
-                    refY="5"
-                    markerWidth="5"
-                    markerHeight="5"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#ef4444" />
-                  </marker>
-                  <marker
-                    id="arrow-blue"
-                    viewBox="0 0 10 10"
-                    refX="6"
-                    refY="5"
-                    markerWidth="5"
-                    markerHeight="5"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#3b82f6" />
+                    <path d="M 0 2 L 6 5 L 0 8 z" fill="#94a3b8" />
                   </marker>
                 </defs>
 
-                {/* Existing dependencies - Finas e Discretas */}
+                {/* Existing dependencies - Retas simples de baixa opacidade */}
                 {filteredItems.map(item => {
                   const toCoords = getItemCoords(item);
                   return item.dependsOn.map(depId => {
@@ -447,159 +315,22 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     if (!depItem) return null;
                     const fromCoords = getItemCoords(depItem);
                     
-                    const overlapStart = Math.max(fromCoords.xStart, toCoords.xStart);
-                    const overlapEnd = Math.min(fromCoords.xEnd, toCoords.xEnd);
-                    const isOverlapping = fromCoords.y !== toCoords.y && overlapStart < overlapEnd;
-                    
-                    let xFrom, yFrom, xTo, yTo;
-
-                    if (isOverlapping) {
-                      const overlapX = (overlapStart + overlapEnd) / 2;
-                      if (fromCoords.y < toCoords.y) {
-                        xFrom = overlapX;
-                        yFrom = fromCoords.y + 12;
-                        xTo = overlapX;
-                        yTo = toCoords.y - 12;
-                      } else {
-                        xFrom = overlapX;
-                        yFrom = fromCoords.y - 12;
-                        xTo = overlapX;
-                        yTo = toCoords.y + 12;
-                      }
-                    } else if (fromCoords.xEnd <= toCoords.xStart) {
-                      xFrom = fromCoords.xEnd;
-                      yFrom = fromCoords.y;
-                      xTo = toCoords.xStart;
-                      yTo = toCoords.y;
-                    } else {
-                      xFrom = fromCoords.xStart;
-                      yFrom = fromCoords.y;
-                      xTo = toCoords.xEnd;
-                      yTo = toCoords.y;
-                    }
-
-                    const dx = xTo - xFrom;
-                    const controlDist = Math.min(80, Math.abs(dx) / 2 || 30);
-                    const path = `M ${xFrom} ${yFrom} C ${xFrom + (dx > 0 ? controlDist : -controlDist)} ${yFrom}, ${xTo + (dx > 0 ? -controlDist : controlDist)} ${yTo}, ${xTo} ${yTo}`;
-
-                    const connId = `${item.id}-${depId}`;
-                    const isHovered = hoveredConnection === connId;
-
                     return (
-                      <g 
-                        key={connId} 
-                        style={{ pointerEvents: 'auto' }}
-                        className="group/conn"
-                        onMouseEnter={() => setHoveredConnection(connId)}
-                        onMouseLeave={() => setHoveredConnection(null)}
-                      >
-                        {/* Wide invisible hover boundary */}
-                        <path 
-                          d={path} 
-                          fill="none" 
-                          stroke="transparent" 
-                          strokeWidth="10" 
-                          className="cursor-pointer"
-                        />
-                        {/* Base path - Muito discreta para não poluir */}
-                        <path 
-                          d={path} 
-                          fill="none" 
-                          stroke={isHovered ? "#ef4444" : "#94a3b8"} 
-                          strokeWidth={isHovered ? "1.5" : "1"} 
-                          strokeDasharray={isHovered ? "none" : "3 3"}
-                          markerEnd={isHovered ? "url(#arrow-red-hover)" : "url(#arrow-red)"}
-                          opacity={isHovered ? "1" : "0.25"}
-                          className="transition-all"
-                        />
-                        {/* Starting Node */}
-                        <circle cx={xFrom} cy={yFrom} r={isHovered ? "3.5" : "2"} fill={isHovered ? "#ef4444" : "#94a3b8"} opacity={isHovered ? "1" : "0.4"} />
-                      </g>
+                      <line
+                        key={`${item.id}-${depId}`}
+                        x1={fromCoords.xEnd}
+                        y1={fromCoords.y}
+                        x2={toCoords.xStart}
+                        y2={toCoords.y}
+                        stroke="#94a3b8"
+                        strokeWidth="1"
+                        strokeOpacity="0.3"
+                        markerEnd="url(#arrow-simple)"
+                      />
                     );
                   });
                 })}
-
-                {/* Dragging connection */}
-                {connectingFrom && (
-                  (() => {
-                    const source = items.find(i => i.id === connectingFrom);
-                    if (!source) return null;
-                    const coords = getItemCoords(source);
-                    const dx = mousePos.x - coords.xEnd;
-                    const controlDist = Math.min(80, Math.abs(dx) / 2);
-                    const path = `M ${coords.xEnd} ${coords.y} C ${coords.xEnd + (dx > 0 ? controlDist : -controlDist)} ${coords.y}, ${mousePos.x + (dx > 0 ? -controlDist : controlDist)} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`;
-                    return (
-                      <path 
-                        d={path} 
-                        fill="none" 
-                        stroke="#3b82f6" 
-                        strokeWidth="1.5" 
-                        strokeDasharray="3 3" 
-                        markerEnd="url(#arrow-blue)" 
-                      />
-                    );
-                  })()
-                )}
               </svg>
-
-              {/* Floating HTML Delete Button at Midpoint */}
-              {hoveredConnection && (() => {
-                const [itemId, depId] = hoveredConnection.split('-');
-                const item = items.find(i => i.id === itemId);
-                const depItem = items.find(i => i.id === depId);
-                if (!item || !depItem) return null;
-                const toCoords = getItemCoords(item);
-                const fromCoords = getItemCoords(depItem);
-                
-                const overlapStart = Math.max(fromCoords.xStart, toCoords.xStart);
-                const overlapEnd = Math.min(fromCoords.xEnd, toCoords.xEnd);
-                const isOverlapping = fromCoords.y !== toCoords.y && overlapStart < overlapEnd;
-                
-                let xFrom, yFrom, xTo, yTo;
-
-                if (isOverlapping) {
-                  const overlapX = (overlapStart + overlapEnd) / 2;
-                  if (fromCoords.y < toCoords.y) {
-                    xFrom = overlapX; yFrom = fromCoords.y + 12;
-                    xTo = overlapX; yTo = toCoords.y - 12;
-                  } else {
-                    xFrom = overlapX; yFrom = fromCoords.y - 12;
-                    xTo = overlapX; yTo = toCoords.y + 12;
-                  }
-                } else if (fromCoords.xEnd <= toCoords.xStart) {
-                  xFrom = fromCoords.xEnd; yFrom = fromCoords.y;
-                  xTo = toCoords.xStart; yTo = toCoords.y;
-                } else {
-                  xFrom = fromCoords.xStart; yFrom = fromCoords.y;
-                  xTo = toCoords.xEnd; yTo = toCoords.y;
-                }
-
-                const mx = (xFrom + xTo) / 2;
-                const my = (yFrom + yTo) / 2;
-
-                return (
-                  <button
-                    style={{ 
-                      position: 'absolute', 
-                      left: mx - 8, 
-                      top: my - 8, 
-                      zIndex: 40,
-                      pointerEvents: 'auto'
-                    }}
-                    className="w-4.5 h-4.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow border border-white transition-transform active:scale-95 cursor-pointer animate-in fade-in zoom-in-75 duration-75 text-[10px]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      handleRemoveDependency(itemId, depId);
-                      setHoveredConnection(null);
-                    }}
-                    onMouseEnter={() => setHoveredConnection(hoveredConnection)}
-                    onMouseLeave={() => setHoveredConnection(null)}
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                );
-              })()}
 
               {/* Draggable Items */}
               {filteredItems.map(item => {
@@ -614,8 +345,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     rowHeight={ROW_HEIGHT}
                     containerWidth={containerWidth}
                     onEdit={onEditItem}
-                    onConnectionStart={handleConnectionStart}
-                    onConnectionEnd={handleConnectionEnd}
                   />
                 );
               })}
@@ -627,3 +356,4 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     </div>
   );
 }
+
