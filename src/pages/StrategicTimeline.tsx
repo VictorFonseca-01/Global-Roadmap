@@ -80,17 +80,17 @@ function StrategicTimelineInner() {
   return (
     <div className="h-screen w-screen bg-transparent flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Sidebar - Linear/Smartsheet style */}
-      <aside className="w-56 bg-slate-100/90 dark:bg-slate-950/45 backdrop-blur-md border-r border-slate-200 dark:border-white/5 flex flex-col py-3 shrink-0 z-20">
+      <aside className="w-44 bg-slate-100/90 dark:bg-slate-950/45 backdrop-blur-md border-r border-slate-200 dark:border-white/5 flex flex-col py-2 shrink-0 z-20">
         {/* Brand Logo */}
-        <div className="px-5 pb-4 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
-          <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm shadow">
+        <div className="px-3 pb-3 border-b border-slate-200 dark:border-white/5 flex items-center gap-1.5">
+          <div className="w-5.5 h-5.5 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs shadow">
             G
           </div>
-          <span className="font-extrabold text-[11px] tracking-widest text-slate-800 dark:text-slate-200">IT GOVERNANCE</span>
+          <span className="font-extrabold text-[9px] tracking-wider text-slate-800 dark:text-slate-200">IT GOVERNANCE</span>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2.5 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-1.5 py-3 space-y-0.5 overflow-y-auto">
           {[
             { id: 'timeline', label: 'Timeline Real (Gantt)', icon: GitFork },
             { id: 'dashboard', label: 'Dashboard Executivo', icon: LayoutDashboard },
@@ -99,7 +99,7 @@ function StrategicTimelineInner() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-semibold transition-all ${
                 activeTab === tab.id 
                   ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border-l-2 border-blue-600' 
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-slate-200'
@@ -112,11 +112,11 @@ function StrategicTimelineInner() {
         </nav>
 
         {/* User profile info */}
-        <div className="px-4 pt-3 border-t border-slate-200 dark:border-white/5 flex items-center gap-2.5">
-          <img className="w-7 h-7 rounded-full border border-slate-300 dark:border-white/10" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar" />
+        <div className="px-3 pt-2 border-t border-slate-200 dark:border-white/5 flex items-center gap-2">
+          <img className="w-6.5 h-6.5 rounded-full border border-slate-300 dark:border-white/10" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar" />
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">Victor Fonseca</p>
-            <p className="text-[8px] text-slate-400 truncate">IT Director</p>
+            <p className="text-[9px] font-bold text-slate-700 dark:text-slate-200 truncate">Victor Fonseca</p>
+            <p className="text-[7.5px] text-slate-400 truncate">IT Director</p>
           </div>
         </div>
       </aside>
@@ -124,9 +124,9 @@ function StrategicTimelineInner() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50/50 dark:bg-transparent">
         {/* Topbar Header */}
-        <header className="h-12 bg-white/60 dark:bg-slate-950/40 backdrop-blur-md border-b border-slate-200 dark:border-white/5 px-6 flex justify-between items-center shrink-0 z-10">
-          <div className="flex items-center gap-4">
-            <h1 className="text-sm font-bold tracking-tight text-slate-800 dark:text-slate-200">
+        <header className="h-10 bg-white/60 dark:bg-slate-950/40 backdrop-blur-md border-b border-slate-200 dark:border-white/5 px-4 flex justify-between items-center shrink-0 z-10">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xs font-bold tracking-tight text-slate-800 dark:text-slate-200">
               {activeTab === 'timeline' && 'Timeline Gantt - Governança de TI'}
               {activeTab === 'dashboard' && 'Dashboard Executivo - Ativos e Riscos'}
               {activeTab === 'reports' && 'Exportações e Relatórios de Compliance'}
@@ -134,46 +134,46 @@ function StrategicTimelineInner() {
             
             {activeTab === 'timeline' && (
               <>
-                <div className="h-4 w-px bg-slate-200 dark:bg-white/10" />
+                <div className="h-3.5 w-px bg-slate-200 dark:bg-white/10" />
                 {/* Year Navigator */}
-                <div className="flex items-center gap-1.5 bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10 rounded-lg p-0.5 backdrop-blur-sm">
-                  <button onClick={() => setYear(year - 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                <div className="flex items-center gap-1 bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10 rounded p-0.5 backdrop-blur-sm">
+                  <button onClick={() => setYear(year - 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft className="w-3 h-3" /></button>
                   <input 
                     type="number" 
                     value={year} 
                     onChange={handleYearChange}
-                    className="w-12 text-center font-bold text-xs text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none"
+                    className="w-10 text-center font-bold text-[11px] text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none"
                   />
-                  <button onClick={() => setYear(year + 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setYear(year + 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronRight className="w-3 h-3" /></button>
                 </div>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Theme Toggle */}
             <button 
               onClick={toggleTheme}
-              className="p-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-lg text-slate-600 dark:text-slate-300 transition-all"
+              className="p-1 border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded text-slate-600 dark:text-slate-300 transition-all"
             >
-              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
+              {theme === 'dark' ? <Sun className="w-3 h-3 text-amber-400" /> : <Moon className="w-3 h-3 text-blue-600" />}
             </button>
 
             {activeTab === 'timeline' && (
               <button 
                 onClick={handleCreateNewItem}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-bold transition-all text-[11px]"
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-bold transition-all text-[10px]"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 Nova Iniciativa
               </button>
             )}
 
             <button 
               onClick={() => setIsAIOpen(true)}
-              className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 dark:hover:bg-indigo-600/20 transition-all border border-indigo-200 dark:border-indigo-500/10 text-[11px]"
+              className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded font-bold hover:bg-indigo-100 dark:hover:bg-indigo-600/20 transition-all border border-indigo-200 dark:border-indigo-500/10 text-[10px]"
             >
-              <Bot className="w-3.5 h-3.5" />
+              <Bot className="w-3 h-3" />
               IA Gov Assistant
             </button>
           </div>

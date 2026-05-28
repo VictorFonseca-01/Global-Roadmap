@@ -4,7 +4,7 @@ import { TimelineItem } from './TimelineItem';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 import { Plus, Settings, X, Search, ZoomIn } from 'lucide-react';
 
-const ROW_HEIGHT = 38; // Linhas compactas para densidade extrema de informação (Project/Smartsheet style)
+const ROW_HEIGHT = 30; // Linhas compactas para densidade extrema de informação (Project/Smartsheet style)
 
 interface Props {
   onEditItem: (item: RoadmapItem) => void;
@@ -216,28 +216,28 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
   const columns = getTimelineColumns();
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden m-4 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 shadow-lg">
+    <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-950/80 border-t border-slate-200 dark:border-white/5">
       {/* Filtering Toolbar */}
-      <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-950/20">
-        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+      <div className="px-3 py-1.5 border-b border-slate-200 dark:border-white/5 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="flex items-center gap-1.5 flex-1 min-w-[180px]">
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Pesquisar iniciativa..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+              className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded pl-8 pr-2.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Toggle de Modo de Visão (Executivo vs Detalhado) */}
-          <div className="flex bg-slate-100 dark:bg-slate-950/40 p-0.5 rounded-lg border border-slate-200 dark:border-white/10 shrink-0">
+          <div className="flex bg-slate-100 dark:bg-slate-900/60 p-0.5 rounded border border-slate-200 dark:border-white/10 shrink-0">
             <button
               onClick={() => setViewMode('executive')}
-              className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors ${
                 viewMode === 'executive' 
                   ? 'bg-blue-600 text-white shadow-sm' 
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -247,7 +247,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
             </button>
             <button
               onClick={() => setViewMode('detailed')}
-              className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors ${
                 viewMode === 'detailed' 
                   ? 'bg-blue-600 text-white shadow-sm' 
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -258,12 +258,12 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           </div>
 
           {/* Zoom Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/10">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/60 px-1.5 py-1 rounded border border-slate-200 dark:border-white/10">
             <ZoomIn className="w-3.5 h-3.5 text-slate-500" />
             <select
               value={zoomLevel}
               onChange={e => setZoomLevel(e.target.value as ZoomLevel)}
-              className="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-slate-700 dark:text-slate-300"
+              className="bg-transparent border-0 text-[11px] font-semibold focus:outline-none cursor-pointer text-slate-700 dark:text-slate-300"
               disabled={viewMode === 'executive'}
             >
               <option value="week">Semanal</option>
@@ -277,7 +277,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+            className="bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer"
           >
             <option value="all">Status</option>
             <option value="on_track">No Prazo</option>
@@ -289,7 +289,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           <select
             value={priorityFilter}
             onChange={e => setPriorityFilter(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+            className="bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer"
           >
             <option value="all">Prioridade</option>
             <option value="low">Baixa</option>
@@ -302,7 +302,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+            className="bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer"
           >
             <option value="all">Categoria</option>
             {swimlanes.map(s => (
@@ -313,13 +313,13 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
       </div>
 
       {/* Header timeline */}
-      <div className="flex h-8 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20">
-        <div className="w-56 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-100/30 dark:bg-slate-950/40 flex items-center px-3 font-bold text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          Estrutura Governança (Categorias)
+      <div className="flex h-7 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="w-44 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-100/30 dark:bg-slate-950/40 flex items-center px-2 font-bold text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Categorias
         </div>
         <div className="flex-1 flex relative">
           {columns.map((col) => (
-            <div key={col} className="flex-1 border-r border-slate-200 dark:border-white/5 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+            <div key={col} className="flex-1 border-r border-slate-200 dark:border-white/5 flex items-center justify-center text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
               {col}
             </div>
           ))}
@@ -329,7 +329,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
       {/* Body */}
       <div className="flex-1 flex overflow-y-auto">
         {/* Left Sidebar (Swimlane Labels) */}
-        <div className="w-56 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20 backdrop-blur-md relative z-20 flex flex-col">
+        <div className="w-44 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20 backdrop-blur-md relative z-20 flex flex-col">
           {swimlanes.map((s) => {
             const laneItemsCount = items.filter(i => i.swimlaneId === s.id).length;
             return (
