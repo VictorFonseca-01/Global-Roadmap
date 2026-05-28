@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bot, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { RoadmapProvider, useRoadmap } from '../context/RoadmapContext';
 import { TimelineGrid } from '../components/TimelineGrid';
 import { ItemModal } from '../components/ItemModal';
@@ -8,7 +8,7 @@ import { AIAssistant } from '../components/AIAssistant';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 function StrategicTimelineInner() {
-  const { year, setYear } = useRoadmap();
+  const { year, setYear, addItem, swimlanes } = useRoadmap();
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
   const [editingCategory, setEditingCategory] = useState<Swimlane | null | undefined>(undefined);
@@ -16,6 +16,21 @@ function StrategicTimelineInner() {
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value);
     if (!isNaN(val)) setYear(val);
+  };
+
+  const handleCreateNewItem = () => {
+    if (swimlanes.length === 0) return;
+    const newItem: RoadmapItem = {
+      id: Date.now().toString(),
+      title: 'Novo Item',
+      color: swimlanes[0].color,
+      swimlaneId: swimlanes[0].id,
+      startPercentage: 10,
+      widthPercentage: 15,
+      dependsOn: []
+    };
+    addItem(newItem);
+    setEditingItem(newItem);
   };
 
   return (
@@ -49,13 +64,23 @@ function StrategicTimelineInner() {
             </div>
           </div>
 
-          <button 
-            onClick={() => setIsAIOpen(true)}
-            className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-bold hover:bg-indigo-100 transition-colors border border-indigo-200"
-          >
-            <Bot className="w-4 h-4" />
-            IA Assistant
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleCreateNewItem}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Item
+            </button>
+
+            <button 
+              onClick={() => setIsAIOpen(true)}
+              className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg font-bold hover:bg-indigo-100 transition-colors border border-indigo-200 text-sm"
+            >
+              <Bot className="w-4 h-4" />
+              IA Assistant
+            </button>
+          </div>
         </header>
 
         {/* Timeline Area */}

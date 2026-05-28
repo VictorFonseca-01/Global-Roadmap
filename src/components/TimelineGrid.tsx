@@ -174,7 +174,10 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
             {containerWidth > 0 && (
               <>
               {/* Connections SVG Layer */}
-              <svg className="absolute inset-0 pointer-events-none z-20 overflow-visible" style={{ width: '100%', height: swimlanes.length * ROW_HEIGHT }}>
+              <svg 
+                className="absolute inset-0 z-20 overflow-visible" 
+                style={{ pointerEvents: 'none', width: '100%', height: swimlanes.length * ROW_HEIGHT }}
+              >
                 <defs>
                   <marker
                     id="arrow-red"
@@ -224,8 +227,6 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     const isOverlapping = fromCoords.y !== toCoords.y && overlapStart < overlapEnd;
                     
                     let xFrom, yFrom, xTo, yTo;
-                    let path = '';
-                    let mx = 0, my = 0;
 
                     if (isOverlapping) {
                       // Case 3: Overlapping items in different swimlanes (connect top/bottom boundary vertically)
@@ -241,34 +242,24 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                         xTo = overlapX;
                         yTo = toCoords.y + 16;
                       }
-                      path = `M ${xFrom} ${yFrom} L ${xTo} ${yTo}`;
-                      mx = overlapX;
-                      my = (yFrom + yTo) / 2;
                     } else if (fromCoords.xEnd <= toCoords.xStart) {
                       // Case 1: Predecessor is completely to the left of Successor (Normal horizontal flow)
                       xFrom = fromCoords.xEnd;
                       yFrom = fromCoords.y;
                       xTo = toCoords.xStart;
                       yTo = toCoords.y;
-                      const dx = xTo - xFrom;
-                      const controlDist = Math.min(100, dx / 2);
-                      path = `M ${xFrom} ${yFrom} C ${xFrom + controlDist} ${yFrom}, ${xTo - controlDist} ${yTo}, ${xTo} ${yTo}`;
-                      
-                      mx = 0.125 * xFrom + 0.375 * (xFrom + controlDist) + 0.375 * (xTo - controlDist) + 0.125 * xTo;
-                      my = 0.125 * yFrom + 0.375 * yFrom + 0.375 * yTo + 0.125 * yTo;
                     } else {
                       // Case 2: Predecessor is completely to the right of Successor (Backward flow: connect left edge to right edge)
                       xFrom = fromCoords.xStart;
                       yFrom = fromCoords.y;
                       xTo = toCoords.xEnd;
                       yTo = toCoords.y;
-                      const dx = xFrom - xTo;
-                      const controlDist = Math.min(100, dx / 2);
-                      path = `M ${xFrom} ${yFrom} C ${xFrom - controlDist} ${yFrom}, ${xTo + controlDist} ${yTo}, ${xTo} ${yTo}`;
-                      
-                      mx = 0.125 * xFrom + 0.375 * (xFrom - controlDist) + 0.375 * (xTo + controlDist) + 0.125 * xTo;
-                      my = 0.125 * yFrom + 0.375 * yFrom + 0.375 * yTo + 0.125 * yTo;
                     }
+
+                    // Professional straight lines as in the original user photo
+                    const path = `M ${xFrom} ${yFrom} L ${xTo} ${yTo}`;
+                    const mx = (xFrom + xTo) / 2;
+                    const my = (yFrom + yTo) / 2;
 
                     const connId = `${item.id}-${depId}`;
                     const isHovered = hoveredConnection === connId;
@@ -276,7 +267,8 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     return (
                       <g 
                         key={connId} 
-                        className="pointer-events-auto group/conn"
+                        style={{ pointerEvents: 'auto' }}
+                        className="group/conn"
                         onMouseEnter={() => setHoveredConnection(connId)}
                         onMouseLeave={() => setHoveredConnection(null)}
                       >
@@ -325,9 +317,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     const source = items.find(i => i.id === connectingFrom);
                     if (!source) return null;
                     const coords = getItemCoords(source);
-                    const dx = mousePos.x - coords.xEnd;
-                    const controlDist = Math.min(100, Math.abs(dx) / 2);
-                    const path = `M ${coords.xEnd} ${coords.y} C ${coords.xEnd + (dx > 0 ? controlDist : -controlDist)} ${coords.y}, ${mousePos.x + (dx > 0 ? -controlDist : controlDist)} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`;
+                    const path = `M ${coords.xEnd} ${coords.y} L ${mousePos.x} ${mousePos.y}`;
                     return (
                       <path 
                         d={path} 
