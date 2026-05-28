@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export function ExecutivePresentation({ projectId }: { projectId?: string }) {
-  const { data: plansData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data: plansData, isLoading: _isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["migration-plans-infinite", projectId],
     queryFn: ({ pageParam = 0 }) => migrationPlanService.getPage({ limit: 500, offset: pageParam, filters: projectId ? { roadmap_project_id: projectId } : undefined }),
     initialPageParam: 0,
@@ -56,8 +56,6 @@ export function ExecutivePresentation({ projectId }: { projectId?: string }) {
 
   const today = new Date();
   const [simulatedDelays, setSimulatedDelays] = useState<Record<string, number>>({});
-
-  if (isLoading) return <div className="p-20 text-center animate-pulse font-black text-slate-300 uppercase tracking-widest">Gerando Relatório Executivo...</div>;
 
   // 1. Memoizar o cálculo de métricas consolidadas do Dashboard
   const {
