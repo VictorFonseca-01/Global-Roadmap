@@ -23,6 +23,9 @@ export function ItemModal({ item, onClose }: Props) {
   const [title, setTitle] = useState(item.title);
   const [color, setColor] = useState(item.color);
   const [swimlaneId, setSwimlaneId] = useState(item.swimlaneId);
+  const [startDate, setStartDate] = useState(item.startDate || '2026-01-01');
+  const [endDate, setEndDate] = useState(item.endDate || '2026-03-31');
+  const [isMilestone, setIsMilestone] = useState(item.isMilestone || false);
   const [progress, setProgress] = useState(item.progress || 0);
   const [status, setStatus] = useState<RoadmapItem['status']>(item.status || 'on_track');
   const [priority, setPriority] = useState<RoadmapItem['priority']>(item.priority || 'medium');
@@ -36,6 +39,9 @@ export function ItemModal({ item, onClose }: Props) {
     setTitle(item.title);
     setColor(item.color);
     setSwimlaneId(item.swimlaneId);
+    setStartDate(item.startDate || '2026-01-01');
+    setEndDate(item.endDate || '2026-03-31');
+    setIsMilestone(item.isMilestone || false);
     setProgress(item.progress || 0);
     setStatus(item.status || 'on_track');
     setPriority(item.priority || 'medium');
@@ -50,6 +56,9 @@ export function ItemModal({ item, onClose }: Props) {
       title, 
       color, 
       swimlaneId,
+      startDate,
+      endDate,
+      isMilestone,
       progress,
       status,
       priority,
@@ -113,6 +122,42 @@ export function ItemModal({ item, onClose }: Props) {
                 className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100 placeholder-slate-400"
                 placeholder="Ex: Migração Windows Server 2025"
               />
+            </div>
+
+            {/* Configurações Temporais Reais */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Data Início</label>
+                <input 
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Data Término</label>
+                <input 
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            {/* Checkbox de Milestone */}
+            <div className="flex items-center gap-2 px-1">
+              <input 
+                type="checkbox" 
+                id="isMilestoneCheckbox"
+                checked={isMilestone}
+                onChange={e => setIsMilestone(e.target.checked)}
+                className="rounded border-slate-300 dark:border-slate-850 text-blue-600 focus:ring-blue-500 h-4 w-4"
+              />
+              <label htmlFor="isMilestoneCheckbox" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                Definir como Milestone (Marco Diamond de entrega)
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

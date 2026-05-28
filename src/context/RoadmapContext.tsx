@@ -14,6 +14,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '1', 
     title: 'Migração Windows Server 2025', 
     swimlaneId: 'infrastructure', 
+    startDate: '2026-01-15',
+    endDate: '2026-04-15',
     startPercentage: 5, 
     widthPercentage: 25, 
     color: '#3b82f6', // Azul -> Em Produção / Upgrade Ativo
@@ -29,6 +31,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '2', 
     title: 'Descontinuação Windows Server 2012 R2', 
     swimlaneId: 'infrastructure', 
+    startDate: '2026-04-20',
+    endDate: '2026-07-01',
     startPercentage: 32, 
     widthPercentage: 20, 
     color: '#ef4444', // Vermelho -> EOL Crítico
@@ -44,6 +48,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '3', 
     title: 'Implementação Zero Trust Network Access', 
     swimlaneId: 'security', 
+    startDate: '2026-02-01',
+    endDate: '2026-06-30',
     startPercentage: 10, 
     widthPercentage: 40, 
     color: '#10b981', // Verde -> Suportado / Hardening
@@ -59,6 +65,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '4', 
     title: 'Auditoria de Compliance LGPD / RGPD', 
     swimlaneId: 'governance', 
+    startDate: '2026-07-15',
+    endDate: '2026-11-01',
     startPercentage: 55, 
     widthPercentage: 30, 
     color: '#a855f7', // Roxo -> Planejamento Estratégico
@@ -74,6 +82,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '5', 
     title: 'Descontinuação Banco Oracle 11g', 
     swimlaneId: 'lifecycle', 
+    startDate: '2026-05-01',
+    endDate: '2026-09-01',
     startPercentage: 40, 
     widthPercentage: 35, 
     color: '#ef4444', // Vermelho -> EOL Crítico
@@ -89,6 +99,8 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '6', 
     title: 'Estratégia Cloud Disaster Recovery (AWS)', 
     swimlaneId: 'cloud', 
+    startDate: '2026-03-01',
+    endDate: '2026-08-31',
     startPercentage: 20, 
     widthPercentage: 50, 
     color: '#eab308', // Amarelo -> Migração / Replicação Ativa

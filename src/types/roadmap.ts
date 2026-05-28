@@ -10,6 +10,8 @@ export interface RoadmapItem {
   id: string;
   title: string;
   swimlaneId: string;
+  startDate: string; // ISO string 'YYYY-MM-DD'
+  endDate: string; // ISO string 'YYYY-MM-DD'
   startPercentage: number;
   widthPercentage: number;
   color: string;
@@ -20,6 +22,7 @@ export interface RoadmapItem {
   ownerName: string;
   ownerAvatar: string;
   description?: string;
+  isMilestone?: boolean;
 }
 
 export interface RoadmapData {

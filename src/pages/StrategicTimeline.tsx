@@ -51,6 +51,8 @@ function StrategicTimelineInner() {
       title: 'Nova Iniciativa de Migração',
       color: '#3b82f6',
       swimlaneId: swimlanes[0].id,
+      startDate: `${year}-01-01`,
+      endDate: `${year}-03-31`,
       startPercentage: 15,
       widthPercentage: 20,
       dependsOn: [],

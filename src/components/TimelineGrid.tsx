@@ -11,10 +11,10 @@ interface Props {
   onEditCategory: (swimlane: Swimlane | null) => void;
 }
 
-type ZoomLevel = 'month' | 'quarter' | 'year';
+type ZoomLevel = 'week' | 'month' | 'quarter' | 'year';
 
 export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
-  const { swimlanes, items, updateItem } = useRoadmap();
+  const { swimlanes, items, updateItem, year } = useRoadmap();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('month');
@@ -78,22 +78,66 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     if (item) {
       updateItem(itemId, { dependsOn: item.dependsOn.filter(id => id !== depId) });
     }
+  };  // Controla o modo de visualização executivo vs detalhado
+  const [viewMode, setViewMode] = useState<'executive' | 'detailed'>('detailed');
+
+  // Adicionar manipulador de Ctrl + Scroll para Zoom no container
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const directions: ZoomLevel[] = ['year', 'quarter', 'month', 'week'];
+        const currentIndex = directions.indexOf(zoomLevel);
+        if (e.deltaY < 0 && currentIndex < directions.length - 1) {
+          setZoomLevel(directions[currentIndex + 1]);
+        } else if (e.deltaY > 0 && currentIndex > 0) {
+          setZoomLevel(directions[currentIndex - 1]);
+        }
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [zoomLevel]);
+
+  // Conversão de data real em percentual horizontal dentro do ano de visualização
+  const getDatePercentage = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return 0;
+      const start = new Date(year, 0, 1).getTime();
+      const end = new Date(year, 11, 31).getTime();
+      const target = date.getTime();
+      if (target <= start) return 0;
+      if (target >= end) return 100;
+      return ((target - start) / (end - start)) * 100;
+    } catch {
+      return 0;
+    }
   };
 
   const getItemCoords = (item: RoadmapItem) => {
     const sIndex = swimlanes.findIndex(s => s.id === item.swimlaneId);
+    
+    // Obter posições baseadas em datas reais se existirem, senão usar porcentagens antigas
+    const xStartPct = item.startDate ? getDatePercentage(item.startDate) : item.startPercentage;
+    const xEndPct = item.endDate ? getDatePercentage(item.endDate) : (item.startPercentage + item.widthPercentage);
+    
+    const xStart = (xStartPct / 100) * containerWidth;
+    const xEnd = (xEndPct / 100) * containerWidth;
+
     return {
-      xStart: (item.startPercentage / 100) * containerWidth,
-      xEnd: ((item.startPercentage + item.widthPercentage) / 100) * containerWidth,
+      xStart,
+      xEnd,
       y: sIndex * ROW_HEIGHT + ROW_HEIGHT / 2
     };
   };
 
   const getTodayPercentage = () => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const start = new Date(currentYear, 0, 1).getTime();
-    const end = new Date(currentYear, 11, 31).getTime();
+    const start = new Date(year, 0, 1).getTime();
+    const end = new Date(year, 11, 31).getTime();
     const today = now.getTime();
     if (today < start) return 0;
     if (today > end) return 100;
@@ -110,8 +154,14 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
   });
 
-  // Geração de colunas conforme o nível de Zoom
+  // Geração de colunas conforme o nível de Zoom e Modo de Visão (Executivo vs Detalhado)
   const getTimelineColumns = () => {
+    if (viewMode === 'executive') {
+      return ['1º Semestre (H1)', '2º Semestre (H2)'];
+    }
+    if (zoomLevel === 'week') {
+      return Array.from({ length: 52 }, (_, i) => `Semana ${i + 1}`);
+    }
     if (zoomLevel === 'quarter') {
       return ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
     }
@@ -141,6 +191,30 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Toggle de Modo de Visão (Executivo vs Detalhado) */}
+          <div className="flex bg-slate-100 dark:bg-slate-950/40 p-0.5 rounded-lg border border-slate-200 dark:border-white/10 shrink-0">
+            <button
+              onClick={() => setViewMode('executive')}
+              className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
+                viewMode === 'executive' 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Executivo
+            </button>
+            <button
+              onClick={() => setViewMode('detailed')}
+              className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
+                viewMode === 'detailed' 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              Detalhado
+            </button>
+          </div>
+
           {/* Zoom Selector */}
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/10">
             <ZoomIn className="w-3.5 h-3.5 text-slate-500" />
@@ -148,7 +222,9 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
               value={zoomLevel}
               onChange={e => setZoomLevel(e.target.value as ZoomLevel)}
               className="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-slate-700 dark:text-slate-300"
+              disabled={viewMode === 'executive'}
             >
+              <option value="week">Semanal</option>
               <option value="month">Mensal</option>
               <option value="quarter">Trimestral</option>
               <option value="year">Anual</option>
