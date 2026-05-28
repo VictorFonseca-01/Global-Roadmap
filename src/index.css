@@ -1,88 +1,100 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
-:root {
-  /* LIGHT MODE (Default) */
-  --background: #f8fafc;
-  --bg-gradient: radial-gradient(circle at top right, #f1f5f9, #f8fafc 60%);
-  --foreground: #0f172a;
-  
-  --card-bg: #ffffff;
-  --border-color: #cbd5e1;
-  --text-muted: #64748b;
-  --input-bg: #ffffff;
-  --input-text: #0f172a;
-  --input-border: #cbd5e1;
-  --text-inverse: #ffffff;
-  
-  --accent: #4f46e5;
-  --accent-glow: rgba(79, 70, 229, 0.15);
-  --shadow-glow: 0 4px 20px rgba(79, 70, 229, 0.1);
 
-  --radius-premium: 16px;
-  --radius-sm: 8px;
+:root {
+  /* LIGHT MODE (Default) - Paleta de Governança Executiva Sóbria */
+  --bg: #f8fafc;
+  --bg-gradient: radial-gradient(circle at top right, #f1f5f9, #f8fafc 60%);
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-input: #ffffff;
+  --border: #e2e8f0;
+  --border-focus: #3b82f6;
+  --accent: #2563eb;
+  --accent-light: #60a5fa;
+  --accent-glow: rgba(37, 99, 235, 0.05);
+
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  
+  --radius: 12px;
+  --radius-sm: 6px;
+  --glass: blur(12px) saturate(140%);
+  --shadow-glow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .dark {
-  /* DARK MODE */
-  --background: #030305;
-  --bg-gradient: radial-gradient(circle at top right, #131326, #030305 60%);
-  --foreground: #f8fafc;
-  
-  --card-bg: rgba(15, 23, 42, 0.6);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --text-muted: #94a3b8;
-  --input-bg: rgba(15, 23, 42, 0.8);
-  --input-text: #f8fafc;
-  --input-border: rgba(255, 255, 255, 0.15);
-  --text-inverse: #0f172a;
+  /* DARK MODE - Alta densidade, Navy/Graphite profundo de Elite */
+  --bg: #0b0f19;
+  --bg-gradient: radial-gradient(circle at top right, #111827, #0b0f19 75%);
+  --bg-card: rgba(17, 24, 39, 0.7);
+  --bg-input: rgba(10, 15, 26, 0.8);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-focus: #3b82f6;
+  --accent: #3b82f6;
+  --accent-light: #93c5fd;
+  --accent-glow: rgba(59, 130, 246, 0.08);
 
-  --accent: #6366f1;
-  --accent-glow: rgba(99, 102, 241, 0.15);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.2);
+  --text: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+
+  --radius: 12px;
+  --radius-sm: 6px;
+  --glass: blur(12px) saturate(160%);
+  --shadow-glow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
   body {
     background: var(--bg-gradient);
-    color: var(--foreground);
-    font-family: 'Inter', sans-serif;
-    transition: background 0.3s ease, color 0.3s ease;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: background 0.2s ease, color 0.2s ease;
+    overflow: hidden;
   }
   
   input, select, textarea {
-    background-color: var(--input-bg) !important;
-    color: var(--input-text) !important;
-    border-color: var(--input-border) !important;
+    background-color: var(--bg-input) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
   }
 
   input::placeholder, textarea::placeholder {
-    color: var(--text-muted) !important;
-    opacity: 0.6;
+    color: var(--text-dim) !important;
+    opacity: 0.8;
   }
 }
 
-/* PREMIUM UX UTILITIES */
-.hover-lift {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+/* Custom Scrollbar - Fina e Discreta para Alta Densidade */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-.hover-lift:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: var(--shadow-glow);
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-.gradient-text {
-  background: linear-gradient(270deg, var(--accent), #f43f5e, #10b981, var(--accent));
-  background-size: 300% 300%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientShift 8s ease infinite;
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.4);
 }
 
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* Micro interações elegantes */
+.hover-row {
+  transition: background-color 0.15s ease;
+}
+.hover-row:hover {
+  background-color: rgba(59, 130, 246, 0.03) !important;
 }

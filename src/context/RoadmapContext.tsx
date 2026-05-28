@@ -2,14 +2,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 const DEFAULT_SWIMLANES: Swimlane[] = [
-  { id: 'infrastructure', title: 'INFRASTRUCTURE', color: '#3b82f6', description: 'Core server and hardware systems', icon: 'Server' },
-  { id: 'security', title: 'SECURITY & COMPLIANCE', color: '#ef4444', description: 'Security hardening and RLS policies', icon: 'ShieldAlert' },
-  { id: 'mobile', title: 'MOBILE APP', color: '#eab308', description: 'iOS and Android client apps', icon: 'Smartphone' },
-  { id: 'ai_systems', title: 'AI SYSTEMS', color: '#a855f7', description: 'AI-driven monitoring and intelligence', icon: 'Cpu' },
-  { id: 'governance', title: 'GOVERNANCE', color: '#10b981', description: 'IT Governance, legal, audit and controls', icon: 'Layers' },
-  { id: 'cloud', title: 'CLOUD', color: '#06b6d4', description: 'Kubernetes and multi-cloud platforms', icon: 'Cloud' },
-  { id: 'help_desk', title: 'HELP DESK', color: '#6366f1', description: 'Support platforms and portal development', icon: 'Headphones' },
-  { id: 'web_platform', title: 'WEB PLATFORM', color: '#ec4899', description: 'Public site and web apps', icon: 'Globe' },
+  { id: 'infrastructure', title: 'INFRASTRUCTURE & SERVERS', color: '#3b82f6', description: 'Lifecycle, hardware and OS upgrade timelines', icon: 'Server' },
+  { id: 'security', title: 'CYBERSECURITY & RISK', color: '#ef4444', description: 'Zero Trust, audits, compliance and SOC hardening', icon: 'ShieldAlert' },
+  { id: 'governance', title: 'GOVERNANCE & COMPLIANCE', color: '#10b981', description: 'LGPD, SOC2 audit, policies and operational controls', icon: 'Layers' },
+  { id: 'cloud', title: 'CLOUD & HYBRID ENVIRONMENTS', color: '#06b6d4', description: 'Kubernetes, cloud migration and multi-region failovers', icon: 'Cloud' },
+  { id: 'lifecycle', title: 'APPLICATION LIFECYCLE (EOL)', color: '#a855f7', description: 'Database and legacy software deprecation roadmaps', icon: 'Cpu' },
 ];
 
 const DEFAULT_ITEMS: RoadmapItem[] = [
@@ -17,91 +14,91 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
     id: '1', 
     title: 'Migração Windows Server 2025', 
     swimlaneId: 'infrastructure', 
-    startPercentage: 10, 
+    startPercentage: 5, 
     widthPercentage: 25, 
-    color: '#3b82f6', 
+    color: '#3b82f6', // Azul -> Em Produção / Upgrade Ativo
     dependsOn: [], 
-    progress: 75, 
+    progress: 85, 
     status: 'on_track', 
     priority: 'high', 
     ownerName: 'Sarah Jenkins', 
     ownerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    description: 'Migração de servidores core corporativos para a versão 2025.'
+    description: 'Upgrade dos servidores centrais AD e arquivos corporativos para a versão 2025.'
   },
   { 
     id: '2', 
     title: 'Descontinuação Windows Server 2012 R2', 
     swimlaneId: 'infrastructure', 
-    startPercentage: 40, 
-    widthPercentage: 30, 
-    color: '#f43f5e', 
+    startPercentage: 32, 
+    widthPercentage: 20, 
+    color: '#ef4444', // Vermelho -> EOL Crítico
     dependsOn: ['1'], 
-    progress: 20, 
+    progress: 10, 
     status: 'at_risk', 
     priority: 'critical', 
     ownerName: 'Sarah Jenkins', 
     ownerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    description: 'Remoção definitiva de instâncias obsoletas pós-migração.'
+    description: 'Remoção definitiva e descarte de servidores core antigos em final de suporte.'
   },
   { 
     id: '3', 
-    title: 'Implementação Zero Trust', 
+    title: 'Implementação Zero Trust Network Access', 
     swimlaneId: 'security', 
-    startPercentage: 15, 
-    widthPercentage: 45, 
-    color: '#10b981', 
+    startPercentage: 10, 
+    widthPercentage: 40, 
+    color: '#10b981', // Verde -> Suportado / Hardening
     dependsOn: [], 
-    progress: 45, 
+    progress: 60, 
     status: 'on_track', 
     priority: 'critical', 
     ownerName: 'Alex Rivers', 
     ownerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-    description: 'Arquitetura baseada em verificação contínua e privilégio mínimo.'
+    description: 'Eliminação da VPN corporativa legada, migrando para acesso verificado contínuo.'
   },
   { 
     id: '4', 
-    title: 'SOC Deployment', 
-    swimlaneId: 'security', 
-    startPercentage: 65, 
-    widthPercentage: 25, 
-    color: '#ef4444', 
+    title: 'Auditoria de Compliance LGPD / RGPD', 
+    swimlaneId: 'governance', 
+    startPercentage: 55, 
+    widthPercentage: 30, 
+    color: '#a855f7', // Roxo -> Planejamento Estratégico
     dependsOn: ['3'], 
     progress: 5, 
-    status: 'delayed', 
-    priority: 'high', 
-    ownerName: 'Alex Rivers', 
-    ownerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-    description: 'Implantação completa do Security Operations Center integrado.'
+    status: 'on_track', 
+    priority: 'medium', 
+    ownerName: 'Marcus Brody', 
+    ownerAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    description: 'Mapeamento de inventário de dados sensíveis e auditoria de RLS policies em produção.'
   },
   { 
     id: '5', 
-    title: 'Kubernetes Infrastructure', 
-    swimlaneId: 'cloud', 
-    startPercentage: 20, 
+    title: 'Descontinuação Banco Oracle 11g', 
+    swimlaneId: 'lifecycle', 
+    startPercentage: 40, 
     widthPercentage: 35, 
-    color: '#06b6d4', 
+    color: '#ef4444', // Vermelho -> EOL Crítico
     dependsOn: [], 
-    progress: 90, 
-    status: 'on_track', 
+    progress: 40, 
+    status: 'delayed', 
     priority: 'high', 
     ownerName: 'Daniel Vance', 
     ownerAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-    description: 'Implantação dos clusters principais para microsserviços.'
+    description: 'Migração de sistemas satélite legados do Oracle Database 11g para Postgres AWS RDS.'
   },
   { 
     id: '6', 
-    title: 'Plataforma IA de Monitoramento', 
-    swimlaneId: 'ai_systems', 
-    startPercentage: 30, 
-    widthPercentage: 40, 
-    color: '#a855f7', 
-    dependsOn: ['5'], 
+    title: 'Estratégia Cloud Disaster Recovery (AWS)', 
+    swimlaneId: 'cloud', 
+    startPercentage: 20, 
+    widthPercentage: 50, 
+    color: '#eab308', // Amarelo -> Migração / Replicação Ativa
+    dependsOn: [], 
     progress: 50, 
     status: 'on_track', 
-    priority: 'medium', 
+    priority: 'high', 
     ownerName: 'Elena Rostova', 
     ownerAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    description: 'Análise de métricas e alertas baseada em modelos inteligentes.'
+    description: 'Configuração e teste anual de Disaster Recovery multi-região para o core bancário.'
   },
 ];
 

@@ -8,14 +8,10 @@ import {
   Moon,
   LayoutDashboard,
   GitFork,
-  Shield,
-  Layers,
   BarChart3,
-  Settings,
-  AlertTriangle,
-  FolderKanban,
-  Milestone,
-  TrendingUp
+  FileSpreadsheet,
+  FileText,
+  FileDown
 } from 'lucide-react';
 import { RoadmapProvider, useRoadmap } from '../context/RoadmapContext';
 import { TimelineGrid } from '../components/TimelineGrid';
@@ -26,15 +22,19 @@ import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 function StrategicTimelineInner() {
   const { year, setYear, addItem, swimlanes, items, theme, toggleTheme } = useRoadmap();
+  const [activeTab, setActiveTab] = useState<'timeline' | 'dashboard' | 'reports'>('timeline');
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
   const [editingCategory, setEditingCategory] = useState<Swimlane | null | undefined>(undefined);
 
   // KPI Calculations
   const totalRoadmaps = items.length;
-  const totalCategories = swimlanes.length;
-  const milestonesCount = items.filter(i => i.status === 'on_track').length;
-  const criticalCount = items.filter(i => i.status === 'delayed' || i.priority === 'critical').length;
+  
+  // KPIs de Governança Real (Project/Smartsheet style)
+  const eolCriticalCount = items.filter(i => i.color === '#ef4444').length; // Vermelho -> EOL Crítico
+  const activeMigrations = items.filter(i => i.color === '#eab308' || i.color === '#3b82f6').length; // Amarelo/Azul -> Migração/Produção Ativa
+  const supportedAssets = items.filter(i => i.color === '#10b981').length; // Verde -> Suportado
+  
   const avgProgress = totalRoadmaps > 0 
     ? Math.round(items.reduce((acc, i) => acc + i.progress, 0) / totalRoadmaps) 
     : 0;
@@ -48,11 +48,11 @@ function StrategicTimelineInner() {
     if (swimlanes.length === 0) return;
     const newItem: RoadmapItem = {
       id: Date.now().toString(),
-      title: 'Novo Roadmap Item',
-      color: swimlanes[0].color,
+      title: 'Nova Iniciativa de Migração',
+      color: '#3b82f6',
       swimlaneId: swimlanes[0].id,
-      startPercentage: 10,
-      widthPercentage: 15,
+      startPercentage: 15,
+      widthPercentage: 20,
       dependsOn: [],
       progress: 0,
       status: 'on_track',
@@ -65,134 +65,273 @@ function StrategicTimelineInner() {
     setEditingItem(newItem);
   };
 
+  // Simulação de exportações executivas
+  const triggerExport = (type: 'pdf' | 'excel' | 'powerpoint') => {
+    const messages = {
+      pdf: 'Relatório Executivo PDF gerado e pronto para download corporativo.',
+      excel: 'Planilha de Roadmap Excel (Smartsheet format) exportada com sucesso.',
+      powerpoint: 'Apresentação PowerPoint de Governança Estratégica gerada com sucesso.'
+    };
+    alert(messages[type]);
+  };
+
   return (
     <div className="h-screen w-screen bg-transparent flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      {/* Sidebar - Linear/Plane style */}
-      <aside className="w-60 bg-slate-100/80 dark:bg-slate-950/40 backdrop-blur-lg border-r border-slate-200 dark:border-white/5 flex flex-col py-4 shrink-0 z-20">
+      {/* Sidebar - Linear/Smartsheet style */}
+      <aside className="w-56 bg-slate-100/90 dark:bg-slate-950/45 backdrop-blur-md border-r border-slate-200 dark:border-white/5 flex flex-col py-3 shrink-0 z-20">
         {/* Brand Logo */}
-        <div className="px-6 pb-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-500/20">
-            Ω
+        <div className="px-5 pb-4 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+          <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm shadow">
+            G
           </div>
-          <span className="font-extrabold text-sm tracking-widest text-slate-800 dark:text-slate-200">GLOBAL ROADMAP</span>
+          <span className="font-extrabold text-[11px] tracking-widest text-slate-800 dark:text-slate-200">IT GOVERNANCE</span>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-4 space-y-1 overflow-y-auto">
           {[
-            { label: 'Dashboard', icon: LayoutDashboard },
-            { label: 'Roadmaps', icon: GitFork, active: true },
-            { label: 'Governança', icon: Layers },
-            { label: 'Segurança', icon: Shield },
-            { label: 'Relatórios', icon: BarChart3 },
-            { label: 'Configurações', icon: Settings },
-          ].map((item, idx) => (
+            { id: 'timeline', label: 'Timeline Real (Gantt)', icon: GitFork },
+            { id: 'dashboard', label: 'Dashboard Executivo', icon: LayoutDashboard },
+            { id: 'reports', label: 'Relatórios & EOL', icon: BarChart3 },
+          ].map((tab) => (
             <button
-              key={idx}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                item.active 
-                  ? 'bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border-l-4 border-indigo-600' 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === tab.id 
+                  ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border-l-2 border-blue-600' 
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
             </button>
           ))}
         </nav>
 
-        {/* Bottom profile / placeholder */}
-        <div className="px-6 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center gap-3">
-          <img className="w-8 h-8 rounded-full border border-slate-300 dark:border-white/10" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar" />
+        {/* User profile info */}
+        <div className="px-4 pt-3 border-t border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+          <img className="w-7 h-7 rounded-full border border-slate-300 dark:border-white/10" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">Victor Fonseca</p>
-            <p className="text-[10px] text-slate-400 truncate">Administrator</p>
+            <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">Victor Fonseca</p>
+            <p className="text-[8px] text-slate-400 truncate">IT Director</p>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50/50 dark:bg-transparent">
-        {/* Header */}
-        <header className="h-16 bg-white/40 dark:bg-slate-950/40 backdrop-blur-lg border-b border-slate-200 dark:border-white/5 px-6 flex justify-between items-center shrink-0 z-10">
+        {/* Topbar Header */}
+        <header className="h-12 bg-white/60 dark:bg-slate-950/40 backdrop-blur-md border-b border-slate-200 dark:border-white/5 px-6 flex justify-between items-center shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-indigo-200 dark:via-slate-100 dark:to-indigo-200 bg-clip-text text-transparent">
-              Strategic Roadmaps
+            <h1 className="text-sm font-bold tracking-tight text-slate-800 dark:text-slate-200">
+              {activeTab === 'timeline' && 'Timeline Gantt - Governança de TI'}
+              {activeTab === 'dashboard' && 'Dashboard Executivo - Ativos e Riscos'}
+              {activeTab === 'reports' && 'Exportações e Relatórios de Compliance'}
             </h1>
             
-            <div className="h-5 w-px bg-slate-200 dark:bg-white/10 mx-2" />
-            
-            {/* Year Navigator */}
-            <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10 rounded-xl p-1 backdrop-blur-sm">
-              <button onClick={() => setYear(year - 1)} className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"><ChevronLeft className="w-4 h-4" /></button>
-              <input 
-                type="number" 
-                value={year} 
-                onChange={handleYearChange}
-                className="w-16 text-center font-bold text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none"
-              />
-              <button onClick={() => setYear(year + 1)} className="p-1 hover:bg-white dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"><ChevronRight className="w-4 h-4" /></button>
-            </div>
+            {activeTab === 'timeline' && (
+              <>
+                <div className="h-4 w-px bg-slate-200 dark:bg-white/10" />
+                {/* Year Navigator */}
+                <div className="flex items-center gap-1.5 bg-slate-200/50 dark:bg-white/5 border border-slate-300/50 dark:border-white/10 rounded-lg p-0.5 backdrop-blur-sm">
+                  <button onClick={() => setYear(year - 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                  <input 
+                    type="number" 
+                    value={year} 
+                    onChange={handleYearChange}
+                    className="w-12 text-center font-bold text-xs text-slate-800 dark:text-slate-200 bg-transparent border-none focus:outline-none"
+                  />
+                  <button onClick={() => setYear(year + 1)} className="p-0.5 hover:bg-white dark:hover:bg-white/10 rounded text-slate-600 dark:text-slate-400 transition-all"><ChevronRight className="w-3.5 h-3.5" /></button>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Theme Toggle */}
             <button 
               onClick={toggleTheme}
-              className="p-2 border border-slate-300 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-xl text-slate-600 dark:text-slate-300 transition-all"
+              className="p-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-lg text-slate-600 dark:text-slate-300 transition-all"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
             </button>
 
-            <button 
-              onClick={handleCreateNewItem}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md shadow-blue-500/10 text-xs"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Item
-            </button>
+            {activeTab === 'timeline' && (
+              <button 
+                onClick={handleCreateNewItem}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-bold transition-all text-[11px]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Nova Iniciativa
+              </button>
+            )}
 
             <button 
               onClick={() => setIsAIOpen(true)}
-              className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-indigo-600/20 transition-all border border-indigo-200 dark:border-indigo-500/10 text-xs"
+              className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 dark:hover:bg-indigo-600/20 transition-all border border-indigo-200 dark:border-indigo-500/10 text-[11px]"
             >
-              <Bot className="w-4 h-4" />
-              IA Assistant
+              <Bot className="w-3.5 h-3.5" />
+              IA Gov Assistant
             </button>
           </div>
         </header>
 
-        {/* Dashboard KPIs Bar */}
-        <div className="px-6 py-4 grid grid-cols-5 gap-4 shrink-0">
-          {[
-            { label: 'Categorias Ativas', value: totalCategories, icon: FolderKanban, color: 'text-indigo-500' },
-            { label: 'Total Roadmaps', value: totalRoadmaps, icon: GitFork, color: 'text-blue-500' },
-            { label: 'Milestones (Ok)', value: milestonesCount, icon: Milestone, color: 'text-emerald-500' },
-            { label: 'Progresso Geral', value: `${avgProgress}%`, icon: TrendingUp, color: 'text-cyan-500' },
-            { label: 'Itens Críticos', value: criticalCount, icon: AlertTriangle, color: 'text-rose-500' },
-          ].map((kpi, idx) => (
-            <div 
-              key={idx} 
-              className="p-4 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-white/5 shadow-sm flex items-center justify-between transition-all hover:scale-[1.01] hover:border-slate-300 dark:hover:border-white/10"
-            >
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{kpi.label}</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">{kpi.value}</p>
+        {/* Tab CONTENT 1: TIMELINE */}
+        {activeTab === 'timeline' && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <TimelineGrid 
+              onEditItem={setEditingItem} 
+              onEditCategory={setEditingCategory}
+            />
+          </div>
+        )}
+
+        {/* Tab CONTENT 2: DASHBOARD EXECUTIVO */}
+        {activeTab === 'dashboard' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* KPIs de Governança Real */}
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ativos Críticos / EOL</p>
+                <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">{eolCriticalCount}</p>
+                <span className="text-[9px] text-slate-400">Servidores ou bancos obsoletos</span>
               </div>
-              <div className={`p-2.5 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 ${kpi.color}`}>
-                <kpi.icon className="w-4 h-4" />
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Migrações Ativas</p>
+                <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">{activeMigrations}</p>
+                <span className="text-[9px] text-slate-400 font-medium">Projetos em upgrade</span>
+              </div>
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sistemas Suportados</p>
+                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">{supportedAssets}</p>
+                <span className="text-[9px] text-slate-400">Compliance Zero Trust ativo</span>
+              </div>
+              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Progresso Geral</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-slate-200 mt-1">{avgProgress}%</p>
+                <span className="text-[9px] text-slate-400">Percentual de conclusão médio</span>
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Timeline Area */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <TimelineGrid 
-            onEditItem={setEditingItem} 
-            onEditCategory={setEditingCategory}
-          />
-        </div>
+            {/* Visualização de Resumo e Lifecycle */}
+            <div className="grid grid-cols-3 gap-6">
+              <div className="col-span-2 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Status das Iniciativas de Infraestrutura</h3>
+                <div className="space-y-3">
+                  {items.map(item => (
+                    <div key={item.id} className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-white/5 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">{item.title}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-slate-500">{item.progress}% concluído</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          item.status === 'on_track' ? 'bg-emerald-500/10 text-emerald-500' :
+                          item.status === 'at_risk' ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'
+                        }`}>{item.status.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Ambientes em Risco / EOL</h3>
+                <div className="space-y-3.5">
+                  <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/20">
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">Windows Server 2012 R2</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Fim de Suporte Estendido atingido. Risco de Segurança Alto.</p>
+                  </div>
+                  <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/20">
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">Banco Oracle 11g</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Descontinuação pendente. Migração atrasada para Postgres RDS.</p>
+                  </div>
+                  <div className="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Zero Trust AD hardening</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Controle de acessos e VPNs finalizado e homologado.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab CONTENT 3: RELATÓRIOS */}
+        {activeTab === 'reports' && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Centro de Exportação de Governança</h2>
+              <p className="text-xs text-slate-500">Exporte timelines consolidadas e roadmaps de conformidade de infraestrutura para apresentação executiva (PMO/Diretoria).</p>
+              
+              <div className="grid grid-cols-3 gap-4 pt-2">
+                <button 
+                  onClick={() => triggerExport('pdf')}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-white/5 hover:border-blue-500 dark:hover:border-blue-500 flex flex-col items-center justify-center gap-2 text-slate-700 dark:text-slate-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/10 transition-all font-semibold"
+                >
+                  <FileText className="w-8 h-8 text-rose-500" />
+                  <span className="text-xs">PDF Executivo do Roadmap</span>
+                </button>
+                
+                <button 
+                  onClick={() => triggerExport('excel')}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-white/5 hover:border-blue-500 dark:hover:border-blue-500 flex flex-col items-center justify-center gap-2 text-slate-700 dark:text-slate-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/10 transition-all font-semibold"
+                >
+                  <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
+                  <span className="text-xs">Planilha Excel (Smartsheet)</span>
+                </button>
+                
+                <button 
+                  onClick={() => triggerExport('powerpoint')}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-white/5 hover:border-blue-500 dark:hover:border-blue-500 flex flex-col items-center justify-center gap-2 text-slate-700 dark:text-slate-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/10 transition-all font-semibold"
+                >
+                  <FileDown className="w-8 h-8 text-orange-500" />
+                  <span className="text-xs">Apresentação PowerPoint (.pptx)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Relatório de Lifecycle e EOL */}
+            <div className="p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 shadow-sm space-y-4">
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Inventário de Ciclo de Vida do Ativos</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-white/10 text-slate-500 uppercase tracking-wider text-[10px]">
+                      <th className="py-2.5">Ativo / Iniciativa</th>
+                      <th className="py-2.5">Lifecycle Stage</th>
+                      <th className="py-2.5">Responsável</th>
+                      <th className="py-2.5">Criticidade</th>
+                      <th className="py-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {items.map(item => (
+                      <tr key={item.id} className="text-slate-700 dark:text-slate-300">
+                        <td className="py-3 font-semibold">{item.title}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            item.color === '#ef4444' ? 'bg-rose-500/10 text-rose-500' :
+                            item.color === '#eab308' ? 'bg-amber-500/10 text-amber-500' :
+                            item.color === '#3b82f6' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'
+                          }`}>
+                            {item.color === '#ef4444' ? 'Depreciado / EOL' :
+                             item.color === '#eab308' ? 'Em Migração' :
+                             item.color === '#3b82f6' ? 'Em Produção' : 'Suportado'}
+                          </span>
+                        </td>
+                        <td className="py-3">{item.ownerName}</td>
+                        <td className="py-3 font-mono uppercase font-semibold">{item.priority}</td>
+                        <td className="py-3 font-medium">{item.status.replace('_', ' ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Modals & Overlays */}
@@ -220,3 +359,4 @@ export default function StrategicTimeline() {
     </RoadmapProvider>
   );
 }
+

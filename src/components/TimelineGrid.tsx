@@ -2,20 +2,22 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useRoadmap } from '../context/RoadmapContext';
 import { TimelineItem } from './TimelineItem';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
-import { Plus, Settings, X, Search, Filter, Calendar } from 'lucide-react';
+import { Plus, Settings, X, Search, ZoomIn } from 'lucide-react';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const ROW_HEIGHT = 72; // taller rows for enterprise metadata
+const ROW_HEIGHT = 38; // Linhas compactas para densidade extrema de informação (Project/Smartsheet style)
 
 interface Props {
   onEditItem: (item: RoadmapItem) => void;
   onEditCategory: (swimlane: Swimlane | null) => void;
 }
 
+type ZoomLevel = 'month' | 'quarter' | 'year';
+
 export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
   const { swimlanes, items, updateItem } = useRoadmap();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('month');
   
   // Connection dragging state
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
@@ -108,59 +110,83 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
   });
 
+  // Geração de colunas conforme o nível de Zoom
+  const getTimelineColumns = () => {
+    if (zoomLevel === 'quarter') {
+      return ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+    }
+    if (zoomLevel === 'year') {
+      return ['1º Semestre (H1)', '2º Semestre (H2)'];
+    }
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  };
+
+  const columns = getTimelineColumns();
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden m-4 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-lg border border-slate-200 dark:border-white/5 shadow-2xl">
+    <div className="flex-1 flex flex-col overflow-hidden m-4 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-white/5 shadow-lg">
       {/* Filtering Toolbar */}
-      <div className="px-6 py-3 border-b border-slate-200 dark:border-white/5 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-950/20">
-        <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-white/5 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar roadmap..."
+              placeholder="Pesquisar iniciativa..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-medium"
+              className="w-full bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex items-center gap-2.5">
+          {/* Zoom Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950/40 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/10">
+            <ZoomIn className="w-3.5 h-3.5 text-slate-500" />
             <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+              value={zoomLevel}
+              onChange={e => setZoomLevel(e.target.value as ZoomLevel)}
+              className="bg-transparent border-0 text-xs font-semibold focus:outline-none cursor-pointer text-slate-700 dark:text-slate-300"
             >
-              <option value="all">Todos Status</option>
-              <option value="on_track">On Track</option>
-              <option value="at_risk">At Risk</option>
-              <option value="delayed">Delayed</option>
+              <option value="month">Mensal</option>
+              <option value="quarter">Trimestral</option>
+              <option value="year">Anual</option>
             </select>
           </div>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+          >
+            <option value="all">Status</option>
+            <option value="on_track">No Prazo</option>
+            <option value="at_risk">Em Risco</option>
+            <option value="delayed">Atrasado</option>
+          </select>
 
           {/* Priority Filter */}
           <select
             value={priorityFilter}
             onChange={e => setPriorityFilter(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
           >
-            <option value="all">Todas Prioridades</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="all">Prioridade</option>
+            <option value="low">Baixa</option>
+            <option value="medium">Média</option>
+            <option value="high">Alta</option>
+            <option value="critical">Crítica</option>
           </select>
 
           {/* Category Filter */}
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+            className="bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
           >
-            <option value="all">Todas Categorias</option>
+            <option value="all">Categoria</option>
             {swimlanes.map(s => (
               <option key={s.id} value={s.id}>{s.title}</option>
             ))}
@@ -169,14 +195,14 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
       </div>
 
       {/* Header timeline */}
-      <div className="flex h-12 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20">
-        <div className="w-48 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-100/30 dark:bg-slate-950/40 flex items-center px-4 font-bold text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          Categorias
+      <div className="flex h-8 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="w-56 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-100/30 dark:bg-slate-950/40 flex items-center px-3 font-bold text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Estrutura Governança (Categorias)
         </div>
         <div className="flex-1 flex relative">
-          {MONTHS.map((m) => (
-            <div key={m} className="flex-1 border-r border-slate-200 dark:border-white/5 flex items-center justify-center text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">
-              {m}
+          {columns.map((col) => (
+            <div key={col} className="flex-1 border-r border-slate-200 dark:border-white/5 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+              {col}
             </div>
           ))}
         </div>
@@ -185,24 +211,23 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
       {/* Body */}
       <div className="flex-1 flex overflow-y-auto">
         {/* Left Sidebar (Swimlane Labels) */}
-        <div className="w-48 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20 backdrop-blur-md relative z-20 flex flex-col">
+        <div className="w-56 shrink-0 border-r border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/20 backdrop-blur-md relative z-20 flex flex-col">
           {swimlanes.map((s) => {
             const laneItemsCount = items.filter(i => i.swimlaneId === s.id).length;
             return (
               <div 
                 key={s.id} 
-                className="px-4 flex items-center justify-between text-xs font-black text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/5 group/lane cursor-pointer hover:bg-slate-200/50 dark:hover:bg-white/5 transition-colors"
-                style={{ height: ROW_HEIGHT, borderLeftWidth: 4, borderLeftColor: s.color }}
+                className="px-3 flex items-center justify-between text-xs font-black text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/5 group/lane cursor-pointer hover:bg-slate-100/50 dark:hover:bg-white/5 transition-colors"
+                style={{ height: ROW_HEIGHT, borderLeftWidth: 3, borderLeftColor: s.color }}
                 onClick={() => onEditCategory(s)}
               >
-                <div className="flex flex-col min-w-0 pr-2">
-                  <span className="truncate">{s.title}</span>
-                  <span className="text-[9px] font-normal text-slate-400 dark:text-slate-500 truncate">{s.description || 'Sem descrição'}</span>
+                <div className="flex flex-col min-w-0 pr-1">
+                  <span className="truncate text-[11px] font-bold tracking-tight">{s.title}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-[10px] bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded-md font-extrabold">{laneItemsCount}</span>
-                  <span className="opacity-0 group-hover/lane:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
-                    <Settings className="w-3.5 h-3.5" />
+                  <span className="text-[9px] bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400 px-1 rounded font-bold">{laneItemsCount}</span>
+                  <span className="opacity-0 group-hover/lane:opacity-100 transition-opacity text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5">
+                    <Settings className="w-3 h-3" />
                   </span>
                 </div>
               </div>
@@ -211,44 +236,43 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
           
           <button
             onClick={() => onEditCategory(null)}
-            className="w-full hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold text-slate-500 transition-colors flex items-center gap-1.5 justify-center border-b border-slate-200 dark:border-white/5"
+            className="w-full hover:bg-slate-200/50 dark:hover:bg-white/5 hover:text-blue-600 dark:hover:text-blue-400 text-[10px] font-bold text-slate-500 transition-colors flex items-center gap-1 justify-center border-b border-slate-200 dark:border-white/5"
             style={{ height: ROW_HEIGHT }}
           >
-            <Plus className="w-3.5 h-3.5" />
-            Categoria
+            <Plus className="w-3 h-3" />
+            Nova Categoria
           </button>
         </div>
 
         {/* Timeline Canvas */}
         <div 
           ref={containerRef}
-          className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-100/10 dark:bg-slate-950/10"
+          className="flex-1 relative overflow-hidden cursor-crosshair bg-slate-100/10 dark:bg-slate-950/5"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
         >
           <div className="relative w-full" style={{ height: swimlanes.length * ROW_HEIGHT }}>
             {/* Vertical grid lines */}
             <div className="absolute inset-0 flex pointer-events-none">
-              {MONTHS.map((m) => (
-                <div key={m} className="flex-1 border-r border-slate-200/50 dark:border-white/5 h-full" />
+              {columns.map((col) => (
+                <div key={col} className="flex-1 border-r border-slate-200/40 dark:border-white/[0.03] h-full" />
               ))}
             </div>
 
             {/* Horizontal swimlane lines */}
             <div className="absolute inset-0 pointer-events-none">
               {swimlanes.map((s) => (
-                <div key={s.id} className="border-b border-slate-200/50 dark:border-white/5" style={{ height: ROW_HEIGHT }} />
+                <div key={s.id} className="border-b border-slate-200/40 dark:border-white/[0.03]" style={{ height: ROW_HEIGHT }} />
               ))}
             </div>
 
-            {/* Today Line Indicator */}
+            {/* Today Line Indicator (Fina e Discreta) */}
             {containerWidth > 0 && (
               <div 
-                className="absolute top-0 bottom-0 border-l border-indigo-500 z-10 pointer-events-none"
+                className="absolute top-0 bottom-0 border-l border-blue-500/50 z-10 pointer-events-none"
                 style={{ left: `${getTodayPercentage()}%` }}
               >
-                <div className="absolute top-0 -translate-x-1/2 bg-indigo-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-md">
-                  <Calendar className="w-2.5 h-2.5" />
+                <div className="absolute top-1 -translate-x-1/2 bg-blue-600 text-white text-[8px] font-bold px-1 py-0.5 rounded shadow">
                   Hoje
                 </div>
               </div>
@@ -262,22 +286,19 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                 style={{ pointerEvents: 'none', width: '100%', height: swimlanes.length * ROW_HEIGHT }}
               >
                 <defs>
-                  <style>{`
-                    @keyframes flow-dash {
-                      to {
-                        stroke-dashoffset: -20;
-                      }
-                    }
-                    .flow-path {
-                      animation: flow-dash 1.2s linear infinite;
-                    }
-                  `}</style>
-                  <filter id="premium-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="4" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
                   <marker
                     id="arrow-red"
+                    viewBox="0 0 10 10"
+                    refX="6"
+                    refY="5"
+                    markerWidth="4"
+                    markerHeight="4"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#ef4444" opacity="0.6" />
+                  </marker>
+                  <marker
+                    id="arrow-red-hover"
                     viewBox="0 0 10 10"
                     refX="6"
                     refY="5"
@@ -288,30 +309,19 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#ef4444" />
                   </marker>
                   <marker
-                    id="arrow-red-hover"
-                    viewBox="0 0 10 10"
-                    refX="6"
-                    refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#dc2626" />
-                  </marker>
-                  <marker
                     id="arrow-blue"
                     viewBox="0 0 10 10"
                     refX="6"
                     refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
+                    markerWidth="5"
+                    markerHeight="5"
                     orient="auto-start-reverse"
                   >
                     <path d="M 0 1.5 L 7 5 L 0 8.5 z" fill="#3b82f6" />
                   </marker>
                 </defs>
 
-                {/* Existing dependencies */}
+                {/* Existing dependencies - Finas e Discretas */}
                 {filteredItems.map(item => {
                   const toCoords = getItemCoords(item);
                   return item.dependsOn.map(depId => {
@@ -329,14 +339,14 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                       const overlapX = (overlapStart + overlapEnd) / 2;
                       if (fromCoords.y < toCoords.y) {
                         xFrom = overlapX;
-                        yFrom = fromCoords.y + 16;
+                        yFrom = fromCoords.y + 12;
                         xTo = overlapX;
-                        yTo = toCoords.y - 16;
+                        yTo = toCoords.y - 12;
                       } else {
                         xFrom = overlapX;
-                        yFrom = fromCoords.y - 16;
+                        yFrom = fromCoords.y - 12;
                         xTo = overlapX;
-                        yTo = toCoords.y + 16;
+                        yTo = toCoords.y + 12;
                       }
                     } else if (fromCoords.xEnd <= toCoords.xStart) {
                       xFrom = fromCoords.xEnd;
@@ -350,9 +360,8 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                       yTo = toCoords.y;
                     }
 
-                    // Advanced dynamic cubic bezier curve flow
                     const dx = xTo - xFrom;
-                    const controlDist = Math.min(120, Math.abs(dx) / 2 || 40);
+                    const controlDist = Math.min(80, Math.abs(dx) / 2 || 30);
                     const path = `M ${xFrom} ${yFrom} C ${xFrom + (dx > 0 ? controlDist : -controlDist)} ${yFrom}, ${xTo + (dx > 0 ? -controlDist : controlDist)} ${yTo}, ${xTo} ${yTo}`;
 
                     const connId = `${item.id}-${depId}`;
@@ -371,45 +380,22 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                           d={path} 
                           fill="none" 
                           stroke="transparent" 
-                          strokeWidth="14" 
+                          strokeWidth="10" 
                           className="cursor-pointer"
                         />
-                        {/* Outer glowing path */}
-                        {isHovered && (
-                          <path 
-                            d={path} 
-                            fill="none" 
-                            stroke="#ef4444" 
-                            strokeWidth="5" 
-                            opacity="0.3"
-                            filter="url(#premium-glow)"
-                          />
-                        )}
-                        {/* Base path */}
+                        {/* Base path - Muito discreta para não poluir */}
                         <path 
                           d={path} 
                           fill="none" 
-                          stroke={isHovered ? "#dc2626" : "#ef4444"} 
-                          strokeWidth={isHovered ? "2.5" : "1.5"} 
-                          strokeDasharray={isHovered ? "none" : "5 5"}
+                          stroke={isHovered ? "#ef4444" : "#94a3b8"} 
+                          strokeWidth={isHovered ? "1.5" : "1"} 
+                          strokeDasharray={isHovered ? "none" : "3 3"}
                           markerEnd={isHovered ? "url(#arrow-red-hover)" : "url(#arrow-red)"}
-                          opacity={isHovered ? "1" : "0.55"}
+                          opacity={isHovered ? "1" : "0.25"}
                           className="transition-all"
                         />
-                        {/* Flowing motion overlay */}
-                        {!isHovered && (
-                          <path 
-                            d={path} 
-                            fill="none" 
-                            stroke="#fca5a5" 
-                            strokeWidth="1.2" 
-                            strokeDasharray="4 12"
-                            className="flow-path"
-                            opacity="0.8"
-                          />
-                        )}
                         {/* Starting Node */}
-                        <circle cx={xFrom} cy={yFrom} r={isHovered ? "4" : "3"} fill={isHovered ? "#dc2626" : "#ef4444"} />
+                        <circle cx={xFrom} cy={yFrom} r={isHovered ? "3.5" : "2"} fill={isHovered ? "#ef4444" : "#94a3b8"} opacity={isHovered ? "1" : "0.4"} />
                       </g>
                     );
                   });
@@ -422,15 +408,15 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     if (!source) return null;
                     const coords = getItemCoords(source);
                     const dx = mousePos.x - coords.xEnd;
-                    const controlDist = Math.min(100, Math.abs(dx) / 2);
+                    const controlDist = Math.min(80, Math.abs(dx) / 2);
                     const path = `M ${coords.xEnd} ${coords.y} C ${coords.xEnd + (dx > 0 ? controlDist : -controlDist)} ${coords.y}, ${mousePos.x + (dx > 0 ? -controlDist : controlDist)} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`;
                     return (
                       <path 
                         d={path} 
                         fill="none" 
                         stroke="#3b82f6" 
-                        strokeWidth="2.5" 
-                        strokeDasharray="4 4" 
+                        strokeWidth="1.5" 
+                        strokeDasharray="3 3" 
                         markerEnd="url(#arrow-blue)" 
                       />
                     );
@@ -456,11 +442,11 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                 if (isOverlapping) {
                   const overlapX = (overlapStart + overlapEnd) / 2;
                   if (fromCoords.y < toCoords.y) {
-                    xFrom = overlapX; yFrom = fromCoords.y + 16;
-                    xTo = overlapX; yTo = toCoords.y - 16;
+                    xFrom = overlapX; yFrom = fromCoords.y + 12;
+                    xTo = overlapX; yTo = toCoords.y - 12;
                   } else {
-                    xFrom = overlapX; yFrom = fromCoords.y - 16;
-                    xTo = overlapX; yTo = toCoords.y + 16;
+                    xFrom = overlapX; yFrom = fromCoords.y - 12;
+                    xTo = overlapX; yTo = toCoords.y + 12;
                   }
                 } else if (fromCoords.xEnd <= toCoords.xStart) {
                   xFrom = fromCoords.xEnd; yFrom = fromCoords.y;
@@ -477,12 +463,12 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                   <button
                     style={{ 
                       position: 'absolute', 
-                      left: mx - 10, 
-                      top: my - 10, 
+                      left: mx - 8, 
+                      top: my - 8, 
                       zIndex: 40,
                       pointerEvents: 'auto'
                     }}
-                    className="w-5 h-5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow-lg border border-white transition-transform active:scale-95 cursor-pointer animate-in fade-in zoom-in-75 duration-75"
+                    className="w-4.5 h-4.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center shadow border border-white transition-transform active:scale-95 cursor-pointer animate-in fade-in zoom-in-75 duration-75 text-[10px]"
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
@@ -492,7 +478,7 @@ export function TimelineGrid({ onEditItem, onEditCategory }: Props) {
                     onMouseEnter={() => setHoveredConnection(hoveredConnection)}
                     onMouseLeave={() => setHoveredConnection(null)}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-2.5 h-2.5" />
                   </button>
                 );
               })()}
