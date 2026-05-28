@@ -4,8 +4,6 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Plus, 
-  Sun, 
-  Moon,
   LayoutDashboard,
   GitFork,
   BarChart3,
@@ -21,7 +19,7 @@ import { AIAssistant } from '../components/AIAssistant';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 function StrategicTimelineInner() {
-  const { year, setYear, addItem, swimlanes, items, theme, toggleTheme } = useRoadmap();
+  const { year, setYear, addItem, swimlanes, items } = useRoadmap();
   const [activeTab, setActiveTab] = useState<'timeline' | 'dashboard' | 'reports'>('timeline');
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
@@ -151,14 +149,6 @@ function StrategicTimelineInner() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Theme Toggle */}
-            <button 
-              onClick={toggleTheme}
-              className="p-1 border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded text-slate-600 dark:text-slate-300 transition-all"
-            >
-              {theme === 'dark' ? <Sun className="w-3 h-3 text-amber-400" /> : <Moon className="w-3 h-3 text-blue-600" />}
-            </button>
-
             {activeTab === 'timeline' && (
               <button 
                 onClick={handleCreateNewItem}

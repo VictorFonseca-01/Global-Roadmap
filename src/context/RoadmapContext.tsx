@@ -137,24 +137,18 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
   const [items, setItems] = useState<RoadmapItem[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme
+  // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    const savedTheme = localStorage.getItem('roadmap_theme') as 'light' | 'dark';
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.body.classList.toggle('dark', savedTheme === 'dark');
-    } else {
-      document.body.classList.add('dark');
-    }
+    setTheme('light');
+    document.body.classList.remove('dark');
   }, []);
 
   const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('roadmap_theme', nextTheme);
-    document.body.classList.toggle('dark', nextTheme === 'dark');
+    // Mantém sempre no modo claro
+    setTheme('light');
+    document.body.classList.remove('dark');
   };
 
   // Load data when year changes
