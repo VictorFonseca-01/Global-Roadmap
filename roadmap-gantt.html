@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Roadmap Estratégico Interativo</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; background: #fdfdfd; }
+    h2 { color: #333; }
+    #toolbar { margin-bottom: 15px; }
+    button { padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; border-radius: 4px; background: #fff; margin-right: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    button:hover { background: #f0f0f0; }
+
+    #gantt-outer { position: relative; overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
+    #dep-svg { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 5; }
+    #gantt { position: relative; z-index: 1; width: 100%; border-collapse: collapse; min-width: 800px; }
+    #gantt th, #gantt td { border-bottom: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; }
+    #gantt th { background: #fafafa; padding: 0; text-align: center; font-size: 14px; color: #555; }
+    
+    .label-col { width: 110px; min-width: 110px; max-width: 110px; padding: 10px; font-weight: 600; vertical-align: top; background: #fafafa; position: sticky; left: 0; z-index: 2; color: #333; border-right: 2px solid #ccc !important; }
+    .gantt-row td.tc { position: relative; padding: 0; background: repeating-linear-gradient(to right, transparent, transparent calc(8.333% - 1px), #f5f5f5 calc(8.333% - 1px), #f5f5f5 8.333%); }
+    
+    .gantt-bar {
+      position: absolute;
+      height: 28px;
+      border-radius: 6px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 3;
+      transition: box-shadow 0.2s;
+    }
+    .gantt-bar:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .gantt-bar:active { cursor: grabbing; }
+    .gantt-bar.dragging { z-index: 10; opacity: 0.8; }
+    
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 12px;
+      height: 100%;
+      cursor: ew-resize;
+      background: rgba(0,0,0,0.05);
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
+    .resize-handle:hover { background: rgba(0,0,0,0.15); }
+
+    /* Milestones */
+    .milestone-track { position: relative; height: 44px; width: 100%; }
+    .milestone {
+      position: absolute;
+      top: 10px;
+      width: 24px;
+      height: 24px;
+      background: #1D9E75;
+      transform: translateX(-50%) rotate(45deg);
+      cursor: grab;
+      z-index: 4;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    }
+    .milestone:active { cursor: grabbing; }
+    .milestone-label {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%) rotate(-45deg);
+      font-size: 10px;
+      white-space: nowrap;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    /* Context Menu */
+    #context-menu {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-radius: 6px;
+      padding: 5px 0;
+      z-index: 1000;
+      display: none;
+      min-width: 160px;
+    }
+    #context-menu .menu-item { padding: 8px 15px; font-size: 14px; cursor: pointer; color: #333; }
+    #context-menu .menu-item:hover { background: #f5f5f5; }
+    
+    #hint {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: #222; color: #fff; padding: 10px 20px; border-radius: 20px;
+      z-index: 2000; display: none; font-size: 14px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    
+    .month-header { display: flex; width: 100%; border-bottom: 1px solid #e0e0e0;}
+    .month-header div { flex: 1; text-align: center; border-right: 1px solid #e0e0e0; padding: 8px 0; }
+    .month-header div:last-child { border-right: none; }
+    .q-header { display: flex; width: 100%; border-bottom: 1px solid #e0e0e0; background: #f0f0f0; }
+    .q-header div { flex: 1; text-align: center; border-right: 1px solid #e0e0e0; padding: 8px 0; font-weight: bold; }
+    .q-header div:last-child { border-right: none; }
+  </style>
+</head>
+<body>
+  <h2>Roadmap Estratégico</h2>
+  <div id="toolbar">
+    <button id="add-row-btn">Adicionar Categoria</button>
+    <button id="add-bar-btn">Adicionar Barra</button>
+    <button id="add-ms-btn">Adicionar Milestone</button>
+  </div>
+  <div id="hint"></div>
+  
+  <div id="gantt-outer">
+    <svg id="dep-svg"></svg>
+    <table id="gantt">
+      <thead>
+        <tr>
+          <th class="label-col" style="border-bottom: 1px solid #e0e0e0;">Linha do Tempo</th>
+          <th id="time-header-th">
+            <div class="q-header">
+              <div>Q1</div><div>Q2</div><div>Q3</div><div>Q4</div>
+            </div>
+            <div class="month-header">
+              <div>Jan</div><div>Fev</div><div>Mar</div><div>Abr</div><div>Mai</div><div>Jun</div>
+              <div>Jul</div><div>Ago</div><div>Set</div><div>Out</div><div>Nov</div><div>Dez</div>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="gantt-body">
+        <!-- Milestones Row -->
+        <tr class="gantt-row" style="height: 44px; background: #fffbe6;">
+          <td class="label-col">Milestones</td>
+          <td class="tc" id="ms-container">
+            <div class="milestone-track" id="ms-track"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <div id="context-menu">
+    <div class="menu-item" id="menu-rename">Renomear</div>
+    <div class="menu-item" id="menu-color">Mudar Cor</div>
+    <div class="menu-item" id="menu-dep">Criar Dependência</div>
+    <div class="menu-item" id="menu-delete" style="color: #e24b4a; font-weight: bold;">Excluir</div>
+  </div>
+
+  <script>
+    const COLORS = [
+      { bg: '#EEEDFE', txt: '#3C3489', border: '#7F77DD' },
+      { bg: '#E1F5EE', txt: '#085041', border: '#1D9E75' },
+      { bg: '#FAECE7', txt: '#712B13', border: '#D85A30' },
+      { bg: '#FBEAF0', txt: '#72243E', border: '#D4537E' },
+      { bg: '#FAEEDA', txt: '#633806', border: '#EF9F27' },
+      { bg: '#EAF3DE', txt: '#27500A', border: '#639922' },
+      { bg: '#E6F1FB', txt: '#0C447C', border: '#378ADD' },
+      { bg: '#FCEBEB', txt: '#791F1F', border: '#E24B4A' },
+    ];
+    
+    const MS_COLORS = ['#1D9E75','#7F77DD','#D85A30','#378ADD','#EF9F27','#E24B4A'];
+    
+    const ROW_H = 44;
+    const BAR_PADDING_TOP = 8;
+    const BAR_H = 28;
+    const N_COLS = 12;
+    let colW = 0;
+    
+    let ROWS = [
+      { id: 'r1', label: 'Infraestrutura', bars: [ { id: 'b1', label: 'Migração WS2025', start: 0, len: 3, colorIdx: 0, track: 0 } ] },
+      { id: 'r2', label: 'Segurança', bars: [ { id: 'b2', label: 'Auditoria', start: 3, len: 2, colorIdx: 1, track: 0 }, { id: 'b3', label: 'Implementação IAM', start: 4, len: 4, colorIdx: 2, track: 0 } ] }
+    ];
+    let DEPS = [ { from: 'b1', to: 'b2' } ];
+    let MILESTONES = [ { id: 'm1', label: 'Go-Live', col: 5.5, colorIdx: 0 } ];
+    
+    const ganttBody = document.getElementById('gantt-body');
+    const msTrack = document.getElementById('ms-track');
+    const timeHeaderTh = document.getElementById('time-header-th');
+    const svg = document.getElementById('dep-svg');
+    const contextMenu = document.getElementById('context-menu');
+    const hintDiv = document.getElementById('hint');
+    
+    const arrowDef = `<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#888780" /></marker></defs>`;
+    
+    function init() {
+      calcColWidth();
+      window.addEventListener('resize', () => { calcColWidth(); renderGantt(); });
+      renderGantt();
+      
+      document.addEventListener('click', e => { contextMenu.style.display = 'none'; });
+      
+      document.getElementById('add-row-btn').addEventListener('click', () => {
+        ROWS.push({ id: 'r' + Date.now(), label: 'Nova Categoria', bars: [] });
+        renderGantt();
+      });
+      document.getElementById('add-bar-btn').addEventListener('click', () => {
+        if(ROWS.length === 0) return alert('Adicione uma categoria primeiro');
+        ROWS[0].bars.push({ id: 'b' + Date.now(), label: 'Nova Barra', start: 0, len: 2, colorIdx: Math.floor(Math.random()*COLORS.length), track: 0 });
+        assignTracks(ROWS[0].bars); renderGantt();
+      });
+      document.getElementById('add-ms-btn').addEventListener('click', () => {
+        MILESTONES.push({ id: 'm' + Date.now(), label: 'Novo Milestone', col: 1, colorIdx: Math.floor(Math.random()*MS_COLORS.length) });
+        renderGantt();
+      });
+    }
+    
+    function calcColWidth() { colW = timeHeaderTh.clientWidth / N_COLS; }
+    
+    function assignTracks(bars) {
+      const sorted = [...bars].sort((a, b) => a.start - b.start);
+      const trackEnds = [];
+      sorted.forEach(bar => {
+        let placed = false;
+        for (let t = 0; t < trackEnds.length; t++) {
+          if (trackEnds[t] <= bar.start) { bar.track = t; trackEnds[t] = bar.start + bar.len; placed = true; break; }
+        }
+        if (!placed) { bar.track = trackEnds.length; trackEnds.push(bar.start + bar.len); }
+      });
+      return Math.max(1, trackEnds.length);
+    }
+    
+    function renderGantt() {
+      // Preserve first row (milestones)
+      const msRow = ganttBody.firstElementChild;
+      ganttBody.innerHTML = '';
+      ganttBody.appendChild(msRow);
+      
+      // Render milestones
+      msTrack.innerHTML = '';
+      MILESTONES.forEach(ms => {
+        const el = document.createElement('div');
+        el.className = 'milestone';
+        el.style.left = ms.col * colW + 'px';
+        el.style.backgroundColor = MS_COLORS[ms.colorIdx % MS_COLORS.length];
+        
+        const lbl = document.createElement('div');
+        lbl.className = 'milestone-label';
+        lbl.textContent = ms.label;
+        el.appendChild(lbl);
+        
+        makeMsDraggable(el, ms);
+        makeMsContextMenu(el, ms);
+        msTrack.appendChild(el);
+      });
+      
+      // Render rows
+      ROWS.forEach((row, rowIndex) => {
+        const numTracks = assignTracks(row.bars);
+        const rowH = numTracks * ROW_H;
+        
+        const tr = document.createElement('tr');
+        tr.className = 'gantt-row';
+        tr.style.height = rowH + 'px';
+        
+        const tdLabel = document.createElement('td');
+        tdLabel.className = 'label-col';
+        tdLabel.textContent = row.label;
+        tdLabel.addEventListener('dblclick', () => {
+          const newName = prompt('Nome da categoria:', row.label);
+          if (newName) { row.label = newName; renderGantt(); }
+        });
+        
+        const tdBars = document.createElement('td');
+        tdBars.className = 'tc';
+        
+        row.bars.forEach(bar => {
+          const el = createBarEl(bar, rowIndex);
+          tdBars.appendChild(el);
+        });
+        
+        tr.appendChild(tdLabel);
+        tr.appendChild(tdBars);
+        ganttBody.appendChild(tr);
+      });
+      
+      redrawSVG();
+    }
+    
+    function createBarEl(bar, rowIdx) {
+      const el = document.createElement('div');
+      el.id = 'bar-' + bar.id;
+      el.className = 'gantt-bar';
+      const c = COLORS[bar.colorIdx % COLORS.length];
+      el.style.backgroundColor = c.bg;
+      el.style.color = c.txt;
+      el.style.border = '1px solid ' + c.border;
+      
+      el.style.top = bar.track * ROW_H + BAR_PADDING_TOP + 'px';
+      el.style.left = bar.start * colW + 'px';
+      el.style.width = bar.len * colW + 'px';
+      
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = bar.label;
+      labelSpan.style.overflow = 'hidden';
+      labelSpan.style.whiteSpace = 'nowrap';
+      labelSpan.style.textOverflow = 'ellipsis';
+      labelSpan.style.flex = '1';
+      el.appendChild(labelSpan);
+      
+      const handle = document.createElement('div');
+      handle.className = 'resize-handle';
+      el.appendChild(handle);
+      
+      makeDraggable(el, bar, rowIdx);
+      makeResizable(handle, bar, rowIdx);
+      makeContextMenu(el, bar, rowIdx);
+      return el;
+    }
+    
+    function makeDraggable(el, bar, rowIdx) {
+      el.addEventListener('mousedown', e => {
+        if (e.button === 2 || e.target.classList.contains('resize-handle')) return;
+        if (depMode) { e.preventDefault(); e.stopPropagation(); onBarClick(bar, rowIdx); return; }
+        e.preventDefault();
+        
+        const startX = e.clientX;
+        const startCol = bar.start;
+        el.classList.add('dragging');
+        
+        const onMove = ev => {
+          const dx = ev.clientX - startX;
+          const newStart = Math.max(0, Math.min(startCol + Math.round(dx / colW), N_COLS - bar.len));
+          bar.start = newStart;
+          el.style.left = newStart * colW + 'px';
+          redrawSVG();
+        };
+        const onUp = () => {
+          el.classList.remove('dragging');
+          assignTracks(ROWS[rowIdx].bars); renderGantt();
+          document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+      });
+    }
+
+    function makeMsDraggable(el, ms) {
+      el.addEventListener('mousedown', e => {
+        if (e.button === 2) return;
+        e.preventDefault();
+        const startX = e.clientX;
+        const startCol = ms.col;
+        
+        const onMove = ev => {
+          const dx = ev.clientX - startX;
+          ms.col = Math.max(0, Math.min(startCol + (dx / colW), N_COLS));
+          el.style.left = ms.col * colW + 'px';
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+      });
+    }
+    
+    function makeResizable(handle, bar, rowIdx) {
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault(); e.stopPropagation();
+        const startX = e.clientX; const startLen = bar.len;
+        const el = document.getElementById('bar-' + bar.id);
+        
+        const onMove = ev => {
+          const dx = ev.clientX - startX;
+          const newLen = Math.max(1, Math.min(Math.round(startLen + dx / colW), N_COLS - bar.start));
+          bar.len = newLen;
+          el.style.width = newLen * colW + 'px';
+          redrawSVG();
+        };
+        const onUp = () => {
+          assignTracks(ROWS[rowIdx].bars); renderGantt();
+          document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+      });
+    }
+    
+    let contextTarget = null;
+    let isMsContext = false;
+    
+    function makeContextMenu(el, bar, rowIdx) {
+      el.addEventListener('contextmenu', e => {
+        e.preventDefault(); e.stopPropagation();
+        contextTarget = { bar, rowIdx }; isMsContext = false;
+        document.getElementById('menu-dep').style.display = 'block';
+        showContextMenu(e);
+      });
+    }
+
+    function makeMsContextMenu(el, ms) {
+      el.addEventListener('contextmenu', e => {
+        e.preventDefault(); e.stopPropagation();
+        contextTarget = { ms }; isMsContext = true;
+        document.getElementById('menu-dep').style.display = 'none';
+        showContextMenu(e);
+      });
+    }
+    
+    function showContextMenu(e) {
+      contextMenu.style.left = e.pageX + 'px';
+      contextMenu.style.top = e.pageY + 'px';
+      contextMenu.style.display = 'block';
+    }
+    
+    document.getElementById('menu-rename').addEventListener('click', () => {
+      if(!contextTarget) return;
+      if (isMsContext) {
+        const {ms} = contextTarget; const newName = prompt('Renomear milestone:', ms.label);
+        if(newName) { ms.label = newName; renderGantt(); }
+      } else {
+        const {bar} = contextTarget; const newName = prompt('Renomear barra:', bar.label);
+        if(newName) { bar.label = newName; renderGantt(); }
+      }
+    });
+    
+    document.getElementById('menu-color').addEventListener('click', () => {
+      if(!contextTarget) return;
+      if (isMsContext) {
+        contextTarget.ms.colorIdx = (contextTarget.ms.colorIdx + 1) % MS_COLORS.length;
+      } else {
+        contextTarget.bar.colorIdx = (contextTarget.bar.colorIdx + 1) % COLORS.length;
+      }
+      renderGantt();
+    });
+    
+    document.getElementById('menu-delete').addEventListener('click', () => {
+      if(!contextTarget) return;
+      if (isMsContext) {
+        if(confirm('Excluir milestone?')) {
+          MILESTONES = MILESTONES.filter(m => m.id !== contextTarget.ms.id); renderGantt();
+        }
+      } else {
+        if(confirm('Excluir barra?')) {
+          const {bar, rowIdx} = contextTarget;
+          ROWS[rowIdx].bars = ROWS[rowIdx].bars.filter(b => b.id !== bar.id);
+          DEPS = DEPS.filter(d => d.from !== bar.id && d.to !== bar.id); renderGantt();
+        }
+      }
+    });
+    
+    document.getElementById('menu-dep').addEventListener('click', () => {
+      if(!contextTarget || isMsContext) return;
+      startDepMode(contextTarget.bar, contextTarget.rowIdx);
+    });
+    
+    let depMode = false; let depSource = null;
+    function startDepMode(bar, rowIdx) {
+      depMode = true; depSource = { bar, rowIdx }; document.body.style.cursor = 'crosshair';
+      showHint('Clique em outra barra para criar a dependência. Pressione Esc para cancelar.');
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && depMode) { depMode = false; depSource = null; document.body.style.cursor = ''; hideHint(); }
+    });
+    
+    function onBarClick(bar, rowIdx) {
+      if (!depMode) return;
+      if (bar.id === depSource.bar.id) { depMode = false; hideHint(); document.body.style.cursor = ''; return; }
+      if (!wouldCreateCycle(depSource.bar.id, bar.id)) {
+        if(!DEPS.find(d => d.from === depSource.bar.id && d.to === bar.id)) { DEPS.push({ from: depSource.bar.id, to: bar.id }); redrawSVG(); }
+      } else { alert('Isso criaria uma dependência circular!'); }
+      depMode = false; depSource = null; document.body.style.cursor = ''; hideHint();
+    }
+    
+    function wouldCreateCycle(fromId, toId) {
+      const visited = new Set(); const queue = [toId];
+      while (queue.length) {
+        const cur = queue.shift(); if (cur === fromId) return true;
+        if (visited.has(cur)) continue; visited.add(cur);
+        DEPS.filter(d => d.from === cur).forEach(d => queue.push(d.to));
+      }
+      return false;
+    }
+    
+    function showHint(msg) { hintDiv.textContent = msg; hintDiv.style.display = 'block'; }
+    function hideHint() { hintDiv.style.display = 'none'; }
+    
+    function getBarAnchor(barId, side) {
+      let foundBar = null; let foundRowIdx = -1;
+      for (let i = 0; i < ROWS.length; i++) {
+        const b = ROWS[i].bars.find(x => x.id === barId);
+        if (b) { foundBar = b; foundRowIdx = i; break; }
+      }
+      if (!foundBar) return null;
+      
+      const labelW = 110;
+      const x = side === 'right' ? labelW + (foundBar.start + foundBar.len) * colW : labelW + foundBar.start * colW;
+      
+      const thead = document.querySelector('#gantt thead');
+      let y = thead ? thead.clientHeight : 0;
+      y += 44; // Milestones row height
+      
+      for (let i = 0; i < foundRowIdx; i++) {
+        y += Math.max(1, ROWS[i].bars.length > 0 ? Math.max(...ROWS[i].bars.map(b => b.track + 1)) : 1) * ROW_H;
+      }
+      y += foundBar.track * ROW_H + BAR_PADDING_TOP + BAR_H / 2;
+      return { x, y };
+    }
+    
+    function drawArrow(svg, fromId, toId) {
+      const a = getBarAnchor(fromId, 'right'); const b = getBarAnchor(toId, 'left');
+      if(!a || !b) return;
+      
+      const dx = Math.abs(b.x - a.x);
+      const cx1 = a.x + Math.max(dx * 0.5, 30); const cy1 = a.y;
+      const cx2 = b.x - Math.max(dx * 0.5, 30); const cy2 = b.y;
+      
+      const isBackward = b.x < a.x + 20; const vOffset = isBackward ? 20 : 0;
+      const path = isBackward
+        ? `M ${a.x} ${a.y} C ${a.x+40} ${a.y+vOffset} ${b.x-40} ${b.y+vOffset} ${b.x} ${b.y}`
+        : `M ${a.x} ${a.y} C ${cx1} ${cy1} ${cx2} ${cy2} ${b.x} ${b.y}`;
+        
+      svg.innerHTML += `<path d="${path}" fill="none" stroke="#888780" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)" />`;
+    }
+    
+    function redrawSVG() {
+      const totalH = document.getElementById('gantt').clientHeight;
+      svg.setAttribute('height', totalH);
+      svg.innerHTML = arrowDef;
+      DEPS.forEach(dep => { drawArrow(svg, dep.from, dep.to); });
+    }
+    
+    setTimeout(init, 100);
+  </script>
+</body>
+</html>
