@@ -11,7 +11,8 @@ import {
   FileText,
   FileDown
 } from 'lucide-react';
-import { RoadmapProvider, useRoadmap } from '../context/RoadmapContext';
+import { RoadmapProvider } from '../context/RoadmapContext';
+import { useRoadmap } from '../hooks/useRoadmap';
 import { TimelineGrid } from '../components/TimelineGrid';
 import { ItemModal } from '../components/ItemModal';
 import { CategoryModal } from '../components/CategoryModal';
@@ -96,7 +97,7 @@ function StrategicTimelineInner() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'timeline' | 'dashboard' | 'reports')}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-semibold transition-all ${
                 activeTab === tab.id 
                   ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border-l-2 border-blue-600' 
@@ -329,13 +330,13 @@ function StrategicTimelineInner() {
       {/* Modals & Overlays */}
       <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} />
       {editingItem && (
-        <ItemModal 
+        <ItemModal key={editingItem.id}
           item={editingItem} 
           onClose={() => setEditingItem(null)} 
         />
       )}
       {editingCategory !== undefined && (
-        <CategoryModal 
+        <CategoryModal key={editingCategory?.id || "new"}
           swimlane={editingCategory}
           onClose={() => setEditingCategory(undefined)}
         />
