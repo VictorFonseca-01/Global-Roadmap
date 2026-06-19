@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
+import { RoadmapContext } from '../hooks/useRoadmap';
 
 const DEFAULT_SWIMLANES: Swimlane[] = [
   { id: 'infrastructure', title: 'INFRASTRUCTURE & SERVERS', color: '#3b82f6', description: 'Lifecycle, hardware and OS upgrade timelines', icon: 'Server' },
@@ -114,34 +115,21 @@ const DEFAULT_ITEMS: RoadmapItem[] = [
   },
 ];
 
-interface RoadmapContextData {
-  year: number;
-  setYear: (y: number) => void;
-  swimlanes: Swimlane[];
-  setSwimlanes: React.Dispatch<React.SetStateAction<Swimlane[]>>;
-  items: RoadmapItem[];
-  setItems: React.Dispatch<React.SetStateAction<RoadmapItem[]>>;
-  updateItem: (id: string, updates: Partial<RoadmapItem>) => void;
-  addItem: (item: RoadmapItem) => void;
-  deleteItem: (id: string) => void;
-  addSwimlane: (swimlane: Swimlane) => void;
-  updateSwimlane: (id: string, updates: Partial<Swimlane>) => void;
-  deleteSwimlane: (id: string) => void;
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
-}
-
-const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
-
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${new Date().getFullYear()}`);
+    return savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${new Date().getFullYear()}`);
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
+
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -151,22 +139,16 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     document.body.classList.remove('dark');
   };
 
-  // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
-
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
-  }, [year]);
+  // When year changes, load its data. We avoid calling setState synchronously in effect by updating state when we change the year, or we can use a key on provider. Or just initialize state directly for the initial render and accept that switching year does need effect update but we use a ref or specific handler. Actually, we can use an effect that sets state, but to fix lint error, we only call it if it's different.
+  // The react-hooks/set-state-in-effect rule warns about doing this unconditionally or directly. Let's just update `year` through a function that also updates the data.
+  // Wait, the linter just says "synchronously within an effect". It happens because `setSwimlanes` is called directly in the effect body.
+  const handleSetYear = (newYear: number) => {
+    setYear(newYear);
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${newYear}`);
+    const saved = localStorage.getItem(`roadmap_data_${newYear}`);
+    setSwimlanes(savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES);
+    setItems(saved ? JSON.parse(saved) : (newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []));
+  };
 
   // Save data when items change
   useEffect(() => {
@@ -219,7 +201,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   return (
     <RoadmapContext.Provider value={{ 
       year, 
-      setYear, 
+      setYear: handleSetYear,
       swimlanes, 
       setSwimlanes, 
       items, 
@@ -236,10 +218,4 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
       {children}
     </RoadmapContext.Provider>
   );
-}
-
-export function useRoadmap() {
-  const context = useContext(RoadmapContext);
-  if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
-  return context;
 }
