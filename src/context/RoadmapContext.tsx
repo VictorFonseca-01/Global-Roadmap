@@ -138,10 +138,10 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [prevYear, setPrevYear] = useState<number>(0);
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -152,7 +152,8 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   };
 
   // Load data when year changes
-  useEffect(() => {
+  if (year !== prevYear) {
+    setPrevYear(year);
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
       setSwimlanes(JSON.parse(savedSwimlanes));
@@ -166,7 +167,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     } else {
       setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
-  }, [year]);
+  }
 
   // Save data when items change
   useEffect(() => {
@@ -238,6 +239,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
