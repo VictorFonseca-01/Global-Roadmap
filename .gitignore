@@ -27,3 +27,7 @@ dist-ssr
 .env.*.local
 .agents/
 
+
+# Playwright
+playwright-report/
+test-results/
