@@ -1,6 +1,6 @@
 import { Rnd } from 'react-rnd';
 import { RoadmapItem } from '../types/roadmap';
-import { useRoadmap } from '../context/RoadmapContext';
+import { useRoadmap } from '../contexts/RoadmapContext';
 import { useState } from 'react';
 
 interface Props {
