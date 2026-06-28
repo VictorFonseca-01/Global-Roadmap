@@ -11,7 +11,7 @@ import {
   FileText,
   FileDown
 } from 'lucide-react';
-import { RoadmapProvider, useRoadmap } from '../context/RoadmapContext';
+import { RoadmapProvider, useRoadmap } from '../contexts/RoadmapContext';
 import { TimelineGrid } from '../components/TimelineGrid';
 import { ItemModal } from '../components/ItemModal';
 import { CategoryModal } from '../components/CategoryModal';

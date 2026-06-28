@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RoadmapItem } from '../types/roadmap';
-import { useRoadmap } from '../context/RoadmapContext';
+import { useRoadmap } from '../contexts/RoadmapContext';
 import { ConfirmModal } from './ConfirmModal';
 import { Trash2, X } from 'lucide-react';
 
@@ -203,7 +203,7 @@ export function ItemModal({ item, onClose }: Props) {
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Status</label>
                 <select 
                   value={status}
-                  onChange={e => setStatus(e.target.value as any)}
+                  onChange={e => setStatus(e.target.value as "on_track" | "at_risk" | "delayed")}
                   className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="on_track">No Prazo</option>
@@ -217,7 +217,7 @@ export function ItemModal({ item, onClose }: Props) {
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Prioridade</label>
                 <select 
                   value={priority}
-                  onChange={e => setPriority(e.target.value as any)}
+                  onChange={e => setPriority(e.target.value as "low" | "medium" | "high" | "critical")}
                   className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="low">Baixa</option>
