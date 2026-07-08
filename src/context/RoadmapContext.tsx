@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -135,14 +136,26 @@ const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${new Date().getFullYear()}`);
+    return savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
+  });
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${new Date().getFullYear()}`);
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  const [prevYear, setPrevYear] = useState(year);
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
-    document.body.classList.remove('dark');
+    // We already initialize theme with 'light'.
+    // Only perform side effects like DOM updates here.
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('dark');
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -152,7 +165,8 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   };
 
   // Load data when year changes
-  useEffect(() => {
+  if (year !== prevYear) {
+    setPrevYear(year);
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
       setSwimlanes(JSON.parse(savedSwimlanes));
@@ -166,7 +180,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     } else {
       setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
-  }, [year]);
+  }
 
   // Save data when items change
   useEffect(() => {
