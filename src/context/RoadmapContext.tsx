@@ -141,7 +141,6 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -154,18 +153,15 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   // Load data when year changes
   useEffect(() => {
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
+    const newSwimlanes = savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
+    const newItems = saved ? JSON.parse(saved) : (year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+
+    queueMicrotask(() => {
+      setSwimlanes(newSwimlanes);
+      setItems(newItems);
+    });
   }, [year]);
 
   // Save data when items change
@@ -238,6 +234,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
