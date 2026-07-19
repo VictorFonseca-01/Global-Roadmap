@@ -135,13 +135,21 @@ const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${new Date().getFullYear()}`);
+    return savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${new Date().getFullYear()}`);
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
+  // Apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -151,22 +159,22 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     document.body.classList.remove('dark');
   };
 
-  // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+  const changeYear = (newYear: number) => {
+    setYear(newYear);
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${newYear}`);
     if (savedSwimlanes) {
       setSwimlanes(JSON.parse(savedSwimlanes));
     } else {
       setSwimlanes(DEFAULT_SWIMLANES);
     }
 
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
+    const saved = localStorage.getItem(`roadmap_data_${newYear}`);
     if (saved) {
       setItems(JSON.parse(saved));
     } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
-  }, [year]);
+  };
 
   // Save data when items change
   useEffect(() => {
@@ -219,7 +227,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   return (
     <RoadmapContext.Provider value={{ 
       year, 
-      setYear, 
+      setYear: changeYear,
       swimlanes, 
       setSwimlanes, 
       items, 
@@ -238,6 +246,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/* eslint-disable react-refresh/only-export-components */
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
