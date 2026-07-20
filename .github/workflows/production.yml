@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -29,7 +29,7 @@ jobs:
         run: npm run lint
 
       - name: Type Checking (Strict)
-        run: npx tsc -b
+        run: npm run type-check
 
       - name: Build Application
         run: npm run build
@@ -41,13 +41,13 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run E2E Tests
-        run: npx playwright test
+        run: npm run e2e
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
