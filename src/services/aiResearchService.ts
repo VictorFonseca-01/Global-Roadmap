@@ -16,9 +16,9 @@ export const aiResearchService = {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro na pesquisa:", error);
-      return `❌ Ocorreu um erro ao pesquisar: ${error.message}`;
+      return `❌ Ocorreu um erro ao pesquisar: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 };
