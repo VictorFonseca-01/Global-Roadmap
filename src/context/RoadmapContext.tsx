@@ -134,14 +134,30 @@ interface RoadmapContextData {
 const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const currentYear = new Date().getFullYear();
+
+  const [year, setYearState] = useState<number>(currentYear);
+
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${currentYear}`);
+    if (savedSwimlanes) {
+      return JSON.parse(savedSwimlanes);
+    }
+    return DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${currentYear}`);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return DEFAULT_ITEMS;
+  });
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -151,22 +167,23 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     document.body.classList.remove('dark');
   };
 
-  // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+  const setYear = (newYear: number) => {
+    setYearState(newYear);
+
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${newYear}`);
     if (savedSwimlanes) {
       setSwimlanes(JSON.parse(savedSwimlanes));
     } else {
       setSwimlanes(DEFAULT_SWIMLANES);
     }
 
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
+    const saved = localStorage.getItem(`roadmap_data_${newYear}`);
     if (saved) {
       setItems(JSON.parse(saved));
     } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
-  }, [year]);
+  };
 
   // Save data when items change
   useEffect(() => {
@@ -238,6 +255,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
