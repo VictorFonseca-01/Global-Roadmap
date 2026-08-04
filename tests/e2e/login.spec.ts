@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Autenticação e Acesso', () => {
-  test('deve carregar a tela de login', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.getByRole('heading', { name: 'Acesso Restrito' })).toBeVisible();
-    await expect(page.getByPlaceholder('seu.email@globalparts.com')).toBeVisible();
+  test('deve redirecionar ou carregar a página inicial já que o login foi removido', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText('Timeline Gantt - Governança de TI')).toBeVisible();
   });
 });
