@@ -89,14 +89,14 @@ function StrategicTimelineInner() {
 
         {/* Navigation */}
         <nav className="flex-1 px-1.5 py-3 space-y-0.5 overflow-y-auto">
-          {[
+          {([
             { id: 'timeline', label: 'Timeline Real (Gantt)', icon: GitFork },
             { id: 'dashboard', label: 'Dashboard Executivo', icon: LayoutDashboard },
             { id: 'reports', label: 'Relatórios & EOL', icon: BarChart3 },
-          ].map((tab) => (
+          ] as const).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-semibold transition-all ${
                 activeTab === tab.id 
                   ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border-l-2 border-blue-600' 
@@ -330,12 +330,14 @@ function StrategicTimelineInner() {
       <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} />
       {editingItem && (
         <ItemModal 
+          key={editingItem.id}
           item={editingItem} 
           onClose={() => setEditingItem(null)} 
         />
       )}
       {editingCategory !== undefined && (
         <CategoryModal 
+          key={editingCategory?.id || 'new'}
           swimlane={editingCategory}
           onClose={() => setEditingCategory(undefined)}
         />
