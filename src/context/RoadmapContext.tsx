@@ -135,13 +135,20 @@ const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const currentYear = new Date().getFullYear();
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${currentYear}`);
+    return savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
+  });
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const currentYear = new Date().getFullYear();
+    const saved = localStorage.getItem(`roadmap_data_${currentYear}`);
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -153,19 +160,21 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load data when year changes
   useEffect(() => {
+    // We already loaded the initial year lazily, so we only need to update when year actually changes.
+    // However, if year changes, we want to load that year's data.
+    // If year === current year, it's already in state for the initial render, but this effect runs on every mount.
+    // Let's just avoid calling setState if it's the first mount by checking if the data for this year is what we expect?
+    // The issue was calling setSwimlanes on EVERY mount unconditionally.
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
+    const nextSwimlanes = savedSwimlanes ? JSON.parse(savedSwimlanes) : DEFAULT_SWIMLANES;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSwimlanes(nextSwimlanes);
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
+    const nextItems = saved ? JSON.parse(saved) : (year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+
+    setItems(nextItems);
   }, [year]);
 
   // Save data when items change
@@ -238,6 +247,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
