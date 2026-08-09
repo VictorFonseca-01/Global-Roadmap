@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { RoadmapItem } from '../types/roadmap';
 import { useRoadmap } from '../context/RoadmapContext';
 import { ConfirmModal } from './ConfirmModal';
@@ -20,36 +20,20 @@ const AVATAR_OPTIONS = [
 export function ItemModal({ item, onClose }: Props) {
   const { updateItem, deleteItem, swimlanes, items } = useRoadmap();
   
-  const [title, setTitle] = useState(item.title);
-  const [color, setColor] = useState(item.color);
-  const [swimlaneId, setSwimlaneId] = useState(item.swimlaneId);
-  const [startDate, setStartDate] = useState(item.startDate || '2026-01-01');
-  const [endDate, setEndDate] = useState(item.endDate || '2026-03-31');
-  const [isMilestone, setIsMilestone] = useState(item.isMilestone || false);
-  const [progress, setProgress] = useState(item.progress || 0);
-  const [status, setStatus] = useState<RoadmapItem['status']>(item.status || 'on_track');
-  const [priority, setPriority] = useState<RoadmapItem['priority']>(item.priority || 'medium');
-  const [ownerName, setOwnerName] = useState(item.ownerName || AVATAR_OPTIONS[0].name);
-  const [ownerAvatar, setOwnerAvatar] = useState(item.ownerAvatar || AVATAR_OPTIONS[0].avatar);
-  const [description, setDescription] = useState(item.description || '');
-  const [dependsOn, setDependsOn] = useState<string[]>(item.dependsOn || []);
+  const [title, setTitle] = useState(() => item.title);
+  const [color, setColor] = useState(() => item.color);
+  const [swimlaneId, setSwimlaneId] = useState(() => item.swimlaneId);
+  const [startDate, setStartDate] = useState(() => item.startDate || '2026-01-01');
+  const [endDate, setEndDate] = useState(() => item.endDate || '2026-03-31');
+  const [isMilestone, setIsMilestone] = useState(() => item.isMilestone || false);
+  const [progress, setProgress] = useState(() => item.progress || 0);
+  const [status, setStatus] = useState<RoadmapItem['status']>(() => item.status || 'on_track');
+  const [priority, setPriority] = useState<RoadmapItem['priority']>(() => item.priority || 'medium');
+  const [ownerName, setOwnerName] = useState(() => item.ownerName || AVATAR_OPTIONS[0].name);
+  const [ownerAvatar, setOwnerAvatar] = useState(() => item.ownerAvatar || AVATAR_OPTIONS[0].avatar);
+  const [description, setDescription] = useState(() => item.description || '');
+  const [dependsOn, setDependsOn] = useState<string[]>(() => item.dependsOn || []);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  useEffect(() => {
-    setTitle(item.title);
-    setColor(item.color);
-    setSwimlaneId(item.swimlaneId);
-    setStartDate(item.startDate || '2026-01-01');
-    setEndDate(item.endDate || '2026-03-31');
-    setIsMilestone(item.isMilestone || false);
-    setProgress(item.progress || 0);
-    setStatus(item.status || 'on_track');
-    setPriority(item.priority || 'medium');
-    setOwnerName(item.ownerName || AVATAR_OPTIONS[0].name);
-    setOwnerAvatar(item.ownerAvatar || AVATAR_OPTIONS[0].avatar);
-    setDescription(item.description || '');
-    setDependsOn(item.dependsOn || []);
-  }, [item]);
 
   const handleSave = () => {
     updateItem(item.id, { 
@@ -203,7 +187,7 @@ export function ItemModal({ item, onClose }: Props) {
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Status</label>
                 <select 
                   value={status}
-                  onChange={e => setStatus(e.target.value as any)}
+                  onChange={e => setStatus(e.target.value as RoadmapItem['status'])}
                   className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="on_track">No Prazo</option>
@@ -217,7 +201,7 @@ export function ItemModal({ item, onClose }: Props) {
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5">Prioridade</label>
                 <select 
                   value={priority}
-                  onChange={e => setPriority(e.target.value as any)}
+                  onChange={e => setPriority(e.target.value as RoadmapItem['priority'])}
                   className="w-full border border-slate-300 dark:border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="low">Baixa</option>
