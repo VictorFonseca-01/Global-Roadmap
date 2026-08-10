@@ -14,9 +14,12 @@ async function createAdmin() {
   console.log('Provisionando Admin...')
 
   try {
-    const { data, error } = await supabase.auth.admin.createUser({
-      email: 'suporteti@globalp.com.br',
-      password: 'Globaltipwd',
+    const adminEmail = process.env.ADMIN_EMAIL || 'suporteti@globalp.com.br';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'Globaltipwd';
+
+    const { error } = await supabase.auth.admin.createUser({
+      email: adminEmail,
+      password: adminPassword,
       email_confirm: true,
       user_metadata: {
         full_name: 'Suporte TI Admin',
@@ -30,9 +33,9 @@ async function createAdmin() {
         console.log('Usuário já existe, atualizando...')
         // Tentar atualizar
         const { data: list } = await supabase.auth.admin.listUsers()
-        const user = list?.users.find(u => u.email === 'suporteti@globalp.com.br')
+        const user = list?.users.find(u => u.email === adminEmail)
         if (user) {
-          await supabase.auth.admin.updateUserById(user.id, { password: 'Globaltipwd' })
+          await supabase.auth.admin.updateUserById(user.id, { password: adminPassword })
           console.log('✅ Atualizado!')
         }
       }
