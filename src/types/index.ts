@@ -57,7 +57,7 @@ export interface LifecycleItem {
   expires_at?: string;
   prompt_hash?: string;
   model_name?: string;
-  raw_response?: unknown;
+  raw_response?: any;
   created_at?: string;
   updated_at?: string;
   // Join fields
@@ -84,7 +84,7 @@ export interface Notification {
   description: string;
   is_read: boolean;
   context_url?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: any;
   read_at?: string;
   created_at: string;
 }
@@ -109,7 +109,7 @@ export interface AuditLog {
   entity_type?: string;
   entity_id?: string;
   description?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: any;
   created_at: string;
   organization_id?: string;
 }
@@ -209,9 +209,9 @@ export interface BackgroundJob {
   organization_id: string;
   type: JobType;
   status: JobStatus;
-  payload: unknown;
-  result?: unknown;
-  error?: unknown;
+  payload: any;
+  result?: any;
+  error?: any;
   attempts: number;
   max_attempts: number;
   created_by?: string;

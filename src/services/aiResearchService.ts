@@ -16,10 +16,9 @@ export const aiResearchService = {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro na pesquisa:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      return `❌ Ocorreu um erro ao pesquisar: ${errorMessage}`;
+      return `❌ Ocorreu um erro ao pesquisar: ${error.message}`;
     }
   }
 };
