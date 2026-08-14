@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -134,16 +136,34 @@ interface RoadmapContextData {
 const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState<number>(currentYear);
 
-  // Load and apply theme (Sempre modo claro)
-  useEffect(() => {
-    setTheme('light');
-    document.body.classList.remove('dark');
-  }, []);
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${currentYear}`);
+    if (savedSwimlanes) {
+      try {
+        return JSON.parse(savedSwimlanes);
+      } catch (e) {
+        console.error('Failed to parse swimlanes from local storage', e);
+      }
+    }
+    return DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${currentYear}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse items from local storage', e);
+      }
+    }
+    return DEFAULT_ITEMS;
+  });
+
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   const toggleTheme = () => {
     // Mantém sempre no modo claro
@@ -151,18 +171,31 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     document.body.classList.remove('dark');
   };
 
-  // Load data when year changes
+
+  // Handle year changes
   useEffect(() => {
+    document.body.classList.remove('dark');
+
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
+      try {
+        setSwimlanes(JSON.parse(savedSwimlanes));
+      } catch (e) {
+        console.error(e);
+        setSwimlanes(DEFAULT_SWIMLANES);
+      }
     } else {
       setSwimlanes(DEFAULT_SWIMLANES);
     }
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
-      setItems(JSON.parse(saved));
+      try {
+        setItems(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+        setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      }
     } else {
       setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
