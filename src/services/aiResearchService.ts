@@ -10,15 +10,16 @@ export const aiResearchService = {
     }
     
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `Você é um assistente de pesquisa técnica focado em TI, infraestrutura, software e roadmap. Responda de forma clara, concisa e técnica à seguinte pergunta:\n\n${query}`;
       
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro na pesquisa:", error);
-      return `❌ Ocorreu um erro ao pesquisar: ${error.message}`;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return `❌ Ocorreu um erro ao pesquisar: ${errorMessage}`;
     }
   }
 };
