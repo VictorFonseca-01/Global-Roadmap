@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -134,14 +135,36 @@ interface RoadmapContextData {
 const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const currentYear = new Date().getFullYear();
+  const [year, setYearState] = useState<number>(currentYear);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${currentYear}`);
+    if (savedSwimlanes) {
+      try {
+        return JSON.parse(savedSwimlanes);
+      } catch {
+        return DEFAULT_SWIMLANES;
+      }
+    }
+    return DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${currentYear}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return DEFAULT_ITEMS;
+      }
+    }
+    return DEFAULT_ITEMS;
+  });
+
+  // Apply theme class once on mount
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -151,22 +174,31 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
     document.body.classList.remove('dark');
   };
 
-  // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+  // Custom setYear to sync local state
+  const setYear = (newYear: number) => {
+    setYearState(newYear);
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${newYear}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
+      try {
+        setSwimlanes(JSON.parse(savedSwimlanes));
+      } catch {
+        setSwimlanes(DEFAULT_SWIMLANES);
+      }
     } else {
       setSwimlanes(DEFAULT_SWIMLANES);
     }
 
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
+    const savedItems = localStorage.getItem(`roadmap_data_${newYear}`);
+    if (savedItems) {
+      try {
+        setItems(JSON.parse(savedItems));
+      } catch {
+        setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      }
     } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
-  }, [year]);
+  };
 
   // Save data when items change
   useEffect(() => {
