@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -135,38 +136,74 @@ const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
-  useEffect(() => {
-    setTheme('light');
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    try {
+      const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+      if (savedSwimlanes) {
+        return JSON.parse(savedSwimlanes);
+      }
+    } catch (e) {
+      console.warn("Failed to parse swimlanes from localStorage", e);
+    }
+    return DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(`roadmap_data_${year}`);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn("Failed to parse items from localStorage", e);
+    }
+    return year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
+  });
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     document.body.classList.remove('dark');
-  }, []);
+    return 'light';
+  });
+
+  // Re-load data if year changes
+  // In React 19 / concurrent mode, setting state in useEffect for derived props/state
+  // is an anti-pattern that causes cascading renders.
+  // We use key on the provider or child components, or sync in render.
+  // However, since `year` is only changed via user action (button click calling setYear),
+  // we can intercept the change in a custom setYear wrapper to sync data.
+  const handleSetYear = (newYear: number) => {
+    setYear(newYear);
+    try {
+      const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${newYear}`);
+      if (savedSwimlanes) {
+        setSwimlanes(JSON.parse(savedSwimlanes));
+      } else {
+        setSwimlanes(DEFAULT_SWIMLANES);
+      }
+    } catch (e) {
+      console.warn("Failed to load swimlanes for year", e);
+      setSwimlanes(DEFAULT_SWIMLANES);
+    }
+
+    try {
+      const saved = localStorage.getItem(`roadmap_data_${newYear}`);
+      if (saved) {
+        setItems(JSON.parse(saved));
+      } else {
+        setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      }
+    } catch (e) {
+      console.warn("Failed to load items for year", e);
+      setItems(newYear === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+    }
+  };
 
   const toggleTheme = () => {
     // Mantém sempre no modo claro
     setTheme('light');
     document.body.classList.remove('dark');
   };
-
-  // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
-
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
-  }, [year]);
 
   // Save data when items change
   useEffect(() => {
@@ -219,7 +256,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   return (
     <RoadmapContext.Provider value={{ 
       year, 
-      setYear, 
+      setYear: handleSetYear,
       swimlanes, 
       setSwimlanes, 
       items, 
