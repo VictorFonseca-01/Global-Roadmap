@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -141,7 +142,6 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -153,19 +153,32 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load data when year changes
   useEffect(() => {
+    let newSwimlanes = DEFAULT_SWIMLANES;
+    let newItems = year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
+
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
+      try {
+        newSwimlanes = JSON.parse(savedSwimlanes);
+      } catch (e) {
+        console.error("Failed to parse swimlanes", e);
+      }
     }
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      try {
+        newItems = JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse items", e);
+      }
     }
+
+    // Avoid synchronous cascading render during effect by deferring
+    setTimeout(() => {
+      setSwimlanes(newSwimlanes);
+      setItems(newItems);
+    }, 0);
   }, [year]);
 
   // Save data when items change
