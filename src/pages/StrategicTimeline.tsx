@@ -19,7 +19,7 @@ import { AIAssistant } from '../components/AIAssistant';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
 function StrategicTimelineInner() {
-  const { year, setYear, addItem, swimlanes, items } = useRoadmap();
+  const { year, updateYear: setYear, addItem, swimlanes, items } = useRoadmap();
   const [activeTab, setActiveTab] = useState<'timeline' | 'dashboard' | 'reports'>('timeline');
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
@@ -96,7 +96,7 @@ function StrategicTimelineInner() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'timeline' | 'dashboard' | 'reports')}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-semibold transition-all ${
                 activeTab === tab.id 
                   ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border-l-2 border-blue-600' 
@@ -330,12 +330,14 @@ function StrategicTimelineInner() {
       <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} />
       {editingItem && (
         <ItemModal 
+          key={editingItem.id}
           item={editingItem} 
           onClose={() => setEditingItem(null)} 
         />
       )}
       {editingCategory !== undefined && (
         <CategoryModal 
+          key={editingCategory?.id || 'new'}
           swimlane={editingCategory}
           onClose={() => setEditingCategory(undefined)}
         />
