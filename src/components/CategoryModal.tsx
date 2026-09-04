@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Swimlane } from '../types/roadmap';
 import { useRoadmap } from '../context/RoadmapContext';
 import { ConfirmModal } from './ConfirmModal';
@@ -28,8 +28,10 @@ export function CategoryModal({ swimlane, onClose }: Props) {
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('Server');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [prevSwimlane, setPrevSwimlane] = useState(swimlane);
 
-  useEffect(() => {
+  if (swimlane !== prevSwimlane) {
+    setPrevSwimlane(swimlane);
     if (swimlane) {
       setTitle(swimlane.title);
       setColor(swimlane.color);
@@ -41,7 +43,7 @@ export function CategoryModal({ swimlane, onClose }: Props) {
       setDescription('');
       setIcon('Server');
     }
-  }, [swimlane]);
+  }
 
   const handleSave = () => {
     if (!title.trim()) return;
