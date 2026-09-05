@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -139,9 +140,8 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
+    // Garante que o modo escuro não fique preso caso tenha sido ativado
     document.body.classList.remove('dark');
   }, []);
 
@@ -153,19 +153,33 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load data when year changes
   useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
+    const loadData = () => {
+      const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+      if (savedSwimlanes) {
+        try {
+          setSwimlanes(JSON.parse(savedSwimlanes));
+        } catch (e) {
+          console.error("Failed to parse swimlanes from localStorage", e);
+          setSwimlanes(DEFAULT_SWIMLANES);
+        }
+      } else {
+        setSwimlanes(DEFAULT_SWIMLANES);
+      }
 
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
+      const saved = localStorage.getItem(`roadmap_data_${year}`);
+      if (saved) {
+        try {
+          setItems(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse items from localStorage", e);
+          setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+        }
+      } else {
+        setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      }
+    };
+
+    loadData();
   }, [year]);
 
   // Save data when items change
