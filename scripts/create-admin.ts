@@ -14,7 +14,7 @@ async function createAdmin() {
   console.log('Provisionando Admin...')
 
   try {
-    const { data, error } = await supabase.auth.admin.createUser({
+    const { error } = await supabase.auth.admin.createUser({
       email: 'suporteti@globalp.com.br',
       password: 'Globaltipwd',
       email_confirm: true,
