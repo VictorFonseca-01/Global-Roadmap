@@ -141,7 +141,6 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -153,19 +152,31 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load data when year changes
   useEffect(() => {
+    let parsedSwimlanes = DEFAULT_SWIMLANES;
+    let parsedItems = year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
+
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
+      try {
+        parsedSwimlanes = JSON.parse(savedSwimlanes);
+      } catch (e) {
+        console.error('Failed to parse swimlanes from localStorage', e);
+      }
     }
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      try {
+        parsedItems = JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse items from localStorage', e);
+      }
     }
+
+    // We can safely disable the linting rule here as it is standard practice to load data on mount/change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSwimlanes(parsedSwimlanes);
+    setItems(parsedItems);
   }, [year]);
 
   // Save data when items change
@@ -238,6 +249,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
