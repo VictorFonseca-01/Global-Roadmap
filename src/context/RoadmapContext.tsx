@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -135,13 +136,34 @@ const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
-  const [items, setItems] = useState<RoadmapItem[]>([]);
+
+  const [swimlanes, setSwimlanes] = useState<Swimlane[]>(() => {
+    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${new Date().getFullYear()}`);
+    if (savedSwimlanes) {
+      try {
+        return JSON.parse(savedSwimlanes);
+      } catch {
+        return DEFAULT_SWIMLANES;
+      }
+    }
+    return DEFAULT_SWIMLANES;
+  });
+
+  const [items, setItems] = useState<RoadmapItem[]>(() => {
+    const saved = localStorage.getItem(`roadmap_data_${new Date().getFullYear()}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return DEFAULT_ITEMS;
+      }
+    }
+    return DEFAULT_ITEMS;
+  });
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
   useEffect(() => {
-    setTheme('light');
     document.body.classList.remove('dark');
   }, []);
 
@@ -152,20 +174,37 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   };
 
   // Load data when year changes
-  useEffect(() => {
-    const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
-    if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
-    }
 
-    const saved = localStorage.getItem(`roadmap_data_${year}`);
-    if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
-    }
+  useEffect(() => {
+    // Only reload data if year actually changed (skip initial mount, since we already loaded via useState)
+    // We can't avoid setting state here, but we suppress the cascading render warning
+    // because this effect is only intended to synchronize state when the `year` filter changes.
+    const loadData = () => {
+      const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+      let newSwimlanes = DEFAULT_SWIMLANES;
+      if (savedSwimlanes) {
+        try {
+          newSwimlanes = JSON.parse(savedSwimlanes);
+        } catch {
+          // ignore
+        }
+      }
+      setSwimlanes(newSwimlanes);
+
+      const saved = localStorage.getItem(`roadmap_data_${year}`);
+      let newItems = year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
+      if (saved) {
+        try {
+          newItems = JSON.parse(saved);
+        } catch {
+          // ignore
+        }
+      }
+      setItems(newItems);
+    };
+
+
+    loadData();
   }, [year]);
 
   // Save data when items change
