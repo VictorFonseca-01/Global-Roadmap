@@ -139,12 +139,6 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Load and apply theme (Sempre modo claro)
-  useEffect(() => {
-    setTheme('light');
-    document.body.classList.remove('dark');
-  }, []);
-
   const toggleTheme = () => {
     // Mantém sempre no modo claro
     setTheme('light');
@@ -153,19 +147,29 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load data when year changes
   useEffect(() => {
+    let parsedSwimlanes = DEFAULT_SWIMLANES;
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
+      try {
+        parsedSwimlanes = JSON.parse(savedSwimlanes);
+      } catch (e) {
+        console.error('Failed to parse saved swimlanes', e);
+      }
     }
 
+    let parsedItems = year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      try {
+        parsedItems = JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved items', e);
+      }
     }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSwimlanes(parsedSwimlanes);
+    setItems(parsedItems);
   }, [year]);
 
   // Save data when items change
@@ -238,6 +242,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
