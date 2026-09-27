@@ -23,22 +23,30 @@ const ICON_OPTIONS = [
 export function CategoryModal({ swimlane, onClose }: Props) {
   const { addSwimlane, updateSwimlane, deleteSwimlane } = useRoadmap();
   
-  const [title, setTitle] = useState('');
-  const [color, setColor] = useState('#3b82f6');
-  const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('Server');
+  const [title, setTitle] = useState(swimlane ? swimlane.title : '');
+  const [color, setColor] = useState(swimlane ? swimlane.color : '#3b82f6');
+  const [description, setDescription] = useState(swimlane ? swimlane.description || '' : '');
+  const [icon, setIcon] = useState(swimlane ? swimlane.icon || 'Server' : 'Server');
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (swimlane) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(swimlane.title);
+
       setColor(swimlane.color);
+
       setDescription(swimlane.description || '');
+
       setIcon(swimlane.icon || 'Server');
     } else {
+
       setTitle('');
+
       setColor('#3b82f6');
+
       setDescription('');
+
       setIcon('Server');
     }
   }, [swimlane]);
