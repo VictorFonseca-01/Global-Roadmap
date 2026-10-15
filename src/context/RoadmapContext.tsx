@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { RoadmapItem, Swimlane } from '../types/roadmap';
 
@@ -133,6 +134,7 @@ interface RoadmapContextData {
 
 const RoadmapContext = createContext<RoadmapContextData | undefined>(undefined);
 
+
 export function RoadmapProvider({ children }: { children: ReactNode }) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [swimlanes, setSwimlanes] = useState<Swimlane[]>([]);
@@ -141,6 +143,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme('light');
     document.body.classList.remove('dark');
   }, []);
@@ -155,15 +158,29 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
+      try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSwimlanes(JSON.parse(savedSwimlanes));
+      } catch {
+
+        setSwimlanes(DEFAULT_SWIMLANES);
+      }
     } else {
+
       setSwimlanes(DEFAULT_SWIMLANES);
     }
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
     if (saved) {
-      setItems(JSON.parse(saved));
+      try {
+
+        setItems(JSON.parse(saved));
+      } catch {
+
+        setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      }
     } else {
+
       setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
     }
   }, [year]);

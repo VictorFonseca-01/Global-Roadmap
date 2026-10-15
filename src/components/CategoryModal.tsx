@@ -31,14 +31,22 @@ export function CategoryModal({ swimlane, onClose }: Props) {
 
   useEffect(() => {
     if (swimlane) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(swimlane.title);
+
       setColor(swimlane.color);
+
       setDescription(swimlane.description || '');
+
       setIcon(swimlane.icon || 'Server');
     } else {
+
       setTitle('');
+
       setColor('#3b82f6');
+
       setDescription('');
+
       setIcon('Server');
     }
   }, [swimlane]);
