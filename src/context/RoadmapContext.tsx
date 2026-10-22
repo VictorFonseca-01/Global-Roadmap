@@ -141,6 +141,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   // Load and apply theme (Sempre modo claro)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme('light');
     document.body.classList.remove('dark');
   }, []);
@@ -154,18 +155,27 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   // Load data when year changes
   useEffect(() => {
     const savedSwimlanes = localStorage.getItem(`roadmap_swimlanes_${year}`);
+    let newSwimlanes = DEFAULT_SWIMLANES;
     if (savedSwimlanes) {
-      setSwimlanes(JSON.parse(savedSwimlanes));
-    } else {
-      setSwimlanes(DEFAULT_SWIMLANES);
+      try {
+        newSwimlanes = JSON.parse(savedSwimlanes);
+      } catch {
+        newSwimlanes = DEFAULT_SWIMLANES;
+      }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSwimlanes(newSwimlanes);
 
     const saved = localStorage.getItem(`roadmap_data_${year}`);
+    let newItems = year === new Date().getFullYear() ? DEFAULT_ITEMS : [];
     if (saved) {
-      setItems(JSON.parse(saved));
-    } else {
-      setItems(year === new Date().getFullYear() ? DEFAULT_ITEMS : []);
+      try {
+        newItems = JSON.parse(saved);
+      } catch {
+        // keep fallback
+      }
     }
+    setItems(newItems);
   }, [year]);
 
   // Save data when items change
@@ -238,6 +248,7 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoadmap() {
   const context = useContext(RoadmapContext);
   if (!context) throw new Error('useRoadmap must be used within RoadmapProvider');
