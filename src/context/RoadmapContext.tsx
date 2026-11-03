@@ -148,7 +148,6 @@ export function RoadmapProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = () => {
     // Mantém sempre no modo claro
-
     setTheme('light');
     document.body.classList.remove('dark');
   };
