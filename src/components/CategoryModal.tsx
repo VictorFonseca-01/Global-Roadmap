@@ -31,6 +31,7 @@ export function CategoryModal({ swimlane, onClose }: Props) {
 
   useEffect(() => {
     if (swimlane) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(swimlane.title);
       setColor(swimlane.color);
       setDescription(swimlane.description || '');
